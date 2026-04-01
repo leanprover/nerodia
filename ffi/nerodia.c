@@ -107,6 +107,10 @@ static inline PyTypeObject* nerodia_to_type_object(b_lean_obj_arg o) {
 
 /* ## API */
 
+LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
+  return (size_t)nerodia_to_object(self);
+}
+
 LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
   // Since the Python object `self` exists, `g_py_context != NULL`
   lean_inc_ref(g_py_context);
@@ -165,8 +169,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_type_object_get_qual_name(b_lean_obj_arg sel
   return nerodia_of_object(PyType_GetQualName(nerodia_to_type_object(self)), ctx);
 }
 
-
-LEAN_EXPORT uint8_t nerodia_py_type_object_is_heap_Type(b_lean_obj_arg self) {
+LEAN_EXPORT uint8_t nerodia_py_type_object_is_heap_type(b_lean_obj_arg self) {
   return PyType_HasFeature(nerodia_to_type_object(self), Py_TPFLAGS_HEAPTYPE) != 0;
 }
 

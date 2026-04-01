@@ -7,8 +7,19 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+        - name: Ubuntu
+          os: ubuntu-latest
+        - name: MacOS
+          os: macos-latest
+        - name: Windows
+          os: windows-latest
+      # complete all jobs
+      fail-fast: false
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
