@@ -5,6 +5,9 @@ Authors: Mac Malone
 */
 #include <Python.h>
 #include <lean/lean.h>
+#include <string.h>
+
+/* ## Basics */
 
 static void nop_foreach(void* p, b_lean_obj_arg f) {
   return;
@@ -17,7 +20,7 @@ static void py_finalize(void* p) {
 static lean_object * g_py_context = NULL;
 static lean_external_class * g_py_context_external_class = NULL;
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_get() {
+LEAN_EXPORT lean_obj_res nerodia_py_context_get_or_init() {
   if (g_py_context) {
     lean_inc_ref(g_py_context);
   } else {
@@ -38,42 +41,174 @@ static void py_object_finalize(void* p) {
 
 static lean_external_class * g_py_object_external_class = NULL;
 
-lean_obj_res nerodia_mk_object(PyObject* o, lean_obj_arg ctx) {
+lean_obj_res nerodia_of_object_core(PyObject* o) {
   if (g_py_object_external_class == NULL) {
     g_py_object_external_class = lean_register_external_class(py_object_finalize, nop_foreach);
   }
   return lean_alloc_external(g_py_object_external_class, o);
 }
 
-PyObject* nerodia_get_object(b_lean_obj_arg o) {
-  assert(lean_get_external_class(o) == g_py_object_external_class);
-  return lean_get_external_data(o);
+static inline lean_obj_res nerodia_of_object(PyObject* o, lean_obj_arg ctx) {
+  return nerodia_of_object_core(o);
 }
+
+/**
+Returns a reference to the Python environment given an `o : PyObject` witness.
+*/
+static inline lean_obj_res nerodia_ctx(b_lean_obj_arg o) {
+  // Since the Python object `o` exists, `g_py_context != NULL`
+  lean_inc_ref(g_py_context);
+  return g_py_context;
+}
+
+static inline lean_obj_res nerodia_of_immortal_object(PyObject* o, lean_obj_arg ctx) {
+  // Note: Python 3.13+ allows references to immortal objects (e.g., types)
+  // to be decremented without an increment, so we can avoid one here.
+  return nerodia_of_object(o, ctx);
+}
+
+static inline PyObject* nerodia_to_object(b_lean_obj_arg o) {
+  assert(lean_get_external_class(o) == g_py_object_external_class);
+  return (PyObject*)lean_get_external_data(o);
+}
+
+static inline PyTypeObject* nerodia_to_type_object(b_lean_obj_arg o) {
+  return (PyTypeObject*)nerodia_to_object(o);
+}
+
+/* ## API */
+
+LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
+  return (size_t)nerodia_to_object(self);
+}
+
+LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
+  return nerodia_ctx(self);
+}
+
+LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(lean_obj_arg ctx) {
+  PyErr_Clear();
+  return lean_box(0);
+}
+
+LEAN_EXPORT lean_obj_res nerodia_py_context_get_raised_exception(lean_obj_arg ctx) {
+  PyObject *ex = PyErr_GetRaisedException();
+  if (ex) {
+    lean_obj_res r = lean_alloc_ctor(1, 1, 0);
+    lean_ctor_set(r, 0, nerodia_of_object(ex, ctx));
+    return r;
+  } else {
+    return lean_box(0);
+  }
+}
+
+LEAN_EXPORT lean_obj_res nerodia_py_context_none(lean_obj_arg ctx) {
+  return nerodia_of_immortal_object(Py_None, ctx);
+}
+
+/* ### Types */
+
+LEAN_EXPORT lean_obj_res nerodia_py_object_type(b_lean_obj_arg self) {
+  return nerodia_of_object(PyObject_Type(nerodia_to_object(self)), nerodia_ctx(self));
+}
+
+LEAN_EXPORT uint8_t nerodia_py_object_is_type_instance(b_lean_obj_arg self) {
+  return PyType_Check(nerodia_to_object(self)) != 0;
+}
+
+LEAN_EXPORT uint8_t nerodia_py_object_is_str_instance(b_lean_obj_arg self) {
+  return PyUnicode_Check(nerodia_to_object(self)) != 0;
+}
+
+LEAN_EXPORT lean_obj_res nerodia_py_context_type_type(lean_obj_arg ctx) {
+  return nerodia_of_immortal_object((PyObject*)&PyType_Type, ctx);
+}
+
+LEAN_EXPORT lean_obj_res nerodia_py_context_str_type(lean_obj_arg ctx) {
+  return nerodia_of_immortal_object((PyObject*)&PyUnicode_Type, ctx);
+}
+
+/* ### Type Objects */
+
+LEAN_EXPORT lean_obj_res nerodia_py_type_object_get_qual_name(b_lean_obj_arg self) {
+  return nerodia_of_object(PyType_GetQualName(nerodia_to_type_object(self)), nerodia_ctx(self));
+}
+
+
+LEAN_EXPORT uint8_t nerodia_py_type_object_is_heap_Type(b_lean_obj_arg self) {
+  return PyType_HasFeature(nerodia_to_type_object(self), Py_TPFLAGS_HEAPTYPE) != 0;
+}
+
+LEAN_EXPORT uint8_t nerodia_py_type_object_is_immutable(b_lean_obj_arg self) {
+  return PyType_HasFeature(nerodia_to_type_object(self), Py_TPFLAGS_IMMUTABLETYPE) != 0;
+}
+
+/** ### Strings */
 
 LEAN_EXPORT lean_obj_res nerodia_mk_string(b_lean_obj_arg s, lean_obj_arg ctx) {
   // Lean strings include a null-terminator.
   // `FromStringAndSize` does not expect one, so use `size-1`.
   PyObject * o = PyUnicode_FromStringAndSize(lean_string_cstr(s), lean_string_size(s)-1);
-  return nerodia_mk_object(o, ctx);
+  return nerodia_of_object(o, ctx);
 }
 
-
-LEAN_EXPORT lean_obj_res nerodia_repr(b_lean_obj_arg o) {
-  // Lean strings include a null-terminator.
-  // `FromStringAndSize` does not expect one, so use `size-1`.
-  PyObject * s = PyObject_Repr(nerodia_get_object(o));
+/* str : PyObject -> PyContext -> BaseIO (Option PyStrObject) */
+LEAN_EXPORT lean_obj_res nerodia_py_object_str(b_lean_obj_arg o, lean_obj_arg ctx) {
+  PyObject * s = PyObject_Str(nerodia_to_object(o));
   if (s) {
-    Py_ssize_t size;
-    const char * bs = PyUnicode_AsUTF8AndSize(s, &size);
-    if (bs) {
-      return lean_mk_string_from_bytes_unchecked(bs, size);
-    } else {
-      // TODO: Handle errors
-      return lean_mk_string("<decode error>");
-    }
+    lean_object * r = lean_alloc_ctor(1, 1, 0);
+    lean_ctor_set(r, 0, nerodia_of_object(s, ctx));
+    return r;
   } else {
-    // TODO: Handle errors
-    return lean_mk_string("<repr error>");
+    return lean_box(0);
   }
 }
 
+/* repr : PyObject -> PyContext -> BaseIO (Option PyStrObject) */
+LEAN_EXPORT lean_obj_res nerodia_py_object_repr(b_lean_obj_arg o, lean_obj_arg ctx) {
+  PyObject * s = PyObject_Repr(nerodia_to_object(o));
+  if (s) {
+    lean_object * r = lean_alloc_ctor(1, 1, 0);
+    lean_ctor_set(r, 0, nerodia_of_object(s, ctx));
+    return r;
+  } else {
+    return lean_box(0);
+  }
+}
+
+/* getString : PyStrObject -> PyContext -> BaseIO (Option String) */
+LEAN_EXPORT lean_obj_res nerodia_py_str_object_get_string(b_lean_obj_arg o, lean_obj_arg ctx) {
+  Py_ssize_t size;
+  const char * cs = PyUnicode_AsUTF8AndSize(nerodia_to_object(o), &size);
+  if (LEAN_LIKELY(cs != NULL)) {
+    // Both Lean and `AsUTF8AndSize` have a null terminator,
+    // but neither include it in `size`
+    lean_obj_res s = lean_mk_string_from_bytes_unchecked(cs, size);
+    lean_obj_res r = lean_alloc_ctor(1, 1, 0);
+    lean_ctor_set(r, 0, s);
+    return r;
+  } else {
+    return lean_box(0);
+  }
+}
+
+/* decoeUtf8 : PyStrObject -> PyContext -> BaseIO (Option PyBytesObjects) */
+LEAN_EXPORT lean_obj_res nerodia_py_str_object_decode_utf8(b_lean_obj_arg o, lean_obj_arg ctx) {
+  PyObject * bytes = PyUnicode_AsUTF8String(nerodia_to_object(o));
+  if (bytes) {
+    lean_obj_res v = nerodia_of_object(bytes, ctx);
+    lean_obj_res r = lean_alloc_ctor(1, 1, 0);
+    lean_ctor_set(r, 0, v);
+    return r;
+  } else {
+    return lean_box(0);
+  }
+}
+
+LEAN_EXPORT lean_obj_res nerodia_py_bytes_object_to_byte_array(b_lean_obj_arg self) {
+  PyObject* o = nerodia_to_object(self);
+  size_t sz = PyBytes_Size(o);
+  lean_object* r = lean_alloc_sarray(1, sz, sz);
+  memcpy(lean_sarray_cptr(r), PyBytes_AsString(o), sz);
+  return r;
+}
