@@ -144,8 +144,8 @@ namespace PyTypeObject
 public instance : Coe PyTypeObject PyObject := ⟨toObject⟩
 
 /-- Returns the qualified name of the type. -/
-@[extern "nerodia_py_object_get_qual_name"]
-public opaque getQualName (self : @& PyTypeObject) : PyM PyStrObject
+@[extern "nerodia_py_type_object_get_qual_name"]
+public opaque getQualName (self : PyTypeObject) : PyM PyStrObject
 
 @[extern "nerodia_py_type_object_is_heap_type"]
 public opaque isHeapType (self : @& PyTypeObject) : Bool
@@ -190,7 +190,7 @@ Returns the type of the object {lean}`self`.
 This is equivalent to {lit}`type(self)` in Python.
 -/
 @[extern "nerodia_py_object_type"]
-public opaque PyObject.type (self : PyObject) : PyTypeObject
+public opaque PyObject.type (self : @& PyObject) : PyTypeObject
 
 /-! ## Strings -/
 
@@ -232,7 +232,7 @@ namespace PyContext
 
 /-- Clears the current exception. Does nothing if there is none. -/
 @[extern "nerodia_py_context_clear_error"]
-public opaque clearError (ctx : PyContext) : BaseIO Unit
+public opaque clearError (ctx : @& PyContext) : BaseIO Unit
 
 /--
 Clears the current exception and returns it.

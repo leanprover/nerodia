@@ -13,52 +13,81 @@ static void nop_foreach(void* p, b_lean_obj_arg f) {
   return;
 }
 
-static void py_finalize(void* p) {
-  Py_Finalize();
-}
-
 static lean_object * g_py_context = NULL;
-static lean_external_class * g_py_context_external_class = NULL;
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_get_or_init() {
-  if (g_py_context) {
-    lean_inc_ref(g_py_context);
+typedef struct {
+  bool is_main;
+  bool is_initializer;
+  PyGILState_STATE gil;
+} py_context;
+
+static void py_context_finalize(void* p) {
+  // TODO: acquire a g_py initialization/finalization mutex
+  py_context* pctx = (py_context*)p;
+  if (pctx->is_initializer) {
+    Py_Finalize();
   } else {
-    if (!g_py_context_external_class) {
-      g_py_context_external_class = lean_register_external_class(py_finalize, nop_foreach);
-    }
-    // TODO: Determine what to do if Python is already initialized.
-    Py_Initialize();
-    g_py_context = lean_alloc_external(g_py_context_external_class, NULL);
+    PyGILState_Release(pctx->gil);
   }
-  return g_py_context;
+  if (pctx->is_main) {
+    g_py_context = NULL;
+  } else {
+    lean_dec_ref(g_py_context);
+  }
+  free(pctx);
 }
 
 static void py_object_finalize(void* p) {
+  PyGILState_STATE gil = PyGILState_Ensure();
   Py_DECREF(p);
+  PyGILState_Release(gil);
   lean_dec_ref(g_py_context);
 }
 
+static lean_external_class * g_py_context_external_class = NULL;
 static lean_external_class * g_py_object_external_class = NULL;
 
-lean_obj_res nerodia_of_object_core(PyObject* o) {
-  if (g_py_object_external_class == NULL) {
-    g_py_object_external_class = lean_register_external_class(py_object_finalize, nop_foreach);
+LEAN_EXPORT lean_obj_res nerodia_py_context_get_or_init() {
+  // TODO: acquire a g_py initialization/finalization mutex
+  py_context * pctx = malloc(sizeof(py_context));
+  if (g_py_context) {
+    lean_inc_ref(g_py_context);
+    pctx->is_main = false;
+    pctx->is_initializer = false;
+    pctx->gil = PyGILState_Ensure();
+    return lean_alloc_external(g_py_context_external_class, pctx);
+  } else {
+    if (!g_py_context_external_class) {
+      g_py_context_external_class = lean_register_external_class(
+        py_context_finalize, nop_foreach);
+    }
+    if (!g_py_object_external_class) {
+      g_py_object_external_class = lean_register_external_class(
+        py_object_finalize, nop_foreach);
+    }
+    pctx->is_main = true;
+    if (Py_IsInitialized()) {
+      pctx->is_initializer = false;
+      pctx->gil = PyGILState_Ensure();
+    } else {
+      Py_Initialize();
+      pctx->is_initializer = true;
+    }
+    g_py_context = lean_alloc_external(g_py_context_external_class, pctx);
+    return g_py_context;
   }
+}
+
+lean_obj_res nerodia_of_object_core(PyObject* o) {
   return lean_alloc_external(g_py_object_external_class, o);
 }
 
 static inline lean_obj_res nerodia_of_object(PyObject* o, lean_obj_arg ctx) {
+  // Convert a reference to a potentially thread-local context
+  // to a refernce to the global context. Objects can live outside there
+  // threads and hold strong refernces to the main context.
+  lean_inc_ref(g_py_context); lean_dec_ref(ctx);
   return nerodia_of_object_core(o);
-}
-
-/**
-Returns a reference to the Python environment given an `o : PyObject` witness.
-*/
-static inline lean_obj_res nerodia_ctx(b_lean_obj_arg o) {
-  // Since the Python object `o` exists, `g_py_context != NULL`
-  lean_inc_ref(g_py_context);
-  return g_py_context;
 }
 
 static inline lean_obj_res nerodia_of_immortal_object(PyObject* o, lean_obj_arg ctx) {
@@ -78,15 +107,13 @@ static inline PyTypeObject* nerodia_to_type_object(b_lean_obj_arg o) {
 
 /* ## API */
 
-LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
-  return (size_t)nerodia_to_object(self);
-}
-
 LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
-  return nerodia_ctx(self);
+  // Since the Python object `self` exists, `g_py_context != NULL`
+  lean_inc_ref(g_py_context);
+  return g_py_context;
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(lean_obj_arg ctx) {
+LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(b_lean_obj_arg ctx) {
   PyErr_Clear();
   return lean_box(0);
 }
@@ -98,6 +125,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_get_raised_exception(lean_obj_arg ct
     lean_ctor_set(r, 0, nerodia_of_object(ex, ctx));
     return r;
   } else {
+    lean_dec_ref(ctx);
     return lean_box(0);
   }
 }
@@ -109,7 +137,9 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_none(lean_obj_arg ctx) {
 /* ### Types */
 
 LEAN_EXPORT lean_obj_res nerodia_py_object_type(b_lean_obj_arg self) {
-  return nerodia_of_object(PyObject_Type(nerodia_to_object(self)), nerodia_ctx(self));
+  lean_inc_ref(g_py_context); // `self` implies a main context we can grab
+  // `PyObject_Type` cannot fail as Nerodia guarantees the pointer in `self` is non-NULL
+  return nerodia_of_object_core(PyObject_Type(nerodia_to_object(self)));
 }
 
 LEAN_EXPORT uint8_t nerodia_py_object_is_type_instance(b_lean_obj_arg self) {
@@ -130,8 +160,9 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_str_type(lean_obj_arg ctx) {
 
 /* ### Type Objects */
 
-LEAN_EXPORT lean_obj_res nerodia_py_type_object_get_qual_name(b_lean_obj_arg self) {
-  return nerodia_of_object(PyType_GetQualName(nerodia_to_type_object(self)), nerodia_ctx(self));
+LEAN_EXPORT lean_obj_res nerodia_py_type_object_get_qual_name(b_lean_obj_arg self, lean_obj_arg ctx) {
+  // TODO: handle potential errors here (allocation and static type name decode)
+  return nerodia_of_object(PyType_GetQualName(nerodia_to_type_object(self)), ctx);
 }
 
 
@@ -148,6 +179,8 @@ LEAN_EXPORT uint8_t nerodia_py_type_object_is_immutable(b_lean_obj_arg self) {
 LEAN_EXPORT lean_obj_res nerodia_mk_string(b_lean_obj_arg s, lean_obj_arg ctx) {
   // Lean strings include a null-terminator.
   // `FromStringAndSize` does not expect one, so use `size-1`.
+  // Lean guarantees that the string is properly UTF-8 encoded.
+  // TODO: handle potential allocation errors here
   PyObject * o = PyUnicode_FromStringAndSize(lean_string_cstr(s), lean_string_size(s)-1);
   return nerodia_of_object(o, ctx);
 }
@@ -160,6 +193,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_object_str(b_lean_obj_arg o, lean_obj_arg ct
     lean_ctor_set(r, 0, nerodia_of_object(s, ctx));
     return r;
   } else {
+    lean_dec_ref(ctx);
     return lean_box(0);
   }
 }
@@ -172,6 +206,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_object_repr(b_lean_obj_arg o, lean_obj_arg c
     lean_ctor_set(r, 0, nerodia_of_object(s, ctx));
     return r;
   } else {
+    lean_dec_ref(ctx);
     return lean_box(0);
   }
 }
@@ -184,10 +219,12 @@ LEAN_EXPORT lean_obj_res nerodia_py_str_object_get_string(b_lean_obj_arg o, lean
     // Both Lean and `AsUTF8AndSize` have a null terminator,
     // but neither include it in `size`
     lean_obj_res s = lean_mk_string_from_bytes_unchecked(cs, size);
+    lean_dec_ref(ctx);
     lean_obj_res r = lean_alloc_ctor(1, 1, 0);
     lean_ctor_set(r, 0, s);
     return r;
   } else {
+    lean_dec_ref(ctx);
     return lean_box(0);
   }
 }
@@ -201,6 +238,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_str_object_decode_utf8(b_lean_obj_arg o, lea
     lean_ctor_set(r, 0, v);
     return r;
   } else {
+    lean_dec_ref(ctx);
     return lean_box(0);
   }
 }
