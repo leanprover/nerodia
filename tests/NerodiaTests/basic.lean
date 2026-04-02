@@ -10,16 +10,16 @@ open Nerodia
 
 /-- info: "hello" -/
 #guard_msgs in
-#eval id (α := EPyM _) do
-  (← Nerodia.mkString "hello").getString
+#eval id (α := PyIO _) do
+  return (← mkPyStrObject "hello").toString
 
 /-- info: some "hello"  -/
 #guard_msgs in
-#eval id (α := EPyM _) do
-  let bytes ← (← Nerodia.mkString "hello").decodeUtf8
+#eval id (α := PyIO _) do
+  let bytes ← (← mkPyStrObject "hello").utf8Encode
   return String.fromUTF8? bytes.toByteArray
 
 /-- info: "None" -/
 #guard_msgs in
-#eval id (α := EPyM _) do
-  (← (← getPyContext).none.repr).getString
+#eval id (α := PyIO _) do
+  return (← (← getPyContext).none.repr).toString

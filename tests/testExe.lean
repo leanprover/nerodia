@@ -8,6 +8,5 @@ import Nerodia
 open Nerodia
 
 def main : IO Unit := do
-  let s ← EPyM.toIO do
-    (← mkString "hello").getString
-  IO.println s
+  let o ← mkPyStrObject "hello" |>.toIO
+  IO.println o.toString

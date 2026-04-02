@@ -9,6 +9,48 @@ module
 
 namespace Nerodia
 
+/-! ## CPtr -/
+
+
+/--
+A raw pointer to a Python object.
+
+This pointer is not managed by Lean and must instead be managed by the user.
+-/
+public structure CPtr (α : Type u) : Type where
+  private innerMk ::
+    addr : USize
+    private nonempty_of_addr_ne_zero : addr ≠ 0 → Nonempty α
+
+namespace CPtr
+
+public theorem addr_inj : addr a = addr b ↔ a = b := by
+  cases a; cases b; simp
+
+@[inline] public def decEq (a b : CPtr α) : Decidable (a = b) :=
+  let ⟨a, _⟩ := a
+  let ⟨b, _⟩ := b
+  if h : a = b then
+    isTrue (addr_inj.mp h)
+  else
+    isFalse (addr_inj.subst h)
+
+@[inline] instance : DecidableEq (CPtr α) := decEq
+
+@[inline] public def null : CPtr α :=
+  ⟨0, by simp⟩ -- `NULL = 0` on Lean-supported platforms
+
+instance : Inhabited (CPtr α) := ⟨null⟩
+
+public abbrev IsNull (self : CPtr α) : Prop :=
+  self = null
+
+public theorem nonempty_of_not_isNull
+  {p : CPtr α} (h : ¬ IsNull p) : Nonempty α
+:= by exact p.nonempty_of_addr_ne_zero (by simpa [← addr_inj] using h)
+
+end CPtr
+
 /-! ## PyContext -/
 
 private opaque PyContext.nonemptyType : NonemptyType.{0}
@@ -34,7 +76,16 @@ If no Python environment exists yet, it will be initialized.
 Otherwise, this function acquires the Python global interpreter lock (GIL).
 -/
 @[extern "nerodia_py_context_init"]
-private opaque init : BaseIO PyContext
+public opaque init : BaseIO PyContext
+
+/-- Wraps a raw Python object pointer into a memory-managed Lean object. -/
+@[extern "nerodia_py_context_mk_object"]
+public opaque mkObject {α} (ctx : PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
+  @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
+
+/-- Clears the current exception. Does nothing if there is none. -/
+@[extern "nerodia_py_context_clear_error"]
+public opaque clearError (ctx : @& PyContext) : BaseIO Unit
 
 end PyContext
 
@@ -55,6 +106,15 @@ namespace PyObject
 /-- Returns the address of the Python object (not the Lean wrapper). -/
 @[extern "nerodia_py_object_addr"]
 public opaque addr (self : @& PyObject) : USize
+
+/--
+Returns a borrowed reference to Python object's raw unmaneged C pointer.
+
+**This function is not memory safe.** It is the user's responsibility to
+ensure that this pointer does not outlive {lean}`self`.
+-/
+@[inline] def borrow (self : PyObject) : CPtr PyObject :=
+  ⟨self.addr, fun _ => ⟨self⟩⟩
 
 /-- Returns a reference to the Python enviroment this object is within. -/
 @[extern "nerodia_py_object_ctx"]
@@ -109,57 +169,6 @@ public structure PyBytesObject extends toObject : PyObject where
   private innerMk ::
     deriving Nonempty
 
-/-! ## Monad -/
-
-public class MonadPy (m : Type → Type u) where
-  getPyContext : m PyContext
-
-export MonadPy (getPyContext)
-
-public instance [MonadLift m n] [MonadPy m] :MonadPy n where
-  getPyContext := liftM (m := m) getPyContext
-
-public abbrev PyT (m) := ReaderT PyContext m
-public abbrev PyM := PyT BaseIO
-public abbrev EPyM := OptionT PyM
-
-namespace PyT
-
-@[inline] public nonrec def run
-  [MonadLiftT BaseIO m] [Monad m] (x : PyT m α) : m α
-:= do x.run (← PyContext.init)
-
-public instance [Monad m] : MonadPy (PyT m) := ⟨read⟩
-
-end PyT
-
-namespace PyM
-
-@[inline] public nonrec def toBaseIO (x : PyM α) : BaseIO α := do
-  x.run
-
-public instance : MonadEval PyM BaseIO := ⟨PyM.toBaseIO⟩
-
-end PyM
-
-/-! ## PyTypeObject -/
-
-namespace PyTypeObject
-
-public instance : Coe PyTypeObject PyObject := ⟨toObject⟩
-
-/-- Returns the qualified name of the type. -/
-@[extern "nerodia_py_type_object_get_qual_name"]
-public opaque getQualName (self : PyTypeObject) : PyM PyStrObject
-
-@[extern "nerodia_py_type_object_is_heap_type"]
-public opaque isHeapType (self : @& PyTypeObject) : Bool
-
-@[extern "nerodia_py_type_object_is_immutable"]
-public opaque isImmutable (self : @& PyTypeObject) : Bool
-
-end PyTypeObject
-
 /-! ## Builtin Objects -/
 
 namespace PyContext
@@ -187,6 +196,177 @@ public opaque strType (ctx : PyContext) : PyTypeObject
 
 end PyContext
 
+/-! ## Monad -/
+
+public class MonadPy (m : Type → Type u) where
+  getPyContext : m PyContext
+
+export MonadPy (getPyContext)
+
+public instance [MonadLift m n] [MonadPy m] :MonadPy n where
+  getPyContext := liftM (m := m) getPyContext
+
+@[inline, inherit_doc PyContext.clearError]
+public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
+  getPyContext >>= (·.clearError)
+
+public abbrev PyT (m) := ReaderT PyContext m
+public abbrev PyBaseIO := PyT BaseIO
+public abbrev PyIO := PyT (EIO PyObject) -- TODO: restrict to exceptions
+
+
+namespace PyT
+public instance [Monad m] : MonadPy (PyT m) := ⟨read⟩
+end PyT
+
+@[inline] public def PyIO.toEIO (x : PyIO α) : EIO PyObject α := do
+  x.run (← PyContext.init)
+
+namespace PyBaseIO
+
+@[inline] public def toPyIO (x : PyBaseIO α) : PyIO α := fun ctx =>
+  x.run ctx
+
+public instance : MonadLift PyBaseIO PyIO := ⟨toPyIO⟩
+
+@[inline] public nonrec def toBaseIO (x : PyBaseIO α) : BaseIO α := do
+  x.run (← PyContext.init)
+
+public instance : MonadEval PyBaseIO BaseIO := ⟨PyBaseIO.toBaseIO⟩
+
+end PyBaseIO
+
+@[expose] -- for codegen
+public def CPyT (m : Type → Type v) (α : Type) :=
+  m (CPtr α)
+
+namespace CPyT
+
+@[inline] def mk (x : m (CPtr α)) : CPyT m α :=
+  x
+
+instance [Monad m] : Nonempty (CPyT m α) := ⟨mk <| pure .null⟩
+
+
+@[inline] def runUnsafe (x : CPyT m α) : m (CPtr α) :=
+  x
+
+end CPyT
+
+/-
+Return context for external CPython functions.
+
+Lifts only into `CPyT`, as it requires the Python context from it to run.
+-/
+public abbrev CPyIO (α) :=  CPyT BaseIO α
+
+namespace CPyIO
+
+@[inline] def mk (x : BaseIO (CPtr α)) : CPyIO α :=
+  x
+
+instance : Nonempty (CPyIO α) := ⟨mk <| pure .null⟩
+
+@[inline] def toBaseIO (x : CPyIO α) : BaseIO (CPtr α) :=
+  x
+
+@[inline] public def toCPyT [MonadLiftT BaseIO m] (x : CPyIO α) : CPyT m α :=
+  .mk x.toBaseIO
+
+public instance [MonadLiftT BaseIO m] [Monad m] : MonadLift CPyIO (CPyT m) := ⟨toCPyT⟩
+
+end CPyIO
+
+/--
+Clears the current exception and returns it.
+If none has been raised, returns {lean}`none`.
+-/
+@[extern "nerodia_get_raised_exception"]
+public opaque getRaisedException : CPyIO PyObject
+
+namespace CPyT
+
+@[inline] public def run
+  [Monad m] [MonadPy m]
+  [MonadExcept PyObject m] [MonadLiftT BaseIO m]  [MonadLiftT n m]
+  (x : CPyT n α)
+: m α := do
+  let ctx ← getPyContext
+  let ptr ← x.runUnsafe
+  if h : ptr.IsNull then
+    let eptr ← getRaisedException.runUnsafe
+    if h : eptr.IsNull then
+      -- should never happen
+      throw ctx.none
+    else
+      throw <| ctx.mkObject eptr h
+  else
+    return ctx.mkObject ptr h
+
+@[inline] public def run'
+  [Monad m] [MonadPy m]
+  [Alternative m] [MonadLiftT BaseIO m]  [MonadLiftT n m]
+  (x : CPyT n α)
+: m α := do
+  let ctx ← getPyContext
+  let ptr ← x.runUnsafe
+  if h : ptr.IsNull then
+    ctx.clearError
+    failure
+  else
+    return ctx.mkObject ptr h
+
+public abbrev toOptionT
+  [Monad m] [MonadPy m]
+  [MonadLiftT BaseIO m] [MonadLiftT n m]
+  (x : CPyT n α)
+: OptionT m α := x.run'
+
+public abbrev toExceptT
+  [Monad m] [MonadPy m]
+  [MonadLiftT BaseIO m] [MonadLiftT n m]
+  (x : CPyT n α)
+: ExceptT PyObject m α := x.run
+
+public abbrev run?
+  [Monad m] [MonadPy m]
+  [MonadLiftT BaseIO m] [MonadLiftT n m]
+  (x : CPyT n α)
+: m (Option α) := x.toOptionT.run
+
+end CPyT
+
+namespace CPyIO
+
+@[inline] public def toPyIO (x : CPyIO α) : PyIO α :=
+  x.run
+
+public instance : MonadLift CPyIO PyIO := ⟨toPyIO⟩
+
+@[inline] public def toEIO (x : CPyIO α) : EIO PyObject α :=
+  have : MonadPy BaseIO := ⟨PyContext.init⟩
+  x.run
+
+end CPyIO
+
+/-! ## PyTypeObject -/
+
+namespace PyTypeObject
+
+public instance : Coe PyTypeObject PyObject := ⟨toObject⟩
+
+/-- Returns the qualified name of the type. -/
+@[extern "nerodia_py_type_object_get_qual_name"]
+public opaque getQualName (self : @& PyTypeObject) : CPyIO PyStrObject
+
+@[extern "nerodia_py_type_object_is_heap_type"]
+public opaque isHeapType (self : @& PyTypeObject) : Bool
+
+@[extern "nerodia_py_type_object_is_immutable"]
+public opaque isImmutable (self : @& PyTypeObject) : Bool
+
+end PyTypeObject
+
 /-! ## Type -/
 
 /--
@@ -199,9 +379,8 @@ public opaque PyObject.type (self : @& PyObject) : PyTypeObject
 
 /-! ## Strings -/
 
-
-@[extern "nerodia_mk_string"]
-public opaque mkString (s : @& String) : PyM PyStrObject
+@[extern "nerodia_mk_py_str_object"]
+public opaque mkPyStrObject (s : @& String) : CPyIO PyStrObject
 
 /--
 Compute a string representation of the object {lean}`self`.
@@ -209,7 +388,7 @@ Compute a string representation of the object {lean}`self`.
 This is equivalent to the Python expression {lit}`str(self)`.
 -/
 @[extern "nerodia_py_object_str"]
-public opaque PyObject.str (self : @& PyObject) : EPyM PyStrObject
+public opaque PyObject.str (self : @& PyObject) : CPyIO PyStrObject
 
 /--
 Compute a string representation of the object {lean}`self`.
@@ -217,84 +396,60 @@ Compute a string representation of the object {lean}`self`.
 This is equivalent to the Python expression {lit}`repr(self)`.
 -/
 @[extern "nerodia_py_object_repr"]
-public opaque PyObject.repr (self : @& PyObject) : EPyM PyStrObject
+public opaque PyObject.repr (self : @& PyObject) : CPyIO PyStrObject
 
-/-- Returns the UTF8-encoded value of the Python string as a Lean {lean}`String`. -/
-@[extern "nerodia_py_str_object_get_string"]
-public opaque PyStrObject.getString (o : @& PyStrObject) : EPyM String
+/-- Returns the UTF8-encoded value of {lean}`self` as a Lean {lean}`String`. -/
+-- This function is pure because the string data of instances of `str` is immutable.
+@[extern "nerodia_py_str_object_to_string"]
+public opaque PyStrObject.toString (self : @& PyStrObject) : String
+
+public instance : ToString PyStrObject := ⟨PyStrObject.toString⟩
 
 /-- Returns the UTF8-encoded value of the Python string as Python bytes. -/
-@[extern "nerodia_py_str_object_decode_utf8"]
-public opaque PyStrObject.decodeUtf8 (o : @& PyStrObject) : EPyM PyBytesObject
+@[extern "nerodia_py_str_object_utf8_encode"]
+public opaque PyStrObject.utf8Encode (self : @& PyStrObject) : CPyIO PyBytesObject
 
 /-- Returns the bytes of {lean}`self` as a Lean {lean}`ByteArray`. -/
+-- This function is pure because the bytes data of instances of `bytes` is immutable.
 @[extern "nerodia_py_bytes_object_to_byte_array"]
 public opaque PyBytesObject.toByteArray (self : @& PyBytesObject) : ByteArray
 
 /-! ## Exception Handling -/
 
-namespace PyContext
+namespace PyIO
 
-/-- Clears the current exception. Does nothing if there is none. -/
-@[extern "nerodia_py_context_clear_error"]
-public opaque clearError (ctx : @& PyContext) : BaseIO Unit
-
-/--
-Clears the current exception and returns it.
-If none has been raised, returns {lean}`none`.
--/
-@[extern "nerodia_py_context_get_raised_exception"]
-public opaque getRaisedException? (ctx : PyContext) : BaseIO (Option PyObject)
-
-end PyContext
-
-@[inline, inherit_doc PyContext.clearError]
-public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
-  getPyContext >>= (·.clearError)
-
-namespace EPyM
-
-@[inline] public nonrec def toEIO (x : EPyM α) : EIO PyObject α := do
+@[inline] public def toIO (x : PyIO α) : IO α := do
   let ctx ← PyContext.init
-  match (← x.run ctx) with
-  | some a => return a
-  | none =>
-    if let some ex ← ctx.getRaisedException? then
-      throw ex
-    else throw ctx.none
+  match (← x.run ctx |>.toBaseIO) with
+  | .ok a =>
+    return a
+  | .error e =>
+    let e ← formatError e |>.run ctx
+    throw <| IO.userError e
+where
+  formatError (e : PyObject) : PyBaseIO String := do
+    -- Aims to mirror `print_exception`
+    -- https://github.com/python/cpython/blob/v3.13.2/Python/pythonrun.c#L923
+    -- TODO: include traceback & module name
+    let ename ← id do
+      let some n ← e.type.getQualName.run?
+        | return "<unknown>"
+      return n.toString
+    let estr ← id do
+      let some s ← e.str.run?
+        | return "<exception str() failed>"
+      return s.toString
+    return if estr.isEmpty then ename else s!"{ename}: {estr}"
 
-@[inline] public nonrec def toIO (x : EPyM α) : IO α := do
-  let ctx ← PyContext.init
-  match (← x.run ctx) with
-  | some a => return a
-  | none =>
-    if let some ex ← ctx.getRaisedException? then
-      throw <| IO.userError (← formatError ex ctx)
-    else throw <| IO.userError "no exception raised"
-where formatError (ex : PyObject) : PyM String := do
-  -- Aims to mirror `print_exception`
-  -- https://github.com/python/cpython/blob/v3.13.2/Python/pythonrun.c#L923
-  -- TODO: include module name
-  let exName ← id do
-    let obj ← ex.type.getQualName
-    match (← obj.getString) with
-    | some s => return s
-    | none =>
-      clearError
-      return "<unknown>"
-  let exStr ← id do
-    match (← ex.str) with
-    | some s =>
-      match (← s.getString) with
-      | some s => return s
-      | none =>
-        clearError
-        return "<exception decode failed>"
-    | none =>
-      clearError
-      return "<exception str() failed>"
-  return if exStr.isEmpty then exName else s!"{exName}: {exStr}"
+public instance : MonadEval PyIO IO := ⟨toIO⟩
 
-public instance : MonadEval EPyM IO := ⟨EPyM.toIO⟩
+end PyIO
 
-end EPyM
+namespace CPyIO
+
+@[inline] public def toIO (x : CPyIO α) : IO α := do
+  x.toPyIO.toIO
+
+public instance : MonadEval CPyIO IO := ⟨toIO⟩
+
+end CPyIO
