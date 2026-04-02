@@ -37,6 +37,7 @@ if not os.path.exists(libPath):
   raise FileNotFoundError(f"expected Python library at {libPath}")
 
 cfg = {
+  "version": sys.version,
   "hexVersion": hex(sys.hexversion),
   "includeDir": sysconfig.get_path('include'),
   "libPath": libPath,

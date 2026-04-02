@@ -8,6 +8,7 @@ package nerodia where
 /-! ## Python -/
 
 structure PyConfig where
+  version : String
   hexVersion : String
   libPath : FilePath
   includeDir : FilePath
@@ -23,8 +24,12 @@ target pyconfig : PyConfig := do
   (← pyconfigSrc.fetch).mapM fun srcFile => do
     let out ← captureProc {cmd := "python3", args := #[srcFile.toString]}
     match Json.parse out >>= fromJson? with
-    | .ok cfg => return cfg
-    | .error e => error s!"configuration script produced unexpect output; {e}:\n{out}"
+    | .ok cfg =>
+      setTrace <| .ofHash
+        (pureHash cfg.hexVersion) s!"pyconfig: {cfg.version}"
+      return cfg
+    | .error e =>
+      error s!"configuration script produced unexpect output; {e}:\n{out}"
 
 target libpython3 : Dynlib := do
   return (← pyconfig.fetch).map (sync := true) fun py =>
@@ -37,15 +42,19 @@ input_file nerodia.c where
   path := "ffi" / "nerodia.c"
 
 target nerodia.o pkg : FilePath := do
+  let cJob ← nerodia.c.fetch
   (← pyconfig.fetch).bindM fun py => do
     let oFile := pkg.irDir / "c" / "nerodia.o"
-    let weakArgs := #[s!"-I{py.includeDir}", s!"-I{← getLeanIncludeDir}"]
+    let weakArgs := #[
+      s!"-I{py.includeDir}",
+      s!"-I{← getLeanIncludeDir}"
+    ]
     let traceArgs := pkg.buildType.leancArgs ++ #[
       s!"-DPy_LIMITED_API={py.hexVersion}",
       "-fPIC", "-std=c17", "-Wall"
     ]
     let cc := (← IO.getEnv "CC").getD "cc"
-    buildO oFile (← nerodia.c.fetch) weakArgs traceArgs cc getLeanTrace
+    buildO oFile cJob weakArgs traceArgs cc getLeanTrace
 
 target libnerodiaffi pkg : FilePath := do
   let libName := pkg.staticLibDir / nameToStaticLib "nerodiaffi"
@@ -54,7 +63,9 @@ target libnerodiaffi pkg : FilePath := do
 
 /-! ## Nerodia Lean -/
 
+@[default_target]
 lean_lib Nerodia where
+  defaultFacets := #[LeanLib.sharedFacet]
   moreLinkObjs := #[libnerodiaffi]
   moreLinkLibs := #[libpython3]
 
