@@ -27,9 +27,14 @@ namespace PyContext
 
 public instance : Nonempty PyContext := PyContext.nonemptyType.property
 
-/-- Returns a reference to the Python environment, initializing it if necessary. -/
-@[extern "nerodia_py_context_get_or_init"]
-private opaque getOrInit : BaseIO PyContext
+/--
+Returns a reference to the Python environment.
+
+If no Python environment exists yet, it will be initialized.
+Otherwise, this function acquires the Python global interpreter lock (GIL).
+-/
+@[extern "nerodia_py_context_init"]
+private opaque init : BaseIO PyContext
 
 end PyContext
 
@@ -122,7 +127,7 @@ namespace PyT
 
 @[inline] public nonrec def run
   [MonadLiftT BaseIO m] [Monad m] (x : PyT m α) : m α
-:= do x.run (← PyContext.getOrInit)
+:= do x.run (← PyContext.init)
 
 public instance [Monad m] : MonadPy (PyT m) := ⟨read⟩
 
@@ -250,7 +255,7 @@ public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
 namespace EPyM
 
 @[inline] public nonrec def toEIO (x : EPyM α) : EIO PyObject α := do
-  let ctx ← PyContext.getOrInit
+  let ctx ← PyContext.init
   match (← x.run ctx) with
   | some a => return a
   | none =>
@@ -259,7 +264,7 @@ namespace EPyM
     else throw ctx.none
 
 @[inline] public nonrec def toIO (x : EPyM α) : IO α := do
-  let ctx ← PyContext.getOrInit
+  let ctx ← PyContext.init
   match (← x.run ctx) with
   | some a => return a
   | none =>

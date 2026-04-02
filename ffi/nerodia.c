@@ -80,7 +80,7 @@ static void py_object_finalize(void* p) {
   }
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_get_or_init() {
+LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
   py_context* pctx = malloc(sizeof(py_context));
   py_mutex_lock();
   if (g_py_main) {
