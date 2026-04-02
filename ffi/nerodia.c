@@ -1,11 +1,32 @@
 /*
 Copyright (c) 2026 Lean FRO. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Authors: Mac Malone
+Authors: Mac Malone, Claude Code
 */
 #include <Python.h>
 #include <lean/lean.h>
+#include <stdatomic.h>
 #include <string.h>
+
+/* ## Mutex */
+
+#ifdef _WIN32
+#include <windows.h>
+static CRITICAL_SECTION g_py_mutex;
+static INIT_ONCE g_py_mutex_once = INIT_ONCE_STATIC_INIT;
+static BOOL CALLBACK init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
+  InitializeCriticalSection(&g_py_mutex);
+  return TRUE;
+}
+#define py_mutex_lock()   (InitOnceExecuteOnce(&g_py_mutex_once, init_mutex, NULL, NULL), \
+                           EnterCriticalSection(&g_py_mutex))
+#define py_mutex_unlock() LeaveCriticalSection(&g_py_mutex)
+#else
+#include <pthread.h>
+static pthread_mutex_t g_py_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define py_mutex_lock()   pthread_mutex_lock(&g_py_mutex)
+#define py_mutex_unlock() pthread_mutex_unlock(&g_py_mutex)
+#endif
 
 /* ## Basics */
 
@@ -13,69 +34,83 @@ static void nop_foreach(void* p, b_lean_obj_arg f) {
   return;
 }
 
-static lean_object * g_py_context = NULL;
-
 typedef struct {
   bool is_main;
   bool is_initializer;
   PyGILState_STATE gil;
 } py_context;
 
+static py_context* g_py_main = NULL;
+static atomic_int g_py_holders = 0;
+
+static lean_external_class* g_py_context_external_class = NULL;
+static lean_external_class* g_py_object_external_class = NULL;
+
+static void py_finalize_holder() {
+  py_mutex_lock();
+  if (atomic_load(&g_py_holders) == 0) {
+    if (g_py_main->is_initializer) {
+      Py_Finalize();
+    } else {
+      PyGILState_Release(g_py_main->gil);
+    }
+    free(g_py_main);
+    g_py_main = NULL;
+  }
+  py_mutex_unlock();
+}
+
 static void py_context_finalize(void* p) {
-  // TODO: acquire a g_py initialization/finalization mutex
   py_context* pctx = (py_context*)p;
-  if (pctx->is_initializer) {
-    Py_Finalize();
-  } else {
+  if (!pctx->is_main) {
     PyGILState_Release(pctx->gil);
+    free(pctx);
   }
-  if (pctx->is_main) {
-    g_py_context = NULL;
-  } else {
-    lean_dec_ref(g_py_context);
+  if (atomic_fetch_sub(&g_py_holders, 1) == 1) {
+    py_finalize_holder();
   }
-  free(pctx);
 }
 
 static void py_object_finalize(void* p) {
   PyGILState_STATE gil = PyGILState_Ensure();
   Py_DECREF(p);
   PyGILState_Release(gil);
-  lean_dec_ref(g_py_context);
+  if (atomic_fetch_sub(&g_py_holders, 1) == 1) {
+    py_finalize_holder();
+  }
 }
 
-static lean_external_class * g_py_context_external_class = NULL;
-static lean_external_class * g_py_object_external_class = NULL;
-
 LEAN_EXPORT lean_obj_res nerodia_py_context_get_or_init() {
-  // TODO: acquire a g_py initialization/finalization mutex
-  py_context * pctx = malloc(sizeof(py_context));
-  if (g_py_context) {
-    lean_inc_ref(g_py_context);
+  py_context* pctx = malloc(sizeof(py_context));
+  py_mutex_lock();
+  if (g_py_main) {
+    atomic_fetch_add(&g_py_holders, 1);
+    py_mutex_unlock();
     pctx->is_main = false;
     pctx->is_initializer = false;
     pctx->gil = PyGILState_Ensure();
     return lean_alloc_external(g_py_context_external_class, pctx);
-  } else {
-    if (!g_py_context_external_class) {
-      g_py_context_external_class = lean_register_external_class(
-        py_context_finalize, nop_foreach);
-    }
-    if (!g_py_object_external_class) {
-      g_py_object_external_class = lean_register_external_class(
-        py_object_finalize, nop_foreach);
-    }
-    pctx->is_main = true;
-    if (Py_IsInitialized()) {
-      pctx->is_initializer = false;
-      pctx->gil = PyGILState_Ensure();
-    } else {
-      Py_Initialize();
-      pctx->is_initializer = true;
-    }
-    g_py_context = lean_alloc_external(g_py_context_external_class, pctx);
-    return g_py_context;
   }
+  if (!g_py_context_external_class) {
+    g_py_context_external_class = lean_register_external_class(
+      py_context_finalize, nop_foreach);
+  }
+  if (!g_py_object_external_class) {
+    g_py_object_external_class = lean_register_external_class(
+      py_object_finalize, nop_foreach);
+  }
+  pctx->is_main = true;
+  if (Py_IsInitialized()) {
+    pctx->is_initializer = false;
+    pctx->gil = PyGILState_Ensure();
+  } else {
+    Py_Initialize();
+    pctx->is_initializer = true;
+  }
+  g_py_main = pctx;
+  atomic_store(&g_py_holders, 1);
+  py_mutex_unlock();
+  return lean_alloc_external(g_py_context_external_class, pctx);
 }
 
 lean_obj_res nerodia_of_object_core(PyObject* o) {
@@ -83,10 +118,9 @@ lean_obj_res nerodia_of_object_core(PyObject* o) {
 }
 
 static inline lean_obj_res nerodia_of_object(PyObject* o, lean_obj_arg ctx) {
-  // Convert a reference to a potentially thread-local context
-  // to a refernce to the global context. Objects can live outside there
-  // threads and hold strong refernces to the main context.
-  lean_inc_ref(g_py_context); lean_dec_ref(ctx);
+  // convert reference to `ctx` to a gloal reference to the Python environment
+  atomic_fetch_add(&g_py_holders, 1);
+  lean_dec_ref(ctx);
   return nerodia_of_object_core(o);
 }
 
@@ -112,9 +146,13 @@ LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
 }
 
 LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
-  // Since the Python object `self` exists, `g_py_context != NULL`
-  lean_inc_ref(g_py_context);
-  return g_py_context;
+  // self implies `g_py_main` exists
+  atomic_fetch_add(&g_py_holders, 1);
+  py_context* pctx = malloc(sizeof(py_context));
+  pctx->is_main = false;
+  pctx->is_initializer = false;
+  pctx->gil = PyGILState_Ensure();
+  return lean_alloc_external(g_py_context_external_class, pctx);
 }
 
 LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(b_lean_obj_arg ctx) {
@@ -141,7 +179,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_none(lean_obj_arg ctx) {
 /* ### Types */
 
 LEAN_EXPORT lean_obj_res nerodia_py_object_type(b_lean_obj_arg self) {
-  lean_inc_ref(g_py_context); // `self` implies a main context we can grab
+  atomic_fetch_add(&g_py_holders, 1); // self implies `g_py_main` exists
   // `PyObject_Type` cannot fail as Nerodia guarantees the pointer in `self` is non-NULL
   return nerodia_of_object_core(PyObject_Type(nerodia_to_object(self)));
 }
