@@ -69,7 +69,23 @@ lean_lib Nerodia where
   moreLinkObjs := #[libnerodiaffi]
   moreLinkLibs := #[libpython3]
 
-@[test_driver]
 lean_lib NerodiaTests where
+  srcDir := "tests"
   globs := #[`NerodiaTests.+]
   precompileModules := true
+
+lean_exe testExe where
+  srcDir := "tests"
+
+@[test_driver]
+script test do
+  runBuild do
+    let libJob ← NerodiaTests.fetch
+    let exeJob ← testExe.fetch
+    withRegisterJob "testExe test" do
+      libJob.bindM fun _ =>
+      exeJob.mapM fun exeFile => do
+        let out ← captureProc {cmd := exeFile.toString}
+        unless out == "hello" do
+          error s!"incorrect output: expected \"hello\", got {out.quote}"
+  return 0
