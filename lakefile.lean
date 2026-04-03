@@ -77,6 +77,11 @@ lean_lib NerodiaTests where
 
 lean_exe testExe where
   srcDir := "tests"
+  -- The Lean toolchain's sysroot may have an older glibc than the
+  -- Python library, causing lld to reject unresolved versioned symbols.
+  weakLinkArgs :=
+    if System.Platform.isWindows || System.Platform.isOSX then #[]
+    else #["-Wl,--allow-shlib-undefined"]
 
 @[test_driver]
 script test do
