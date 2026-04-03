@@ -154,38 +154,38 @@ but that is not guarenteed by the Limited API.
 
 See https://docs.python.org/3/c-api/type.html#c.PyTypeObject
 -/
-public structure PyTypeObject extends toObject : PyObject where
+public structure PyType extends toObject : PyObject where
   private innerMk ::
     deriving Nonempty
 
 /-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
-public structure PyBaseExceptionObject extends toObject : PyObject where
+public structure PyBaseException extends toObject : PyObject where
   private innerMk ::
     deriving Nonempty
 
 /-- A Python exception object. That is, an instance of {lit}`Exception`. -/
-public structure PyExceptionObject extends toBaseExceptionObject : PyBaseExceptionObject where
+public structure PyException extends toBaseException : PyBaseException where
   private innerMk ::
     deriving Nonempty
 
-public instance : Coe PyExceptionObject PyBaseExceptionObject :=
-  ⟨PyExceptionObject.toBaseExceptionObject⟩
+public instance : Coe PyException PyBaseException :=
+  ⟨PyException.toBaseException⟩
 
 /-- A Python base exception object. That is, an instance of {lit}`SystemError`. -/
-public structure PySystemErrorObject extends toExceptionObject : PyExceptionObject where
+public structure PySystemError extends toException : PyException where
   private innerMk ::
     deriving Nonempty
 
-public instance : Coe PySystemErrorObject PyExceptionObject :=
-  ⟨PySystemErrorObject.toExceptionObject⟩
+public instance : Coe PySystemError PyException :=
+  ⟨PySystemError.toException⟩
 
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
-public structure PyStrObject extends toObject : PyObject where
+public structure PyStr extends toObject : PyObject where
   private innerMk ::
     deriving Nonempty
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
-public structure PyBytesObject extends toObject : PyObject where
+public structure PyBytes extends toObject : PyObject where
   private innerMk ::
     deriving Nonempty
 
@@ -202,17 +202,17 @@ public opaque none (ctx : PyContext) : PyObject
 
 /-! ### Type Objects -/
 
-private noncomputable opaque typeTypeOpaque (ctx : PyContext) : PyTypeObject
+private noncomputable opaque typeTypeOpaque (ctx : PyContext) : PyType
 
 /-- Returns a reference to the type of types (i.e., {lit}`type` in Python). -/
 @[extern "nerodia_py_context_type_type"]
-public opaque typeType (ctx : PyContext) : PyTypeObject
+public opaque typeType (ctx : PyContext) : PyType
 
-private noncomputable opaque strTypeOpaque (ctx : PyContext) : PyTypeObject
+private noncomputable opaque strTypeOpaque (ctx : PyContext) : PyType
 
 /-- Returns a reference to the unicode string type (i.e., {lit}`str` in Python). -/
 @[extern "nerodia_py_context_str_type"]
-public opaque strType (ctx : PyContext) : PyTypeObject
+public opaque strType (ctx : PyContext) : PyType
 
 end PyContext
 
@@ -232,13 +232,13 @@ public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
 
 public abbrev PyT := ReaderT PyContext
 public abbrev PyBaseIO := PyT BaseIO
-public abbrev PyIO := PyT (EIO PyBaseExceptionObject)
+public abbrev PyIO := PyT (EIO PyBaseException)
 
 namespace PyT
 public instance [Monad m] : MonadPy (PyT m) := ⟨read⟩
 end PyT
 
-@[inline] public def PyIO.toEIO (x : PyIO α) : EIO PyBaseExceptionObject α := do
+@[inline] public def PyIO.toEIO (x : PyIO α) : EIO PyBaseException α := do
   x.run (← PyContext.init)
 
 namespace PyBaseIO
@@ -301,17 +301,17 @@ Clears the current exception and returns it.
 If none has been raised, returns {lean}`none`.
 -/
 @[extern "nerodia_get_raised_exception"]
-public opaque getRaisedException : CPyIO PyBaseExceptionObject
+public opaque getRaisedException : CPyIO PyBaseException
 
 /-- {lit}`SystemError` for when the C FFI does not set an exception. -/
 @[extern "nerodia_py_context_ffi_error"]
-public opaque PyContext.ffiError (msg : PyContext) : PySystemErrorObject
+public opaque PyContext.ffiError (msg : PyContext) : PySystemError
 
 namespace CPyT
 
 @[inline] public def run
   [Monad m] [MonadPy m]
-  [MonadExcept PyBaseExceptionObject m]
+  [MonadExcept PyBaseException m]
   [MonadLiftT BaseIO m]  [MonadLiftT n m]
   (x : CPyT n α)
 : m α := do
@@ -320,7 +320,7 @@ namespace CPyT
   if h : ptr.IsNull then
     let eptr ← getRaisedException.runUnsafe
     if h : eptr.IsNull then
-      throw ctx.ffiError.toBaseExceptionObject
+      throw ctx.ffiError.toBaseException
     else
       throw (ctx.mkObject eptr h)
   else
@@ -349,7 +349,7 @@ public abbrev toExceptT
   [Monad m] [MonadPy m]
   [MonadLiftT BaseIO m] [MonadLiftT n m]
   (x : CPyT n α)
-: ExceptT PyBaseExceptionObject m α := x.run
+: ExceptT PyBaseException m α := x.run
 
 public abbrev run?
   [Monad m] [MonadPy m]
@@ -366,29 +366,30 @@ namespace CPyIO
 
 public instance : MonadLift CPyIO PyIO := ⟨toPyIO⟩
 
-@[inline] public def toEIO (x : CPyIO α) : EIO PyBaseExceptionObject α :=
+@[inline] public def toEIO (x : CPyIO α) : EIO PyBaseException α :=
   have : MonadPy BaseIO := ⟨PyContext.init⟩
   x.run
 
 end CPyIO
 
-/-! ## PyTypeObject -/
+/-! ## PyType -/
 
-namespace PyTypeObject
+namespace PyType
 
-public instance : Coe PyTypeObject PyObject := ⟨toObject⟩
+
+public instance : Coe PyType PyObject := ⟨toObject⟩
 
 /-- Returns the qualified name of the type. -/
-@[extern "nerodia_py_type_object_get_qual_name"]
-public opaque getQualName (self : @& PyTypeObject) : CPyIO PyStrObject
+@[extern "nerodia_py_type_get_qual_name"]
+public opaque getQualName (self : @& PyType) : CPyIO PyStr
 
-@[extern "nerodia_py_type_object_is_heap_type"]
-public opaque isHeapType (self : @& PyTypeObject) : Bool
+@[extern "nerodia_py_type_is_heap_type"]
+public opaque isHeapType (self : @& PyType) : Bool
 
-@[extern "nerodia_py_type_object_is_immutable"]
-public opaque isImmutable (self : @& PyTypeObject) : Bool
+@[extern "nerodia_py_type_is_immutable"]
+public opaque isImmutable (self : @& PyType) : Bool
 
-end PyTypeObject
+end PyType
 
 /-! ## Type -/
 
@@ -398,12 +399,12 @@ Returns the type of the object {lean}`self`.
 This is equivalent to {lit}`type(self)` in Python.
 -/
 @[extern "nerodia_py_object_type"]
-public opaque PyObject.type (self : @& PyObject) : PyTypeObject
+public opaque PyObject.type (self : @& PyObject) : PyType
 
 /-! ## Strings -/
 
-@[extern "nerodia_mk_py_str_object"]
-public opaque mkPyStrObject (s : @& String) : CPyIO PyStrObject
+@[extern "nerodia_mk_py_str"]
+public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
 /--
 Compute a string representation of the object {lean}`self`.
@@ -411,7 +412,7 @@ Compute a string representation of the object {lean}`self`.
 This is equivalent to the Python expression {lit}`str(self)`.
 -/
 @[extern "nerodia_py_object_str"]
-public opaque PyObject.str (self : @& PyObject) : CPyIO PyStrObject
+public opaque PyObject.str (self : @& PyObject) : CPyIO PyStr
 
 /--
 Compute a string representation of the object {lean}`self`.
@@ -419,23 +420,23 @@ Compute a string representation of the object {lean}`self`.
 This is equivalent to the Python expression {lit}`repr(self)`.
 -/
 @[extern "nerodia_py_object_repr"]
-public opaque PyObject.repr (self : @& PyObject) : CPyIO PyStrObject
+public opaque PyObject.repr (self : @& PyObject) : CPyIO PyStr
 
 /-- Returns the UTF8-encoded value of {lean}`self` as a Lean {lean}`String`. -/
 -- This function is pure because the string data of instances of `str` is immutable.
-@[extern "nerodia_py_str_object_to_string"]
-public opaque PyStrObject.toString (self : @& PyStrObject) : String
+@[extern "nerodia_py_str_to_string"]
+public opaque PyStr.toString (self : @& PyStr) : String
 
-public instance : ToString PyStrObject := ⟨PyStrObject.toString⟩
+public instance : ToString PyStr := ⟨PyStr.toString⟩
 
 /-- Returns the UTF8-encoded value of the Python string as Python bytes. -/
-@[extern "nerodia_py_str_object_utf8_encode"]
-public opaque PyStrObject.utf8Encode (self : @& PyStrObject) : CPyIO PyBytesObject
+@[extern "nerodia_py_str_utf8_encode"]
+public opaque PyStr.utf8Encode (self : @& PyStr) : CPyIO PyBytes
 
 /-- Returns the bytes of {lean}`self` as a Lean {lean}`ByteArray`. -/
 -- This function is pure because the bytes data of instances of `bytes` is immutable.
-@[extern "nerodia_py_bytes_object_to_byte_array"]
-public opaque PyBytesObject.toByteArray (self : @& PyBytesObject) : ByteArray
+@[extern "nerodia_py_bytes_to_byte_array"]
+public opaque PyBytes.toByteArray (self : @& PyBytes) : ByteArray
 
 /-! ## Exception Handling -/
 
@@ -450,7 +451,7 @@ namespace PyIO
     let e ← formatError e |>.run ctx
     throw <| IO.userError e
 where
-  formatError (e : PyBaseExceptionObject) : PyBaseIO String := do
+  formatError (e : PyBaseException) : PyBaseIO String := do
     -- Aims to mirror `print_exception`
     -- https://github.com/python/cpython/blob/v3.13.2/Python/pythonrun.c#L923
     -- TODO: include traceback & module name

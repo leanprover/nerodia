@@ -11,12 +11,12 @@ open Nerodia
 /-- info: "hello" -/
 #guard_msgs in
 #eval id (α := PyIO _) do
-  return (← mkPyStrObject "hello").toString
+  return (← mkPyStr "hello").toString
 
 /-- info: some "hello"  -/
 #guard_msgs in
 #eval id (α := PyIO _) do
-  let bytes ← (← mkPyStrObject "hello").utf8Encode
+  let bytes ← (← mkPyStr "hello").utf8Encode
   return String.fromUTF8? bytes.toByteArray
 
 /-- info: "None" -/

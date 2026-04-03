@@ -168,7 +168,7 @@ LEAN_EXPORT size_t nerodia_get_raised_exception() {
   return (size_t)PyErr_GetRaisedException();
 }
 
-/* PyContext -> SystemErrorObject */
+/* PyContext -> PySystemError */
 LEAN_EXPORT lean_obj_res nerodia_py_context_ffi_error(lean_obj_arg ctx) {
   PyObject* msg = PyUnicode_FromString(
     "C FFI returned NULL without setting an exception");
@@ -220,22 +220,22 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_str_type(lean_obj_arg ctx) {
 
 /* ### Type Objects */
 
-LEAN_EXPORT size_t nerodia_py_type_object_get_qual_name(b_lean_obj_arg self, b_lean_obj_arg ctx) {
+LEAN_EXPORT size_t nerodia_py_type_get_qual_name(b_lean_obj_arg self, b_lean_obj_arg ctx) {
   return (size_t)PyType_GetQualName(nerodia_to_type_object(self));
 }
 
-LEAN_EXPORT uint8_t nerodia_py_type_object_is_heap_type(b_lean_obj_arg self) {
+LEAN_EXPORT uint8_t nerodia_py_type_is_heap_type(b_lean_obj_arg self) {
   return PyType_HasFeature(nerodia_to_type_object(self), Py_TPFLAGS_HEAPTYPE) != 0;
 }
 
-LEAN_EXPORT uint8_t nerodia_py_type_object_is_immutable(b_lean_obj_arg self) {
+LEAN_EXPORT uint8_t nerodia_py_type_is_immutable(b_lean_obj_arg self) {
   return PyType_HasFeature(nerodia_to_type_object(self), Py_TPFLAGS_IMMUTABLETYPE) != 0;
 }
 
 /** ### Strings */
 
-/* mkPyStrObject : @& String -> BaseIO (CPtr PyStrObject) */
-LEAN_EXPORT size_t nerodia_mk_py_str_object(b_lean_obj_arg s) {
+/* mkPyStr : @& String -> BaseIO (CPtr PyStr) */
+LEAN_EXPORT size_t nerodia_mk_py_str(b_lean_obj_arg s) {
   // Lean strings include a null-terminator.
   // `FromStringAndSize` does not expect one, so use `size-1`.
   // Lean guarantees that the string is properly UTF-8 encoded.
@@ -243,18 +243,18 @@ LEAN_EXPORT size_t nerodia_mk_py_str_object(b_lean_obj_arg s) {
     lean_string_cstr(s), lean_string_size(s)-1);
 }
 
-/* str : @& PyObject -> BaseIO (CPtr PyStrObject) */
+/* str : @& PyObject -> BaseIO (CPtr PyStr) */
 LEAN_EXPORT size_t nerodia_py_object_str(b_lean_obj_arg o) {
   return (size_t)PyObject_Str(nerodia_to_object(o));
 }
 
-/* repr : @& PyObject -> BaseIO (CPtr PyStrObject) */
+/* repr : @& PyObject -> BaseIO (CPtr PyStr) */
 LEAN_EXPORT size_t nerodia_py_object_repr(b_lean_obj_arg o) {
   return (size_t)PyObject_Repr(nerodia_to_object(o));
 }
 
-/* toString : @& PyStrObject -> String */
-LEAN_EXPORT lean_obj_res nerodia_py_str_object_to_string(b_lean_obj_arg o) {
+/* toString : @& PyStr -> String */
+LEAN_EXPORT lean_obj_res nerodia_py_str_to_string(b_lean_obj_arg o) {
   Py_ssize_t size;
   const char * cs = PyUnicode_AsUTF8AndSize(nerodia_to_object(o), &size);
   if (LEAN_LIKELY(cs != NULL)) {
@@ -271,13 +271,13 @@ LEAN_EXPORT lean_obj_res nerodia_py_str_object_to_string(b_lean_obj_arg o) {
   }
 }
 
-/* utf8Encode : @& PyStrObject -> BaseIO (CPtr PyBytesObjects) */
-LEAN_EXPORT size_t nerodia_py_str_object_utf8_encode(b_lean_obj_arg o) {
+/* utf8Encode : @& PyStr -> BaseIO (CPtr PyBytes) */
+LEAN_EXPORT size_t nerodia_py_str_utf8_encode(b_lean_obj_arg o) {
   return (size_t)PyUnicode_AsUTF8String(nerodia_to_object(o));
 }
 
-/* toByteArray : @& PyBytesObject -> ByteArray */
-LEAN_EXPORT lean_obj_res nerodia_py_bytes_object_to_byte_array(b_lean_obj_arg self) {
+/* toByteArray : @& PyBytes -> ByteArray */
+LEAN_EXPORT lean_obj_res nerodia_py_bytes_to_byte_array(b_lean_obj_arg self) {
   PyObject* o = nerodia_to_object(self);
   size_t sz = PyBytes_Size(o);
   lean_object* r = lean_alloc_sarray(1, sz, sz);
