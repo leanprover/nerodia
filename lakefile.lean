@@ -10,6 +10,7 @@ package nerodia where
 structure PyConfig where
   version : String
   hexVersion : String
+  libName : String
   libPath : FilePath
   includeDir : FilePath
   deriving ToJson, FromJson
@@ -33,7 +34,7 @@ target pyconfig : PyConfig := do
 
 target libpython3 : Dynlib := do
   return (← pyconfig.fetch).map (sync := true) fun py =>
-    {name := "python3", path := py.libPath}
+    {name := py.libName, path := py.libPath}
 
 /-! ## Nerodia FFI -/
 
@@ -69,7 +70,28 @@ lean_lib Nerodia where
   moreLinkObjs := #[libnerodiaffi]
   moreLinkLibs := #[libpython3]
 
-@[test_driver]
 lean_lib NerodiaTests where
+  srcDir := "tests"
   globs := #[`NerodiaTests.+]
   precompileModules := true
+
+lean_exe testExe where
+  srcDir := "tests"
+  -- The Lean toolchain's sysroot may have an older glibc than the
+  -- Python library, causing lld to reject unresolved versioned symbols.
+  weakLinkArgs :=
+    if System.Platform.isWindows || System.Platform.isOSX then #[]
+    else #["-Wl,--allow-shlib-undefined"]
+
+@[test_driver]
+script test do
+  runBuild do
+    let libJob ← NerodiaTests.fetch
+    let exeJob ← testExe.fetch
+    withRegisterJob "testExe test" do
+      libJob.bindM fun _ =>
+      exeJob.mapM fun exeFile => do
+        let out ← captureProc {cmd := exeFile.toString}
+        unless out == "hello" do
+          error s!"incorrect output: expected \"hello\", got {out.quote}"
+  return 0
