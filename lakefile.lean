@@ -10,6 +10,7 @@ package nerodia where
 structure PyConfig where
   version : String
   hexVersion : String
+  libName : String
   libPath : FilePath
   includeDir : FilePath
   deriving ToJson, FromJson
@@ -33,7 +34,7 @@ target pyconfig : PyConfig := do
 
 target libpython3 : Dynlib := do
   return (← pyconfig.fetch).map (sync := true) fun py =>
-    {name := "python3", path := py.libPath}
+    {name := py.libName, path := py.libPath}
 
 /-! ## Nerodia FFI -/
 
