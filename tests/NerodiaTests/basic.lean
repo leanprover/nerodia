@@ -23,3 +23,7 @@ open Nerodia
 #guard_msgs in
 #eval id (α := PyIO _) do
   return (← (← getPyContext).none.repr).toString
+
+/-- error: SystemError: C FFI returned NULL without setting an exception -/
+#guard_msgs in
+#eval (unsafeCast (pure CPtr.null : BaseIO (CPtr Empty)) : CPyIO Empty)

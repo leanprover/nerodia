@@ -168,6 +168,28 @@ LEAN_EXPORT size_t nerodia_get_raised_exception() {
   return (size_t)PyErr_GetRaisedException();
 }
 
+/* PyContext -> SystemErrorObject */
+LEAN_EXPORT lean_obj_res nerodia_py_context_ffi_error(lean_obj_arg ctx) {
+  PyObject* msg = PyUnicode_FromString(
+    "C FFI returned NULL without setting an exception");
+  if (LEAN_LIKELY(msg != NULL)) {
+    PyObject* ex = PyObject_CallFunctionObjArgs(
+      PyExc_SystemError, msg, NULL);
+    Py_DECREF(msg);
+    if (LEAN_LIKELY(ex != NULL)) {
+      return nerodia_of_object(ex, ctx);
+    }
+  }
+  if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
+    lean_dec_ref(ctx);
+    lean_internal_panic_out_of_memory();
+  } else {
+    PyErr_WriteUnraisable(NULL);
+    lean_dec_ref(ctx);
+    lean_internal_panic_unreachable();
+  }
+}
+
 LEAN_EXPORT lean_obj_res nerodia_py_context_none(lean_obj_arg ctx) {
   return nerodia_of_immortal_object(Py_None, ctx);
 }

@@ -11,7 +11,6 @@ namespace Nerodia
 
 /-! ## CPtr -/
 
-
 /--
 A raw pointer to a Python object.
 
@@ -159,6 +158,27 @@ public structure PyTypeObject extends toObject : PyObject where
   private innerMk ::
     deriving Nonempty
 
+/-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
+public structure PyBaseExceptionObject extends toObject : PyObject where
+  private innerMk ::
+    deriving Nonempty
+
+/-- A Python exception object. That is, an instance of {lit}`Exception`. -/
+public structure PyExceptionObject extends toBaseExceptionObject : PyBaseExceptionObject where
+  private innerMk ::
+    deriving Nonempty
+
+public instance : Coe PyExceptionObject PyBaseExceptionObject :=
+  ⟨PyExceptionObject.toBaseExceptionObject⟩
+
+/-- A Python base exception object. That is, an instance of {lit}`SystemError`. -/
+public structure PySystemErrorObject extends toExceptionObject : PyExceptionObject where
+  private innerMk ::
+    deriving Nonempty
+
+public instance : Coe PySystemErrorObject PyExceptionObject :=
+  ⟨PySystemErrorObject.toExceptionObject⟩
+
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
 public structure PyStrObject extends toObject : PyObject where
   private innerMk ::
@@ -210,16 +230,15 @@ public instance [MonadLift m n] [MonadPy m] :MonadPy n where
 public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
   getPyContext >>= (·.clearError)
 
-public abbrev PyT (m) := ReaderT PyContext m
+public abbrev PyT := ReaderT PyContext
 public abbrev PyBaseIO := PyT BaseIO
-public abbrev PyIO := PyT (EIO PyObject) -- TODO: restrict to exceptions
-
+public abbrev PyIO := PyT (EIO PyBaseExceptionObject)
 
 namespace PyT
 public instance [Monad m] : MonadPy (PyT m) := ⟨read⟩
 end PyT
 
-@[inline] public def PyIO.toEIO (x : PyIO α) : EIO PyObject α := do
+@[inline] public def PyIO.toEIO (x : PyIO α) : EIO PyBaseExceptionObject α := do
   x.run (← PyContext.init)
 
 namespace PyBaseIO
@@ -282,13 +301,18 @@ Clears the current exception and returns it.
 If none has been raised, returns {lean}`none`.
 -/
 @[extern "nerodia_get_raised_exception"]
-public opaque getRaisedException : CPyIO PyObject
+public opaque getRaisedException : CPyIO PyBaseExceptionObject
+
+/-- {lit}`SystemError` for when the C FFI does not set an exception. -/
+@[extern "nerodia_py_context_ffi_error"]
+public opaque PyContext.ffiError (msg : PyContext) : PySystemErrorObject
 
 namespace CPyT
 
 @[inline] public def run
   [Monad m] [MonadPy m]
-  [MonadExcept PyObject m] [MonadLiftT BaseIO m]  [MonadLiftT n m]
+  [MonadExcept PyBaseExceptionObject m]
+  [MonadLiftT BaseIO m]  [MonadLiftT n m]
   (x : CPyT n α)
 : m α := do
   let ctx ← getPyContext
@@ -296,16 +320,15 @@ namespace CPyT
   if h : ptr.IsNull then
     let eptr ← getRaisedException.runUnsafe
     if h : eptr.IsNull then
-      -- should never happen
-      throw ctx.none
+      throw ctx.ffiError.toBaseExceptionObject
     else
-      throw <| ctx.mkObject eptr h
+      throw (ctx.mkObject eptr h)
   else
     return ctx.mkObject ptr h
 
 @[inline] public def run'
-  [Monad m] [MonadPy m]
-  [Alternative m] [MonadLiftT BaseIO m]  [MonadLiftT n m]
+  [Monad m] [MonadPy m] [Alternative m]
+  [MonadLiftT BaseIO m] [MonadLiftT n m]
   (x : CPyT n α)
 : m α := do
   let ctx ← getPyContext
@@ -326,7 +349,7 @@ public abbrev toExceptT
   [Monad m] [MonadPy m]
   [MonadLiftT BaseIO m] [MonadLiftT n m]
   (x : CPyT n α)
-: ExceptT PyObject m α := x.run
+: ExceptT PyBaseExceptionObject m α := x.run
 
 public abbrev run?
   [Monad m] [MonadPy m]
@@ -343,7 +366,7 @@ namespace CPyIO
 
 public instance : MonadLift CPyIO PyIO := ⟨toPyIO⟩
 
-@[inline] public def toEIO (x : CPyIO α) : EIO PyObject α :=
+@[inline] public def toEIO (x : CPyIO α) : EIO PyBaseExceptionObject α :=
   have : MonadPy BaseIO := ⟨PyContext.init⟩
   x.run
 
@@ -427,7 +450,7 @@ namespace PyIO
     let e ← formatError e |>.run ctx
     throw <| IO.userError e
 where
-  formatError (e : PyObject) : PyBaseIO String := do
+  formatError (e : PyBaseExceptionObject) : PyBaseIO String := do
     -- Aims to mirror `print_exception`
     -- https://github.com/python/cpython/blob/v3.13.2/Python/pythonrun.c#L923
     -- TODO: include traceback & module name
