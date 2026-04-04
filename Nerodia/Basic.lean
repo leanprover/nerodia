@@ -179,6 +179,11 @@ public structure PySystemError extends toException : PyException where
 public instance : Coe PySystemError PyException :=
   ⟨PySystemError.toException⟩
 
+/-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
+public structure PyModule extends toObject : PyObject where
+  private innerMk ::
+    deriving Nonempty
+
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
 public structure PyStr extends toObject : PyObject where
   private innerMk ::
@@ -401,7 +406,21 @@ This is equivalent to {lit}`type(self)` in Python.
 @[extern "nerodia_py_object_type"]
 public opaque PyObject.type (self : @& PyObject) : PyType
 
-/-! ## Strings -/
+/-! ## Module -/
+
+/-- Imports the module named {lean}`modName`. -/
+@[extern "nerodia_import"]
+public opaque «import» (modName : @& String) : CPyIO PyModule
+
+/-! ## Objects -/
+
+/-- Returns the attribute named {lean}`attrName` on {lean}`self`. -/
+@[extern "nerodia_py_object_get_attr_by_string"]
+public opaque PyObject.getAttrByString
+  (self : @& PyObject) (attrName : @& String) : CPyIO PyObject
+
+
+/-! ## Strings & ByteArray -/
 
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr

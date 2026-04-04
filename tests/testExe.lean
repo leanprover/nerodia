@@ -8,5 +8,8 @@ import Nerodia
 open Nerodia
 
 def main : IO Unit := do
-  let o ← mkPyStr "hello" |>.toIO
-  IO.println o.toString
+  let pyVer ← PyIO.toIO do
+    let sys ← Nerodia.import "sys"
+    let ver ← sys.getAttrByString "version"
+    ver.str
+  IO.println pyVer.toString

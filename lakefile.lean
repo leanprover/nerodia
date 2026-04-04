@@ -93,12 +93,16 @@ lean_exe testExe where
 @[test_driver]
 script test do
   runBuild do
+    let pyJob ← pyconfig.fetch
     let libJob ← NerodiaTests.fetch
     let exeJob ← testExe.fetch
     withRegisterJob "testExe test" do
       libJob.bindM fun _ =>
+      pyJob.bindM fun py =>
       exeJob.mapM fun exeFile => do
         let out ← captureProc {cmd := exeFile.toString}
-        unless out == "hello" do
-          error s!"incorrect output: expected \"hello\", got {out.quote}"
+        unless out == py.version do
+          error s!"incorrect output: expected\
+            \n  {py.version}\
+            \n got {out}"
   return 0

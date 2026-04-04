@@ -194,6 +194,16 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_none(lean_obj_arg ctx) {
   return nerodia_of_immortal_object(Py_None, ctx);
 }
 
+/* import : @& String -> BaseIO (CPtr PyModule) */
+LEAN_EXPORT size_t nerodia_import(b_lean_obj_arg mod_name) {
+  return (size_t)PyImport_ImportModule(lean_string_cstr(mod_name));
+}
+
+/* getAttrByString : @& String -> BaseIO (CPtr PyObject) */
+LEAN_EXPORT size_t nerodia_py_object_get_attr_by_string(b_lean_obj_arg self, b_lean_obj_arg attr_name) {
+  return (size_t)PyObject_GetAttrString(nerodia_to_object(self), lean_string_cstr(attr_name));
+}
+
 /* ### Types */
 
 LEAN_EXPORT lean_obj_res nerodia_py_object_type(b_lean_obj_arg self) {
