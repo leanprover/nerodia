@@ -56,10 +56,10 @@ private opaque PyContext.nonemptyType : NonemptyType.{0}
 
 /--
 Reference holder for the Python environment.
-When this object is freed, Python will be unitialized.
+When this object is freed, Python will be uninitialized.
 
 Python objects created by Nerodia implicitly hold a reference to the context,
-so the context will not be freed until all Python objects managed to Lean
+so the context will not be freed until all Python objects managed by Lean
 are freed.
 -/
 public def PyContext := PyContext.nonemptyType.type
@@ -107,7 +107,7 @@ namespace PyObject
 public opaque addr (self : @& PyObject) : USize
 
 /--
-Returns a borrowed reference to Python object's raw unmaneged C pointer.
+Returns a borrowed reference to Python object's raw unmanaged C pointer.
 
 **This function is not memory safe.** It is the user's responsibility to
 ensure that this pointer does not outlive {lean}`self`.
@@ -115,7 +115,7 @@ ensure that this pointer does not outlive {lean}`self`.
 @[inline] def borrow (self : PyObject) : CPtr PyObject :=
   ⟨self.addr, fun _ => ⟨self⟩⟩
 
-/-- Returns a reference to the Python enviroment this object is within. -/
+/-- Returns a reference to the Python environment this object is within. -/
 @[extern "nerodia_py_object_ctx"]
 public opaque ctx (self : @& PyObject) : PyContext
 
@@ -134,11 +134,11 @@ accepting the cost of a potential future breakage in the event of an unlikely,
 massive Python refactor.
 -/
 
-/-- Returns whether this type is a instance of {lit}`type`. -/
+/-- Returns whether this type is an instance of {lit}`type`. -/
 @[extern "nerodia_py_object_is_type_instance"]
 public opaque isTypeInstance (self : @& PyObject) : Bool
 
-/-- Returns whether this type is a instance of {lit}`str`. -/
+/-- Returns whether this type is an instance of {lit}`str`. -/
 @[extern "nerodia_py_object_is_str_instance"]
 public opaque isStrInstance (self : @& PyObject) : Bool
 
@@ -150,7 +150,7 @@ end PyObject
 A Python type object.
 
 In practice, these are instances of {lit}`type` or one of its subclasses,
-but that is not guarenteed by the Limited API.
+but that is not guaranteed by the Limited API.
 
 See https://docs.python.org/3/c-api/type.html#c.PyTypeObject
 -/
@@ -171,7 +171,7 @@ public structure PyException extends toBaseException : PyBaseException where
 public instance : Coe PyException PyBaseException :=
   ⟨PyException.toBaseException⟩
 
-/-- A Python base exception object. That is, an instance of {lit}`SystemError`. -/
+/-- A Python system error object. That is, an instance of {lit}`SystemError`. -/
 public structure PySystemError extends toException : PyException where
   private innerMk ::
     deriving Nonempty
@@ -223,6 +223,7 @@ end PyContext
 
 /-! ## Monad -/
 
+/-- Type class of monads equipped with a Python environment. -/
 public class MonadPy (m : Type → Type u) where
   getPyContext : m PyContext
 
@@ -235,13 +236,18 @@ public instance [MonadLift m n] [MonadPy m] :MonadPy n where
 public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
   getPyContext >>= (·.clearError)
 
+/-- A monad transformer to equip a monad with a Python environment. -/
 public abbrev PyT := ReaderT PyContext
-public abbrev PyBaseIO := PyT BaseIO
-public abbrev PyIO := PyT (EIO PyBaseException)
 
 namespace PyT
 public instance [Monad m] : MonadPy (PyT m) := ⟨read⟩
 end PyT
+
+/-- The primary monad for impure code using Python. -/
+public abbrev PyIO := PyT (EIO PyBaseException)
+
+/-- A monad for impure code using Python. Unlike {lean}`PyIO`, it cannot error. -/
+public abbrev PyBaseIO := PyT BaseIO
 
 @[inline] public def PyIO.toEIO (x : PyIO α) : EIO PyBaseException α := do
   x.run (← PyContext.init)
@@ -260,44 +266,31 @@ public instance : MonadEval PyBaseIO BaseIO := ⟨PyBaseIO.toBaseIO⟩
 
 end PyBaseIO
 
-@[expose] -- for codegen
-public def CPyT (m : Type → Type v) (α : Type) :=
-  m (CPtr α)
-
-namespace CPyT
-
-@[inline] def mk (x : m (CPtr α)) : CPyT m α :=
-  x
-
-instance [Monad m] : Nonempty (CPyT m α) := ⟨mk <| pure .null⟩
-
-
-@[inline] def runUnsafe (x : CPyT m α) : m (CPtr α) :=
-  x
-
-end CPyT
-
-/-
+/--
 Return context for external CPython functions.
 
-Lifts only into `CPyT`, as it requires the Python context from it to run.
+Not a monad itself, but lifts into monads equipped with a Python environment.
 -/
-public abbrev CPyIO (α) :=  CPyT BaseIO α
+@[expose] -- for codegen
+public def CPyIO (α) :=
+  BaseIO (CPtr α)
 
 namespace CPyIO
 
-@[inline] def mk (x : BaseIO (CPtr α)) : CPyIO α :=
+/-- Constructs a {lean}`CPyIO` function from its definition. -/
+@[inline] public def mk (x : BaseIO (CPtr α)) : CPyIO α :=
   x
 
-instance : Nonempty (CPyIO α) := ⟨mk <| pure .null⟩
+public instance : Nonempty (CPyIO α) := ⟨mk <| pure .null⟩
 
-@[inline] def toBaseIO (x : CPyIO α) : BaseIO (CPtr α) :=
+/--
+Runs the {lean}`CPyIO` function, returning the raw, unmanaged pointer.
+
+**This function is not memory safe.** It is the user's responsibility to ensure
+that a Python environment exists and the returned pointer does not outlive it.
+-/
+@[inline] def runUnsafe (x : CPyIO α) : BaseIO (CPtr α) :=
   x
-
-@[inline] public def toCPyT [MonadLiftT BaseIO m] (x : CPyIO α) : CPyT m α :=
-  .mk x.toBaseIO
-
-public instance [MonadLiftT BaseIO m] [Monad m] : MonadLift CPyIO (CPyT m) := ⟨toCPyT⟩
 
 end CPyIO
 
@@ -308,17 +301,20 @@ If none has been raised, returns {lean}`none`.
 @[extern "nerodia_get_raised_exception"]
 public opaque getRaisedException : CPyIO PyBaseException
 
-/-- {lit}`SystemError` for when the C FFI does not set an exception. -/
+/-- The {lit}`SystemError` for when the C FFI does not set an exception. -/
 @[extern "nerodia_py_context_ffi_error"]
 public opaque PyContext.ffiError (msg : PyContext) : PySystemError
 
-namespace CPyT
+namespace CPyIO
 
+/--
+Runs the {lean}`CPyIO` function in a supporting monad.
+If a Python error occurs, it is raised via {name}`throw`.
+-/
 @[inline] public def run
   [Monad m] [MonadPy m]
-  [MonadExcept PyBaseException m]
-  [MonadLiftT BaseIO m]  [MonadLiftT n m]
-  (x : CPyT n α)
+  [MonadExcept PyBaseException m] [MonadLiftT BaseIO m]
+  (x : CPyIO α)
 : m α := do
   let ctx ← getPyContext
   let ptr ← x.runUnsafe
@@ -331,10 +327,41 @@ namespace CPyT
   else
     return ctx.mkObject ptr h
 
+/--
+Runs the {lean}`CPyIO` function in a supporting monad
+If a Python error occurs, it is set as the exception.
+-/
+public abbrev toExceptT
+  [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
+: ExceptT PyBaseException m α := x.run
+
+/-- Lifts the {lean}`CPyIO` function into {lean}`PyIO`, reusing its Python context.
+-/
+@[inline] public def toPyIO (x : CPyIO α) : PyIO α :=
+  x.run
+
+public instance : MonadLift CPyIO PyIO := ⟨toPyIO⟩
+
+/--
+Runs the {lean}`CPyIO` function in {lean}`EIO`.
+
+This creates a new temporary Python context for the call.
+As such, it should only be used when a Python context is not available.
+Otherwise, run {lean}`x` via {name}`run` or lift it into {lean}`PyIO`
+(via {lean}`toPyIO`) and run it from there.
+-/
+@[inline] public def toEIO (x : CPyIO α) : EIO PyBaseException α :=
+  have : MonadPy BaseIO := ⟨PyContext.init⟩
+  x.run
+
+/--
+Runs the {lean}`CPyIO` function in a supporting monad.
+If a Python error occurs, it is cleared and {name}`failure` is called.
+-/
 @[inline] public def run'
-  [Monad m] [MonadPy m] [Alternative m]
-  [MonadLiftT BaseIO m] [MonadLiftT n m]
-  (x : CPyT n α)
+  [Monad m] [MonadPy m]
+  [Alternative m] [MonadLiftT BaseIO m]
+  (x : CPyIO α)
 : m α := do
   let ctx ← getPyContext
   let ptr ← x.runUnsafe
@@ -344,36 +371,25 @@ namespace CPyT
   else
     return ctx.mkObject ptr h
 
+/--
+Runs the {lean}`CPyIO` function in a supporting monad
+If a Python error occurs, it is cleared and {lean}`none` is set.
+-/
 public abbrev toOptionT
-  [Monad m] [MonadPy m]
-  [MonadLiftT BaseIO m] [MonadLiftT n m]
-  (x : CPyT n α)
+  [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
 : OptionT m α := x.run'
 
-public abbrev toExceptT
-  [Monad m] [MonadPy m]
-  [MonadLiftT BaseIO m] [MonadLiftT n m]
-  (x : CPyT n α)
-: ExceptT PyBaseException m α := x.run
-
+/--
+Runs the {lean}`CPyIO` function in a supporting monad.
+If a Python error occurs, it is cleared and {lean}`none` is returned.
+-/
 public abbrev run?
-  [Monad m] [MonadPy m]
-  [MonadLiftT BaseIO m] [MonadLiftT n m]
-  (x : CPyT n α)
+  [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
 : m (Option α) := x.toOptionT.run
 
-end CPyT
+end CPyIO
 
 namespace CPyIO
-
-@[inline] public def toPyIO (x : CPyIO α) : PyIO α :=
-  x.run
-
-public instance : MonadLift CPyIO PyIO := ⟨toPyIO⟩
-
-@[inline] public def toEIO (x : CPyIO α) : EIO PyBaseException α :=
-  have : MonadPy BaseIO := ⟨PyContext.init⟩
-  x.run
 
 end CPyIO
 
@@ -422,11 +438,12 @@ public opaque PyObject.getAttrByString
 
 /-! ## Strings & ByteArray -/
 
+/-- Creates a Python string from a Lean string. -/
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
 /--
-Compute a string representation of the object {lean}`self`.
+Computes a string representation of the object {lean}`self`.
 
 This is equivalent to the Python expression {lit}`str(self)`.
 -/
@@ -434,7 +451,7 @@ This is equivalent to the Python expression {lit}`str(self)`.
 public opaque PyObject.str (self : @& PyObject) : CPyIO PyStr
 
 /--
-Compute a string representation of the object {lean}`self`.
+Computes a string representation of the object {lean}`self`.
 
 This is equivalent to the Python expression {lit}`repr(self)`.
 -/
@@ -461,6 +478,27 @@ public opaque PyBytes.toByteArray (self : @& PyBytes) : ByteArray
 
 namespace PyIO
 
+/--
+Runs the {lean}`PyIO` function in {lean}`IO`.
+
+Python errors will be formatted in the standard Python convention and
+reported as {lean}`IO.userError`.
+
+This creates a new temporary Python context for the call.
+As such, it should only be used when a Python context is not available.
+For example, this can be used in {lit}`main` to run a {lean}`PyIO` function.
+It is also used to run {lean}`PyIO` in `#eval`.
+
+**Example**
+```lean
+def main : IO Unit := do
+  let pyVer ← Nerodia.PyIO.toIO do
+    let sys ← Nerodia.import "sys"
+    let ver ← sys.getAttrByString "version"
+    ver.str
+  IO.println pyVer.toString
+```
+-/
 @[inline] public def toIO (x : PyIO α) : IO α := do
   let ctx ← PyContext.init
   match (← x.run ctx |>.toBaseIO) with
@@ -490,6 +528,12 @@ end PyIO
 
 namespace CPyIO
 
+/--
+Runs the {lean}`CPyIO` function in {lean}`IO`.
+
+This is accomplished by lifting {lean}`CPyIO` to {lean}`PyIO` and
+then running it via {lean}`PyIO.toIO`, so refer to it for more details.
+-/
 @[inline] public def toIO (x : CPyIO α) : IO α := do
   x.toPyIO.toIO
 

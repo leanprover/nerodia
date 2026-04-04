@@ -104,5 +104,6 @@ script test do
         unless out == py.version do
           error s!"incorrect output: expected\
             \n  {py.version}\
-            \n got {out}"
+            \ngot\
+            \n  {out}"
   return 0

@@ -118,7 +118,7 @@ lean_obj_res nerodia_of_object_core(PyObject* o) {
 }
 
 static inline lean_obj_res nerodia_of_object(PyObject* o, lean_obj_arg ctx) {
-  // convert reference to `ctx` to a gloal reference to the Python environment
+  // convert reference to `ctx` to a global reference to the Python environment
   atomic_fetch_add(&g_py_holders, 1);
   lean_dec_ref(ctx);
   return nerodia_of_object_core(o);
