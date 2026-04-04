@@ -31,11 +31,17 @@ else:
 if not os.path.exists(libPath):
   raise FileNotFoundError(f"expected Python library at {libPath}")
 
+# include has the Python C API headers; platinclude has pyconfig.h
+# both matter if CPython is built with differing --prefix and --exec-prefix
+include = sysconfig.get_path('include')
+platinclude = sysconfig.get_path('platinclude')
+includeDirs = [include] if include == platinclude else [include, platinclude]
+
 cfg = {
   "version": sys.version,
   "hexVersion": sys.hexversion,
   "libName": libName,
-  "includeDir": sysconfig.get_path('include'),
+  "includeDirs": includeDirs,
   "libPath": libPath,
 }
 

@@ -13,7 +13,7 @@ structure PyConfig where
   hexVersion : Nat
   libName : String
   libPath : FilePath
-  includeDir : FilePath
+  includeDirs : Array FilePath
   deriving ToJson, FromJson
 
 instance : QueryText PyConfig := ⟨(toJson · |>.compress)⟩
@@ -53,10 +53,8 @@ target nerodia.o pkg : FilePath := do
   (← pyconfig.fetch).bindM fun py => do
     newTrace
     let oFile := pkg.irDir / "c" / "nerodia.o"
-    let weakArgs := #[
-      s!"-I{py.includeDir}",
-      s!"-I{← getLeanIncludeDir}"
-    ]
+    let weakArgs := py.includeDirs.map (s!"-I{·}")
+      |>.push s!"-I{← getLeanIncludeDir}"
     let traceArgs := pkg.buildType.leancArgs ++ #[
       s!"-DPy_LIMITED_API={minHexVersion}",
       "-fPIC", "-std=c17", "-Wall"
