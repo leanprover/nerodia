@@ -33,7 +33,7 @@ if not os.path.exists(libPath):
 
 cfg = {
   "version": sys.version,
-  "hexVersion": hex(sys.hexversion),
+  "hexVersion": sys.hexversion,
   "libName": libName,
   "includeDir": sysconfig.get_path('include'),
   "libPath": libPath,

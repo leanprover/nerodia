@@ -10,7 +10,7 @@ package nerodia where
 
 structure PyConfig where
   version : String
-  hexVersion : String
+  hexVersion : Nat
   libName : String
   libPath : FilePath
   includeDir : FilePath
@@ -22,14 +22,19 @@ input_file pyconfigSrc where
   text := true
   path := "pyconfig.py"
 
+def minHexVersion : Nat := 0x030D00A0 -- 3.13 (a0)
+
 target pyconfig : PyConfig := do
   (← pyconfigSrc.fetch).mapM fun srcFile => do
-    let out ← captureProc {cmd := "python3", args := #[srcFile.toString]}
+    let python3 := (← IO.getEnv "PYTHON3").getD "python3"
+    let out ← captureProc {cmd := python3, args := #[srcFile.toString]}
     match Json.parse out >>= fromJson? with
-    | .ok cfg =>
+    | .ok py =>
+      unless py.hexVersion ≥ minHexVersion do
+        error s!"Nerodia requires Python 3.13+, got {py.version}"
       setTrace <| .ofHash
-        (pureHash cfg.hexVersion) s!"pyconfig: {cfg.version}"
-      return cfg
+        (pureHash py.libName) s!"pyconfig: {py.libName}"
+      return py
     | .error e =>
       error s!"configuration script produced unexpect output; {e}:\n{out}"
 
@@ -46,13 +51,14 @@ input_file nerodia.c where
 target nerodia.o pkg : FilePath := do
   let cJob ← nerodia.c.fetch
   (← pyconfig.fetch).bindM fun py => do
+    newTrace
     let oFile := pkg.irDir / "c" / "nerodia.o"
     let weakArgs := #[
       s!"-I{py.includeDir}",
       s!"-I{← getLeanIncludeDir}"
     ]
     let traceArgs := pkg.buildType.leancArgs ++ #[
-      s!"-DPy_LIMITED_API={py.hexVersion}",
+      s!"-DPy_LIMITED_API={minHexVersion}",
       "-fPIC", "-std=c17", "-Wall"
     ]
     let cc := (← IO.getEnv "CC").getD "cc"
