@@ -200,7 +200,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_none(lean_obj_arg ctx) {
   return nerodia_of_immortal_object(Py_None, ctx);
 }
 
-/* import : @& String -> BaseIO (CPtr PyModule) */
+/* import : @& String -> BaseIO (CPtr PyObject) */
 LEAN_EXPORT size_t nerodia_import(b_lean_obj_arg mod_name) {
   return (size_t)PyImport_ImportModule(lean_string_cstr(mod_name));
 }

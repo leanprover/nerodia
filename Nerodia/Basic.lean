@@ -424,9 +424,13 @@ public opaque PyObject.type (self : @& PyObject) : PyType
 
 /-! ## Module -/
 
-/-- Imports the module named {lean}`modName`. -/
+/--
+Imports the module named {lean}`modName`.
+
+In Python, the import can be anything, so this may not return a {lean}`PyModule`.
+-/
 @[extern "nerodia_import"]
-public opaque «import» (modName : @& String) : CPyIO PyModule
+public opaque «import» (modName : @& String) : CPyIO PyObject
 
 /-! ## Objects -/
 
