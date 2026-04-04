@@ -82,6 +82,9 @@ static void py_object_finalize(void* p) {
 
 LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
   py_context* pctx = malloc(sizeof(py_context));
+  if (LEAN_UNLIKELY(!pctx)) {
+    lean_internal_panic_out_of_memory();
+  }
   py_mutex_lock();
   if (g_py_main) {
     atomic_fetch_add(&g_py_holders, 1);
@@ -146,9 +149,12 @@ LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
 }
 
 LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
+  py_context* pctx = malloc(sizeof(py_context));
+  if (LEAN_UNLIKELY(!pctx)) {
+    lean_internal_panic_out_of_memory();
+  }
   // self implies `g_py_main` exists
   atomic_fetch_add(&g_py_holders, 1);
-  py_context* pctx = malloc(sizeof(py_context));
   pctx->is_main = false;
   pctx->is_initializer = false;
   pctx->gil = PyGILState_Ensure();
