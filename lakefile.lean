@@ -11,9 +11,10 @@ package nerodia where
 structure PyConfig where
   version : String
   hexVersion : Nat
-  libName : String
-  libPath : FilePath
   includeDirs : Array FilePath
+  libDir : FilePath
+  lib3 : String × FilePath
+  lib3x : String × FilePath
   deriving ToJson, FromJson
 
 instance : QueryText PyConfig := ⟨(toJson · |>.compress)⟩
@@ -33,14 +34,18 @@ target pyconfig : PyConfig := do
       unless py.hexVersion ≥ minHexVersion do
         error s!"Nerodia requires Python 3.13+, got {py.version}"
       setTrace <| .ofHash
-        (pureHash py.libName) s!"pyconfig: {py.libName}"
+        (pureHash py.lib3.1) s!"pyconfig: {py.lib3.1}"
       return py
     | .error e =>
       error s!"configuration script produced unexpect output; {e}:\n{out}"
 
 target libpython3 : Dynlib := do
   return (← pyconfig.fetch).map (sync := true) fun py =>
-    {name := py.libName, path := py.libPath}
+    {name := py.lib3.1, path := py.lib3.2}
+
+target libpython3x : Dynlib := do
+  return (← pyconfig.fetch).map (sync := true) fun py =>
+    {name := py.lib3x.1, path := py.lib3x.2}
 
 /-! ## Nerodia FFI -/
 
@@ -74,6 +79,10 @@ lean_lib NerodiaTests where
   srcDir := "tests"
   globs := #[`NerodiaTests.+]
   precompileModules := true
+  dynlibs :=
+    -- On non-Windows, libpython3 = libpython3x
+    if System.Platform.isWindows then #[libpython3x]
+    else #[]
 
 lean_exe testExe where
   srcDir := "tests"
@@ -93,7 +102,12 @@ script test do
       libJob.bindM fun _ =>
       pyJob.bindM fun py =>
       exeJob.mapM fun exeFile => do
-        let out ← captureProc {cmd := exeFile.toString}
+        let env ← id do
+          -- ensures the executable can find Python's shared libraries
+          let path ← getAugmentedSharedLibPath
+          let path : SearchPath := py.libDir :: path
+          return #[(sharedLibPathEnvVar, some path.toString)]
+        let out ← captureProc {cmd := exeFile.toString, env}
         unless out == py.version do
           error s!"incorrect output: expected\
             \n  {py.version}\
