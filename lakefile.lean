@@ -62,17 +62,12 @@ target nerodia.o pkg : FilePath := do
     let cc := (← IO.getEnv "CC").getD "cc"
     buildO oFile cJob weakArgs traceArgs cc getLeanTrace
 
-target libnerodiaffi pkg : FilePath := do
-  let libName := pkg.staticLibDir / nameToStaticLib "nerodiaffi"
-  let oJob ← nerodia.o.fetch
-  buildStaticLib libName #[oJob]
-
 /-! ## Nerodia Lean -/
 
 @[default_target]
 lean_lib Nerodia where
   defaultFacets := #[LeanLib.sharedFacet]
-  moreLinkObjs := #[libnerodiaffi]
+  moreLinkObjs := #[nerodia.o]
   moreLinkLibs := #[libpython3]
 
 lean_lib NerodiaTests where
