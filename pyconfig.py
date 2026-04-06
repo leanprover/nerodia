@@ -20,11 +20,11 @@ if ldlib and libdir and sys.platform != 'win32':
   else:
     libPath = os.path.join(libdir, ldlib)
 elif sys.platform == 'win32':
-  # Windows: python3.dll (the stable ABI DLL) is next to the interpreter.
-  # Must be checked before the POSIX fallback because recent CPython
-  # sets LIBDIR on Windows (pointing to the import library directory).
+  # Windows: python3.dll (the stable ABI DLL) lives in the install root.
+  # Use sys.base_prefix (not sys.executable) so this works inside a
+  # virtualenv, where sys.executable points to the venv's Scripts/ dir.
   libName = 'python3'
-  libPath = os.path.join(os.path.dirname(sys.executable), 'python3.dll')
+  libPath = os.path.join(sys.base_prefix, 'python3.dll')
 else:
   raise RuntimeError(f"unsupported platform: {sys.platform}")
 
