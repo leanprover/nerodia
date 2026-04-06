@@ -41,12 +41,12 @@ static PyModuleDef_Slot module_slots[] = {
 
 static struct PyModuleDef module = {
     .m_base = PyModuleDef_HEAD_INIT,
-    .m_name = "testmodule",
+    .m_name = "testmodule._native",
     .m_size = 0,
     .m_methods = module_methods,
     .m_slots = module_slots,
 };
 
-PyMODINIT_FUNC PyInit_testmodule(void) {
+PyMODINIT_FUNC PyInit__native(void) {
     return PyModuleDef_Init(&module);
 }

@@ -75,7 +75,7 @@ else:
 setuptools.setup(
     cmdclass={"build_ext": LeanBuildExt},
     ext_modules=[
-        setuptools.Extension("testmodule",
+        setuptools.Extension("testmodule._native",
             sources=["module.c"],
             include_dirs=[f"{lean_sysroot}/include"],
             library_dirs=[f"{lean_sysroot}/lib/lean"],
