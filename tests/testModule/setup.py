@@ -64,6 +64,14 @@ class LeanBuildExt(build_ext):
     super().build_extensions()
 
 
+if sys.platform == 'win32':
+  shared_libs = [
+    "Lake_shared", "Init_shared",
+    "leanshared_2", "leanshared_1", "leanshared"
+  ]
+else:
+  shared_libs = ["leanshared"]
+
 setuptools.setup(
     cmdclass={"build_ext": LeanBuildExt},
     ext_modules=[
@@ -71,7 +79,7 @@ setuptools.setup(
             sources=["module.c"],
             include_dirs=[f"{lean_sysroot}/include"],
             library_dirs=[f"{lean_sysroot}/lib/lean"],
-            libraries=["leanshared"],
+            libraries=shared_libs,
             extra_objects=static_libs,
             extra_compile_args=["-std=c17"],
         )
