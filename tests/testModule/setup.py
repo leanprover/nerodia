@@ -35,12 +35,18 @@ class LeanBuildExt(build_ext):
     from distutils.unixccompiler import UnixCCompiler
     cc = os.environ.get("CC", "cc")
     cxx = os.environ.get("CXX", "c++")
+    # macOS requires -undefined dynamic_lookup so that Python C API symbols
+    # (provided by the interpreter at load time) don't cause link errors.
+    if sys.platform == "darwin":
+      linker_so = f"{cc} -shared -undefined dynamic_lookup"
+    else:
+      linker_so = f"{cc} -shared"
     self.compiler = UnixCCompiler()
     self.compiler.set_executables(
       compiler=cc,
       compiler_so=cc,
       compiler_cxx=cxx,
-      linker_so=f"{cc} -shared",
+      linker_so=linker_so,
       linker_exe=cc,
     )
     # Re-apply command-level settings that build_ext.run()
