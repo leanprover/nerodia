@@ -9,6 +9,8 @@ jobs:
   build:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    # Do not run CI twice for branch PRs (i.e., on push and pull request).
+    if: github.event.pull_request.head.repo.full_name != github.repository
     defaults:
       run:
         shell: ${{ matrix.shell || 'bash -euo pipefail {0}' }}
