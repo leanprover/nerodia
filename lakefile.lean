@@ -71,7 +71,7 @@ target nerodia.o pkg : FilePath := do
 
 @[default_target]
 lean_lib Nerodia where
-  defaultFacets := #[LeanLib.sharedFacet]
+  defaultFacets := #[LeanLib.staticFacet, LeanLib.sharedFacet]
   moreLinkObjs := #[nerodia.o]
   moreLinkLibs := #[libpython3]
 
@@ -96,10 +96,10 @@ lean_exe testExe where
 script test do
   runBuild do
     let pyJob ← pyconfig.fetch
-    let libJob ← NerodiaTests.fetch
+    let libJob ← Nerodia.fetch
+    discard <| NerodiaTests.fetch
     let exeJob ← testExe.fetch
-    withRegisterJob "testExe test" do
-      libJob.bindM fun _ =>
+    discard <| withRegisterJob "testExe test" do
       pyJob.bindM fun py =>
       exeJob.mapM fun exeFile => do
         let env ← id do
@@ -113,4 +113,11 @@ script test do
             \n  {py.version}\
             \ngot\
             \n  {out}"
+    withRegisterJob "testModule test" <| libJob.mapM fun _ => do proc {
+      cmd := "uv",
+      args := #["-q", "run","--reinstall", "test.py"]
+      cwd := FilePath.mk "tests" / "testModule"
+      -- ensures Python can find Lean's shared libraries
+      env := ← getAugmentedEnv
+    }
   return 0

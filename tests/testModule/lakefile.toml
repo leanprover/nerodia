@@ -1,0 +1,11 @@
+name = "test"
+defaultTargets = ["Test"]
+
+[[require]]
+name = "nerodia"
+path = "../.."
+
+[[lean_lib]]
+name = "Test"
+defaultFacets = ["static"]
+libPrefixOnWindows = true
