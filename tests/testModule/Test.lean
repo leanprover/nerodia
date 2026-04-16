@@ -7,6 +7,13 @@ import Nerodia
 
 open Nerodia
 
-@[export test_mk_greeting]
-def mkGreeting : CPyIO PyStr := do
-  mkPyStr "hello"
+@[export test_greeting_for]
+def greetingFor (s : PyObject) : CPyIO PyStr :=
+  if h : s.isStrInstance then
+    mkPyStr s!"Hello, {PyStr.mk s h}!"
+  else raisePyTypeError "argument must be str"
+
+@[export test_init_module]
+def initModule : PyModuleInit := .ofPyIO fun mod => do
+  let greeting ← mkPyStr "Hello!"
+  mod.addByString "greeting" greeting
