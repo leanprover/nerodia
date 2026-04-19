@@ -44,7 +44,7 @@ class LeanBuildExt(build_ext):
     self.compiler = UnixCCompiler()
     self.compiler.set_executables(
       compiler=cc,
-      compiler_so=cc,
+      compiler_so=f"{cc} -fPIC",
       compiler_cxx=cxx,
       linker_so=linker_so,
       linker_exe=cc,
