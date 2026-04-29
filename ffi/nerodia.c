@@ -35,12 +35,15 @@ static void nop_foreach(void* p, b_lean_obj_arg f) {
 }
 
 typedef struct {
-  bool is_main;
   bool is_initializer;
+} py_main;
+
+typedef struct {
   PyGILState_STATE gil;
 } py_context;
 
-static py_context* g_py_main = NULL;
+static py_main g_py_main;
+static bool g_py_initialized = false;
 static atomic_int g_py_holders = 0;
 
 static lean_external_class* g_py_context_external_class = NULL;
@@ -49,23 +52,19 @@ static lean_external_class* g_py_object_external_class = NULL;
 static void py_finalize_holder() {
   py_mutex_lock();
   if (atomic_load(&g_py_holders) == 0) {
-    if (g_py_main->is_initializer) {
+    if (g_py_main.is_initializer) {
+      PyGILState_Ensure();
       Py_Finalize();
-    } else {
-      PyGILState_Release(g_py_main->gil);
     }
-    free(g_py_main);
-    g_py_main = NULL;
+    g_py_initialized = false;
   }
   py_mutex_unlock();
 }
 
 static void py_context_finalize(void* p) {
   py_context* pctx = (py_context*)p;
-  if (!pctx->is_main) {
-    PyGILState_Release(pctx->gil);
-    free(pctx);
-  }
+  PyGILState_Release(pctx->gil);
+  free(pctx);
   if (atomic_fetch_sub(&g_py_holders, 1) == 1) {
     py_finalize_holder();
   }
@@ -86,11 +85,9 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
     lean_internal_panic_out_of_memory();
   }
   py_mutex_lock();
-  if (g_py_main) {
+  if (g_py_initialized) {
     atomic_fetch_add(&g_py_holders, 1);
     py_mutex_unlock();
-    pctx->is_main = false;
-    pctx->is_initializer = false;
     pctx->gil = PyGILState_Ensure();
     return lean_alloc_external(g_py_context_external_class, pctx);
   }
@@ -102,17 +99,21 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
     g_py_object_external_class = lean_register_external_class(
       py_object_finalize, nop_foreach);
   }
-  pctx->is_main = true;
   if (Py_IsInitialized()) {
-    pctx->is_initializer = false;
-    pctx->gil = PyGILState_Ensure();
+    g_py_main.is_initializer = false;
   } else {
+    g_py_main.is_initializer = true;
     Py_Initialize();
-    pctx->is_initializer = true;
+    // Release the initial GIL and discard the main thread state.
+    // Note: Ideally, we could save the main thread state and restore it in
+    // `py_finalize_holder`. However, there is no clear way to ensure both
+    // happen in the same thread, so we take this approach instead.
+    PyEval_SaveThread();
   }
-  g_py_main = pctx;
+  g_py_initialized = true;
   atomic_store(&g_py_holders, 1);
   py_mutex_unlock();
+  pctx->gil = PyGILState_Ensure();
   return lean_alloc_external(g_py_context_external_class, pctx);
 }
 
@@ -155,8 +156,6 @@ LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
   }
   // self implies `g_py_main` exists
   atomic_fetch_add(&g_py_holders, 1);
-  pctx->is_main = false;
-  pctx->is_initializer = false;
   pctx->gil = PyGILState_Ensure();
   return lean_alloc_external(g_py_context_external_class, pctx);
 }
