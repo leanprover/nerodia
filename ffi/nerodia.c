@@ -42,7 +42,8 @@ typedef struct {
   PyGILState_STATE gil;
 } py_context;
 
-static py_main* g_py_main = NULL;
+static py_main g_py_main;
+static bool g_py_initialized = false;
 static atomic_int g_py_holders = 0;
 
 static lean_external_class* g_py_context_external_class = NULL;
@@ -51,12 +52,11 @@ static lean_external_class* g_py_object_external_class = NULL;
 static void py_finalize_holder() {
   py_mutex_lock();
   if (atomic_load(&g_py_holders) == 0) {
-    if (g_py_main->is_initializer) {
+    if (g_py_main.is_initializer) {
       PyGILState_Ensure();
       Py_Finalize();
     }
-    free(g_py_main);
-    g_py_main = NULL;
+    g_py_initialized = false;
   }
   py_mutex_unlock();
 }
@@ -85,17 +85,11 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
     lean_internal_panic_out_of_memory();
   }
   py_mutex_lock();
-  if (g_py_main) {
+  if (g_py_initialized) {
     atomic_fetch_add(&g_py_holders, 1);
     py_mutex_unlock();
     pctx->gil = PyGILState_Ensure();
     return lean_alloc_external(g_py_context_external_class, pctx);
-  }
-  py_main* pmain = malloc(sizeof(py_main));
-  if (LEAN_UNLIKELY(!pmain)) {
-    py_mutex_unlock();
-    free(pctx);
-    lean_internal_panic_out_of_memory();
   }
   if (!g_py_context_external_class) {
     g_py_context_external_class = lean_register_external_class(
@@ -106,9 +100,9 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
       py_object_finalize, nop_foreach);
   }
   if (Py_IsInitialized()) {
-    pmain->is_initializer = false;
+    g_py_main.is_initializer = false;
   } else {
-    pmain->is_initializer = true;
+    g_py_main.is_initializer = true;
     Py_Initialize();
     // Release the initial GIL and discard the main thread state.
     // Note: Ideally, we could save the main thread state and restore it in
@@ -116,7 +110,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
     // happen in the same thread, so we take this approach instead.
     PyEval_SaveThread();
   }
-  g_py_main = pmain;
+  g_py_initialized = true;
   atomic_store(&g_py_holders, 1);
   py_mutex_unlock();
   pctx->gil = PyGILState_Ensure();
