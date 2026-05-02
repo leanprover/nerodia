@@ -6,14 +6,10 @@ Authors: Mac Malone
 #include <Python.h>
 #include <lean/lean.h>
 
-// Lean primtiives
-//void lean_initialize(); // if uses Lean.*
-void lean_initialize_runtime_module(); // otherwise
-//lean_object* lean_enable_initializer_execution(); // for custom initializers
-
 // Nerodia primtiives
+void nerodia_initialize_lean(void);
 lean_obj_res nerodia_py_context_mk_object(b_lean_obj_arg ctx, size_t ptr);
-lean_obj_res nerodia_py_context_init();
+lean_obj_res nerodia_py_context_init(void);
 
 // Module functions
 lean_object* initialize_test_Test(uint8_t builtin);
@@ -21,12 +17,8 @@ size_t test_greeting_for(lean_obj_arg msg);
 int32_t test_init_module(lean_obj_arg mod, b_lean_obj_arg ctx);
 
 static int module_exec(PyObject *m) {
-  lean_object* res;
-  // TOOD: do not re-intialize on reimport
-  lean_initialize_runtime_module();
-  // res = lean_enable_initializer_execution(); // cannot actually fail
-  // lean_dec_ref(res);
-  res = initialize_test_Test(true);
+  nerodia_initialize_lean();
+  lean_object* res = initialize_test_Test(true);
   if (lean_io_result_is_error(res)) {
     lean_dec_ref(res);
     // TODO: Error class for Lean errors
@@ -35,7 +27,6 @@ static int module_exec(PyObject *m) {
     return -1;
   }
   lean_dec_ref(res);
-  lean_io_mark_end_initialization();
   lean_obj_arg ctx = nerodia_py_context_init();
   lean_obj_arg mod = nerodia_py_context_mk_object(ctx, (size_t)m);
   int ok = test_init_module(mod, ctx);

@@ -144,7 +144,28 @@ static inline PyTypeObject* nerodia_to_type_object(b_lean_obj_arg o) {
   return (PyTypeObject*)nerodia_to_object(o);
 }
 
-/* ## API */
+/* ## Python C Extension API */
+
+void lean_initialize(void);
+uint8_t lean_io_initializing(void);
+
+/** Initializes Nerodia for use in a Python extension.  */
+LEAN_EXPORT void nerodia_initialize_lean(void) {
+  // Remark: This function many be called from multiple Lean extension imports,
+  // or if Lean code imports a Python module which imports Lean code, so it must
+  // be idempotent and race-free in all cases.
+  py_mutex_lock();
+  if (lean_io_initializing()) {
+    // Remark: Consider use of `lean_setup_args` via `Py_GetArgcArgv`.
+    // However, it is not clear whether there is a good way to keep them in sync.
+    lean_initialize();
+    lean_init_task_manager();
+    lean_io_mark_end_initialization();
+  }
+  py_mutex_unlock();
+}
+
+/* ## Lean API */
 
 LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
   return (size_t)nerodia_to_object(self);
