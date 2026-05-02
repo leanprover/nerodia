@@ -9,3 +9,6 @@ path = "../.."
 name = "Test"
 defaultFacets = ["static"]
 libPrefixOnWindows = true
+
+[[lean_exe]]
+name = "lpl"

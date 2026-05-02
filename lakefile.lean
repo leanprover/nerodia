@@ -100,24 +100,49 @@ script test do
     discard <| NerodiaTests.fetch
     let exeJob ← testExe.fetch
     discard <| withRegisterJob "testExe test" do
-      pyJob.bindM fun py =>
+      pyJob.bindM (sync := true) fun py =>
       exeJob.mapM fun exeFile => do
-        let env ← id do
-          -- ensures the executable can find Python's shared libraries
-          let path ← getAugmentedSharedLibPath
-          let path : SearchPath := py.libDir :: path
-          return #[(sharedLibPathEnvVar, some path.toString)]
-        let out ← captureProc {cmd := exeFile.toString, env}
-        unless out == py.version do
-          error s!"incorrect output: expected\
-            \n  {py.version}\
-            \ngot\
-            \n  {out}"
-    withRegisterJob "testModule test" <| libJob.mapM fun _ => do proc {
+        let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
+        validateOutput py.version out
+    let installJob ← withRegisterJob "testModule install" <| libJob.mapM fun _ => do proc {
       cmd := "uv",
-      args := #["-q", "run","--reinstall", "test.py"]
+      args := #["-q", "sync", "--reinstall"]
       cwd := FilePath.mk "tests" / "testModule"
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
+    discard <| withRegisterJob "testModule test" <| installJob.mapM fun _ => do proc {
+      cmd := "uv",
+      args := #["-q", "run", "test.py"]
+      cwd := FilePath.mk "tests" / "testModule"
+      -- ensures Python can find Lean's shared libraries
+      env := ← getAugmentedEnv
+    }
+    withRegisterJob "testModule lpl" do
+      pyJob.bindM (sync := true) fun py =>
+      installJob.mapM fun _ => do
+      let lpl ← captureProc {
+        cmd := (← getLake).toString,
+        args := #["query", "lpl"]
+        cwd := FilePath.mk "tests" / "testModule"
+      }
+      let out ← captureProc {
+        cmd := "uv",
+        args := #["-q", "run", lpl]
+        cwd := FilePath.mk "tests" / "testModule"
+        env := ← getPyEnv py
+      }
+      validateOutput "Hello!" out
   return 0
+where
+  @[inline] validateOutput (expected actual : String) := do
+    unless actual == expected do
+      error s!"incorrect output: expected\
+        \n  {expected}\
+        \ngot\
+        \n  {actual}"
+  @[inline] getPyEnv py := do
+      -- ensures the executable can find Python's shared libraries
+      let path ← getAugmentedSharedLibPath
+      let path : SearchPath := py.libDir :: path
+      return #[(sharedLibPathEnvVar, some path.toString)]
