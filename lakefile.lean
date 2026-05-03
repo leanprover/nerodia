@@ -13,7 +13,6 @@ structure PyConfig where
   version : String
   hexVersion : Nat
   includeDirs : Array FilePath
-  venvLauncher : FilePath
   libDir : FilePath
   lib3 : String × FilePath
   lib3x : String × FilePath
@@ -106,7 +105,7 @@ script test do
     discard <| withRegisterJob "testExe test" do
       pyJob.bindM (sync := true) fun py =>
       exeJob.mapM fun exeFile => do
-        let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py pkgDir}
+        let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
         validateOutput py.version out
     let installJob ← withRegisterJob "testModule install" <| libJob.mapM fun _ => do proc {
       cmd := "uv",
@@ -122,18 +121,25 @@ script test do
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
-    withRegisterJob "testModule lpl" do
-      pyJob.bindM (sync := true) fun py =>
-      installJob.mapM fun _ => do
-      let lpl ← captureProc {
-        cmd := (← getLake).toString,
-        args := #["query", "lpl"]
+    withRegisterJob "testModule lpl" <| installJob.mapM fun _ => do
+      let out ← captureProc {
+        cmd := "uv",
+        args := #["run", "--no-sync", (← getLake).toString, "query", "--json", "lpl", "pyconfig"]
         cwd := testModuleDir
+        env := ← getAugmentedEnv
       }
+      let [lpl, pyconfig] := out.lines.toStringList
+        | error s!"unexpected lake output: {out}"
+      let lpl ← match Json.parse lpl >>= fromJson? with
+        | .ok a => pure a
+        | .error e => error s!"invalid executable path; {e}:\n{out}"
+      let pyconfig ← match Json.parse pyconfig >>= fromJson? with
+        | .ok a => pure a
+        | .error e => error s!"invalid python configuration; {e}:\n{out}"
       let out ← captureProc {
         cmd := lpl,
         cwd := testModuleDir
-        env := ← getPyEnv py testModuleDir
+        env := ← getPyEnv pyconfig
       }
       validateOutput "Hello!" out
   return 0
@@ -144,12 +150,12 @@ where
         \n  {expected}\
         \ngot\
         \n  {actual}"
-  getPyEnv py cwd := do
+  getPyEnv py := do
     -- ensures the executable can find Python's shared libraries
     let libPath ← getAugmentedSharedLibPath
     let libPath : SearchPath := py.libDir :: libPath
     return #[
       (sharedLibPathEnvVar, some libPath.toString),
-      -- activate the venv for embedded Python (CPython's getpath.py uses this)
-      ("__PYVENV_LAUNCHER__", some (cwd / ".venv" / py.venvLauncher).toString),
+      -- activate the venv for embedded Python if necessary
+      ("__PYVENV_LAUNCHER__", some py.exe.toString),
     ]
