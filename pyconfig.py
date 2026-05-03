@@ -44,10 +44,8 @@ include_dirs = [include] if include == platinclude else [include, platinclude]
 
 # the platform-dependent relative path of the Python executable within a virtual environment
 # useful for setting __PYVENV_LAUNCHER__ to activate a venv for embedded Python
-if sys.platform == 'win32':
-  venv_launcher = os.path.join('Scripts', 'python.exe')
-else:
-  venv_launcher = os.path.join('bin', 'python3')
+scripts_rel = sysconfig.get_path('scripts', vars={'base': '', 'platbase': ''}).lstrip(os.sep)
+venv_launcher = os.path.join(scripts_rel, os.path.basename(sys.executable))
 
 cfg = {
   "version": sys.version,
