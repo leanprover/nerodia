@@ -9,6 +9,7 @@ package nerodia where
 /-! ## Python -/
 
 structure PyConfig where
+  exe : FilePath
   version : String
   hexVersion : Nat
   includeDirs : Array FilePath

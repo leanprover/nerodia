@@ -48,6 +48,7 @@ scripts_rel = sysconfig.get_path('scripts', vars={'base': '', 'platbase': ''}).l
 venv_launcher = os.path.join(scripts_rel, os.path.basename(sys.executable))
 
 cfg = {
+  "exe": sys.executable,
   "version": sys.version,
   "hexVersion": sys.hexversion,
   "includeDirs": include_dirs,
