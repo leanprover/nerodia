@@ -28,7 +28,9 @@ def minHexVersion : Nat := 0x030D00A0 -- 3.13 (a0)
 
 target pyconfig : PyConfig := do
   (← pyconfigSrc.fetch).mapM fun srcFile => do
-    let python3 := (← IO.getEnv "PYTHON3").getD "python3"
+    let python3 := (← IO.getEnv "PYTHON3").getD <|
+      -- `python3` aliases are not standard on Windows
+      if System.Platform.isWindows then "python" else "python3"
     let out ← captureProc {cmd := python3, args := #[srcFile.toString]}
     match Json.parse out >>= fromJson? with
     | .ok py =>
