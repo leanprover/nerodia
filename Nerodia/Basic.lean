@@ -563,8 +563,8 @@ public def PyMethO :=
   (x : (self : PyObject) → (arg : PyObject) → PyIO PyObject)
 : PyMethO := fun self arg h_self h_arg => CPyIO.mk do
   let ctx ← PyContext.init
-  let x := x (ctx.mkObjectRef self h_self) (ctx.mkObjectRef arg h_arg) ctx
-  match (← x.toBaseIO) with
+  let res ← x (ctx.mkObjectRef self h_self) (ctx.mkObjectRef arg h_arg) ctx |>.toBaseIO
+  match res with
   | .ok res =>
     return res.newRefUnsafe
   | .error e =>
@@ -576,12 +576,14 @@ public def PyMethO :=
 /-- The type of a Python module initialization function. -/
 @[expose] -- for codegen
 public def PyModuleInit :=
-  PyModule → @& PyContext → CPyUnitIO
+  (mod : CPtr PyModule) → ¬ mod.IsNull → CPyUnitIO
 
 @[inline] public def PyModuleInit.ofPyIO
   (x : PyModule → PyIO Unit)
-: PyModuleInit := fun mod ctx => do
-  match (← (x mod ctx).toBaseIO) with
+: PyModuleInit := fun mod h => do
+  let ctx ← PyContext.init
+  let res ← x (ctx.mkObjectRef mod h) ctx |>.toBaseIO
+  match res with
   | .ok _ =>
     CPyUnitIO.ok
   | .error e =>

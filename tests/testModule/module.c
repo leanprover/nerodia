@@ -14,7 +14,7 @@ lean_obj_res nerodia_py_context_init(void);
 // Module functions
 lean_object* initialize_test_Test(uint8_t builtin);
 size_t test_greeting_for(size_t self, size_t arg);
-int32_t test_init_module(lean_obj_arg mod, b_lean_obj_arg ctx);
+int32_t test_init_module(size_t mod);
 
 static int module_exec(PyObject *m) {
   nerodia_initialize_lean();
@@ -27,11 +27,7 @@ static int module_exec(PyObject *m) {
     return -1;
   }
   lean_dec_ref(res);
-  lean_obj_arg ctx = nerodia_py_context_init();
-  lean_obj_arg mod = nerodia_py_context_mk_object(ctx, (size_t)Py_NewRef(m));
-  int ok = test_init_module(mod, ctx);
-  lean_dec_ref(ctx);
-  return ok;
+  return test_init_module((size_t)m);
 }
 
 static PyMethodDef module_methods[] = {
