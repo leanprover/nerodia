@@ -193,6 +193,13 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object(b_lean_obj_arg ctx, size_t
   return nerodia_of_object_core((PyObject*)ptr);
 }
 
+/* mkObjectRef : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
+LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object_ref(b_lean_obj_arg ctx, size_t ptr) {
+  // the object holds a global reference to the Python environment
+  atomic_fetch_add(&g_py_holders, 1);
+  return nerodia_of_object_core(Py_NewRef((PyObject*)ptr));
+}
+
 /* clearError : @& PyContext -> BaseIO Unit */
 LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(b_lean_obj_arg ctx) {
   PyErr_Clear();

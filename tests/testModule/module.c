@@ -13,7 +13,7 @@ lean_obj_res nerodia_py_context_init(void);
 
 // Module functions
 lean_object* initialize_test_Test(uint8_t builtin);
-size_t test_greeting_for(lean_obj_arg msg);
+size_t test_greeting_for(size_t self, size_t arg);
 int32_t test_init_module(lean_obj_arg mod, b_lean_obj_arg ctx);
 
 static int module_exec(PyObject *m) {
@@ -28,20 +28,14 @@ static int module_exec(PyObject *m) {
   }
   lean_dec_ref(res);
   lean_obj_arg ctx = nerodia_py_context_init();
-  lean_obj_arg mod = nerodia_py_context_mk_object(ctx, (size_t)m);
+  lean_obj_arg mod = nerodia_py_context_mk_object(ctx, (size_t)Py_NewRef(m));
   int ok = test_init_module(mod, ctx);
   lean_dec_ref(ctx);
   return ok;
 }
 
-static PyObject* greeting_for(PyObject* self, PyObject* arg) {
-  lean_object* ctx = nerodia_py_context_init();
-  lean_object* o = nerodia_py_context_mk_object(ctx, (size_t)arg);
-  return (PyObject*)test_greeting_for(o);
-}
-
 static PyMethodDef module_methods[] = {
-  {"greeting_for", greeting_for, METH_O, "Return a greeting."},
+  {"greeting_for", (PyCFunction)test_greeting_for, METH_O, "Return a greeting."},
   {NULL, NULL, 0, NULL}
 };
 

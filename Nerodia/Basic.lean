@@ -87,9 +87,14 @@ Otherwise, this function acquires the Python global interpreter lock (GIL).
 @[extern "nerodia_py_context_init"]
 public opaque init : BaseIO PyContext
 
-/-- Wraps a raw Python object pointer into a memory-managed Lean object. -/
+/-- Wraps a strong Python object refernce into a memory-managed Lean object. -/
 @[extern "nerodia_py_context_mk_object"]
 public opaque mkObject {α} (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
+  @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
+
+/-- Wraps a borrowed Python object referemce into a memory-managed Lean object. -/
+@[extern "nerodia_py_context_mk_object_ref"]
+public opaque mkObjectRef {α} (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
   @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
 
 /-- Clears the current exception. Does nothing if there is none. -/
@@ -547,6 +552,26 @@ opaque CPyIO.raiseUnsafe (e : CPtr PyBaseException) : CPyIO α
 /-- Raises the exception {lean}`e`.  -/
 @[inline] public def CPyIO.raise (e : PyBaseException) : CPyIO α :=
   raiseUnsafe (e.newRefUnsafe.castUnsafe (⟨·⟩))
+
+/-- The type of a Python method with a single positional argument. -/
+@[expose] -- for codegen
+public def PyMethO :=
+  (self : CPtr PyObject) → (arg : CPtr PyObject) →
+  (h_self : ¬ self.IsNull) → (h_arg : ¬ arg.IsNull) → CPyIO PyObject
+
+@[inline] public def PyMethO.ofPyIO
+  (x : (self : PyObject) → (arg : PyObject) → PyIO PyObject)
+: PyMethO := fun self arg h_self h_arg => CPyIO.mk do
+  let ctx ← PyContext.init
+  let x := x (ctx.mkObjectRef self h_self) (ctx.mkObjectRef arg h_arg) ctx
+  match (← x.toBaseIO) with
+  | .ok res =>
+    return res.newRefUnsafe
+  | .error e =>
+    -- TODO: The context should be held until after this.
+    -- However, when called from within Python (as usual), there is
+    -- no danger of the python being finalized or the GIL being lost.
+    CPyIO.raise e
 
 /-- The type of a Python module initialization function. -/
 @[expose] -- for codegen

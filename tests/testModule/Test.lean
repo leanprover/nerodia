@@ -7,8 +7,9 @@ import Nerodia
 
 open Nerodia
 
+set_option trace.compiler.ir.result true in
 @[export test_greeting_for]
-def greetingFor (s : PyObject) : CPyIO PyStr :=
+def greetingFor : PyMethO := .ofPyIO fun _ s => do
   if h : s.isStrInstance then
     mkPyStr s!"Hello, {PyStr.mk s h}!"
   else raisePyTypeError "argument must be str"
