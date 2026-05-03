@@ -12,7 +12,7 @@ structure PyConfig where
   version : String
   hexVersion : Nat
   includeDirs : Array FilePath
-  sitePackages : FilePath
+  venvLauncher : FilePath
   libDir : FilePath
   lib3 : String × FilePath
   lib3x : String × FilePath
@@ -109,7 +109,7 @@ script test do
         validateOutput py.version out
     let installJob ← withRegisterJob "testModule install" <| libJob.mapM fun _ => do proc {
       cmd := "uv",
-      args := #["-q", "sync", "--reinstall", "--no-editable"]
+      args := #["-q", "sync", "--reinstall"]
       cwd := testModuleDir
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
@@ -144,13 +144,11 @@ where
         \ngot\
         \n  {actual}"
   getPyEnv py cwd := do
-    -- ensure the executable can find Python packages
-    let pyPath ← getSearchPath "PYTHONPATH"
-    let pyPath : SearchPath := cwd / ".venv" / py.sitePackages :: pyPath
     -- ensures the executable can find Python's shared libraries
     let libPath ← getAugmentedSharedLibPath
     let libPath : SearchPath := py.libDir :: libPath
     return #[
-      ("PYTHONPATH", some pyPath.toString),
       (sharedLibPathEnvVar, some libPath.toString),
+      -- activate the venv for embedded Python (CPython's getpath.py uses this)
+      ("__PYVENV_LAUNCHER__", some (cwd / ".venv" / py.venvLauncher).toString),
     ]
