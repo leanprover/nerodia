@@ -79,6 +79,7 @@ static void py_object_finalize(void* p) {
   }
 }
 
+/* init :  BaseIO PyContext */
 LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
   py_context* pctx = malloc(sizeof(py_context));
   if (LEAN_UNLIKELY(!pctx)) {
@@ -143,10 +144,35 @@ static inline PyTypeObject* nerodia_to_type_object(b_lean_obj_arg o) {
   return (PyTypeObject*)nerodia_to_object(o);
 }
 
-/* ## API */
+/* ## Python C Extension API */
+
+void lean_initialize(void);
+uint8_t lean_io_initializing(void);
+
+/** Initializes Nerodia for use in a Python extension.  */
+LEAN_EXPORT void nerodia_initialize_lean(void) {
+  // Remark: This function many be called from multiple Lean extension imports,
+  // or if Lean code imports a Python module which imports Lean code, so it must
+  // be idempotent and race-free in all cases.
+  py_mutex_lock();
+  if (lean_io_initializing()) {
+    // Remark: Consider use of `lean_setup_args` via `Py_GetArgcArgv`.
+    // However, it is not clear whether there is a good way to keep them in sync.
+    lean_initialize();
+    lean_init_task_manager();
+    lean_io_mark_end_initialization();
+  }
+  py_mutex_unlock();
+}
+
+/* ## Lean API */
 
 LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
   return (size_t)nerodia_to_object(self);
+}
+
+LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
+  return (size_t)Py_NewRef(nerodia_to_object(self));
 }
 
 LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
@@ -160,17 +186,41 @@ LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
   return lean_alloc_external(g_py_context_external_class, pctx);
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object(lean_obj_arg ctx, size_t ptr) {
-  return nerodia_of_object((PyObject*)ptr, ctx);
+/* mkObject : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
+LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object(b_lean_obj_arg ctx, size_t ptr) {
+  // the object holds a global reference to the Python environment
+  atomic_fetch_add(&g_py_holders, 1);
+  return nerodia_of_object_core((PyObject*)ptr);
 }
 
+/* mkObjectRef : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
+LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object_ref(b_lean_obj_arg ctx, size_t ptr) {
+  // the object holds a global reference to the Python environment
+  atomic_fetch_add(&g_py_holders, 1);
+  return nerodia_of_object_core(Py_NewRef((PyObject*)ptr));
+}
+
+/* clearError : @& PyContext -> BaseIO Unit */
 LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(b_lean_obj_arg ctx) {
   PyErr_Clear();
   return lean_box(0);
 }
 
+/* getRaisedException : CPyIO PyBaseException */
 LEAN_EXPORT size_t nerodia_get_raised_exception() {
   return (size_t)PyErr_GetRaisedException();
+}
+
+/* CPtr PyBaseException -> CPyIO α */
+LEAN_EXPORT size_t nerodia_raise(size_t e) {
+  PyErr_SetRaisedException((PyObject*)e);
+  return (size_t)NULL;
+}
+
+/* @& String -> CPyIO α */
+LEAN_EXPORT size_t nerodia_raise_py_type_error(b_lean_obj_arg msg) {
+  PyErr_SetString(PyExc_TypeError, lean_string_cstr(msg));
+  return (size_t)NULL;
 }
 
 /* PyContext -> PySystemError */
@@ -202,6 +252,14 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_none(lean_obj_arg ctx) {
 /* import : @& String -> BaseIO (CPtr PyObject) */
 LEAN_EXPORT size_t nerodia_import(b_lean_obj_arg mod_name) {
   return (size_t)PyImport_ImportModule(lean_string_cstr(mod_name));
+}
+
+/* addByString : @& String -> @& PyObject -> @& Module -> CPyUnitIO */
+LEAN_EXPORT int32_t nerodia_py_module_add_by_string
+  (b_lean_obj_arg name, b_lean_obj_arg val, b_lean_obj_arg mod)
+{
+  return PyModule_AddObjectRef(nerodia_to_object(mod),
+    lean_string_cstr(name), nerodia_to_object(val));
 }
 
 /* getAttrByString : @& String -> BaseIO (CPtr PyObject) */

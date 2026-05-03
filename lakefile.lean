@@ -9,6 +9,7 @@ package nerodia where
 /-! ## Python -/
 
 structure PyConfig where
+  exe : FilePath
   version : String
   hexVersion : Nat
   includeDirs : Array FilePath
@@ -27,7 +28,9 @@ def minHexVersion : Nat := 0x030D00A0 -- 3.13 (a0)
 
 target pyconfig : PyConfig := do
   (← pyconfigSrc.fetch).mapM fun srcFile => do
-    let python3 := (← IO.getEnv "PYTHON3").getD "python3"
+    let python3 := (← IO.getEnv "PYTHON3").getD <|
+      -- `python3` aliases are not standard on Windows
+      if System.Platform.isWindows then "python" else "python3"
     let out ← captureProc {cmd := python3, args := #[srcFile.toString]}
     match Json.parse out >>= fromJson? with
     | .ok py =>
@@ -94,30 +97,67 @@ lean_exe testExe where
 
 @[test_driver]
 script test do
+  let pkgDir := __dir__
+  let testModuleDir := pkgDir / "tests" / "testModule"
   runBuild do
     let pyJob ← pyconfig.fetch
     let libJob ← Nerodia.fetch
     discard <| NerodiaTests.fetch
     let exeJob ← testExe.fetch
     discard <| withRegisterJob "testExe test" do
-      pyJob.bindM fun py =>
+      pyJob.bindM (sync := true) fun py =>
       exeJob.mapM fun exeFile => do
-        let env ← id do
-          -- ensures the executable can find Python's shared libraries
-          let path ← getAugmentedSharedLibPath
-          let path : SearchPath := py.libDir :: path
-          return #[(sharedLibPathEnvVar, some path.toString)]
-        let out ← captureProc {cmd := exeFile.toString, env}
-        unless out == py.version do
-          error s!"incorrect output: expected\
-            \n  {py.version}\
-            \ngot\
-            \n  {out}"
-    withRegisterJob "testModule test" <| libJob.mapM fun _ => do proc {
+        let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
+        validateOutput py.version out
+    let installJob ← withRegisterJob "testModule install" <| libJob.mapM fun _ => do proc {
       cmd := "uv",
-      args := #["-q", "run","--reinstall", "test.py"]
-      cwd := FilePath.mk "tests" / "testModule"
+      args := #["-q", "sync", "--reinstall"]
+      cwd := testModuleDir
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
+    discard <| withRegisterJob "testModule test" <| installJob.mapM fun _ => do proc {
+      cmd := "uv",
+      args := #["-q", "run", "--no-sync", "test.py"]
+      cwd := testModuleDir
+      -- ensures Python can find Lean's shared libraries
+      env := ← getAugmentedEnv
+    }
+    withRegisterJob "testModule lpl" <| installJob.mapM fun _ => do
+      let out ← captureProc {
+        cmd := "uv",
+        args := #["run", "--no-sync", (← getLake).toString, "query", "--json", "lpl", "pyconfig"]
+        cwd := testModuleDir
+        env := ← getAugmentedEnv
+      }
+      let [lpl, pyconfig] := out.lines.toStringList
+        | error s!"unexpected lake output: {out}"
+      let lpl ← match Json.parse lpl >>= fromJson? with
+        | .ok a => pure a
+        | .error e => error s!"invalid executable path; {e}:\n{out}"
+      let pyconfig ← match Json.parse pyconfig >>= fromJson? with
+        | .ok a => pure a
+        | .error e => error s!"invalid python configuration; {e}:\n{out}"
+      let out ← captureProc {
+        cmd := lpl,
+        cwd := testModuleDir
+        env := ← getPyEnv pyconfig
+      }
+      validateOutput "Hello!" out
   return 0
+where
+  @[inline] validateOutput (expected actual : String) := do
+    unless actual == expected do
+      error s!"incorrect output: expected\
+        \n  {expected}\
+        \ngot\
+        \n  {actual}"
+  getPyEnv py := do
+    -- ensures the executable can find Python's shared libraries
+    let libPath ← getAugmentedSharedLibPath
+    let libPath : SearchPath := py.libDir :: libPath
+    return #[
+      (sharedLibPathEnvVar, some libPath.toString),
+      -- activate the venv for embedded Python if necessary
+      ("__PYVENV_LAUNCHER__", some py.exe.toString),
+    ]

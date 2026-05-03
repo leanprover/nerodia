@@ -48,6 +48,16 @@ public theorem nonempty_of_not_isNull
   {p : CPtr α} (h : ¬ IsNull p) : Nonempty α
 := by exact p.nonempty_of_addr_ne_zero (by simpa [← addr_inj] using h)
 
+/--
+Casts a pointer of type {lean}`α` to a pointer of type {lean}`β`.
+
+**This function is not memeory-safe.** While {lean}`f` demonstrates that
+{lean}`α` can be converted into {lean}`β`, it does not prove they have same
+memory layout. It is the user's responsibility to ensure this.
+-/
+@[inline] public def castUnsafe  (f : α → β) (p : CPtr α) : CPtr β :=
+  ⟨p.addr, fun h => p.nonempty_of_addr_ne_zero h |>.elim fun a => .intro <| f a⟩
+
 end CPtr
 
 /-! ## PyContext -/
@@ -77,9 +87,14 @@ Otherwise, this function acquires the Python global interpreter lock (GIL).
 @[extern "nerodia_py_context_init"]
 public opaque init : BaseIO PyContext
 
-/-- Wraps a raw Python object pointer into a memory-managed Lean object. -/
+/-- Wraps a strong Python object refernce into a memory-managed Lean object. -/
 @[extern "nerodia_py_context_mk_object"]
-public opaque mkObject {α} (ctx : PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
+public opaque mkObject {α} (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
+  @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
+
+/-- Wraps a borrowed Python object referemce into a memory-managed Lean object. -/
+@[extern "nerodia_py_context_mk_object_ref"]
+public opaque mkObjectRef {α} (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
   @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
 
 /-- Clears the current exception. Does nothing if there is none. -/
@@ -112,7 +127,17 @@ Returns a borrowed reference to Python object's raw unmanaged C pointer.
 **This function is not memory safe.** It is the user's responsibility to
 ensure that this pointer does not outlive {lean}`self`.
 -/
-@[inline] def borrow (self : PyObject) : CPtr PyObject :=
+@[inline] def borrowRefUnsafe (self : @& PyObject) : CPtr PyObject :=
+  ⟨self.addr, fun _ => ⟨self⟩⟩
+
+/--
+Returns a new strong reference to Python object's raw unmanaged C pointer.
+
+**This function is not memory safe.** It is the user's responsibility to
+ensure that this reference is eventually consumed.
+-/
+@[extern "nerodia_py_object_new_ref"]
+def newRefUnsafe (self : @& PyObject) : CPtr PyObject :=
   ⟨self.addr, fun _ => ⟨self⟩⟩
 
 /-- Returns a reference to the Python environment this object is within. -/
@@ -179,6 +204,14 @@ public structure PySystemError extends toException : PyException where
 public instance : Coe PySystemError PyException :=
   ⟨PySystemError.toException⟩
 
+/-- A Python type error object. That is, an instance of {lit}`TypeError`. -/
+public structure PyTypeError extends toException : PyException where
+  private innerMk ::
+    deriving Nonempty
+
+public instance : Coe PyTypeError PyException :=
+  ⟨PyTypeError.toException⟩
+
 /-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
 public structure PyModule extends toObject : PyObject where
   private innerMk ::
@@ -188,6 +221,12 @@ public structure PyModule extends toObject : PyObject where
 public structure PyStr extends toObject : PyObject where
   private innerMk ::
     deriving Nonempty
+
+public instance : Coe PyStr PyObject := ⟨PyStr.toObject⟩
+
+set_option linter.unusedVariables.funArgs false in
+@[inline] public def PyStr.mk (o : PyObject) (h : o.isStrInstance) : PyStr :=
+  ⟨o⟩
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
 public structure PyBytes extends toObject : PyObject where
@@ -249,6 +288,14 @@ public abbrev PyIO := PyT (EIO PyBaseException)
 /-- A monad for impure code using Python. Unlike {lean}`PyIO`, it cannot error. -/
 public abbrev PyBaseIO := PyT BaseIO
 
+/--
+Runs the {lean}`PyIO` function in {lean}`EIO`.
+
+This creates a new temporary Python context for the call.
+As such, it should only be used when another Python context is not available.
+Otherwise, use {lean}`x.run` and provider the context or lift {lean}`x` into
+a supporting monad.
+-/
 @[inline] public def PyIO.toEIO (x : PyIO α) : EIO PyBaseException α := do
   x.run (← PyContext.init)
 
@@ -294,16 +341,13 @@ that a Python environment exists and the returned pointer does not outlive it.
 
 end CPyIO
 
-/--
-Clears the current exception and returns it.
-If none has been raised, returns {lean}`none`.
--/
+/-- Clears the current exception and returns it. -/
 @[extern "nerodia_get_raised_exception"]
-public opaque getRaisedException : CPyIO PyBaseException
+private opaque getRaisedException : CPyIO PyBaseException
 
 /-- The {lit}`SystemError` for when the C FFI does not set an exception. -/
 @[extern "nerodia_py_context_ffi_error"]
-public opaque PyContext.ffiError (msg : PyContext) : PySystemError
+public opaque PyContext.ffiError (ctx : PyContext) : PySystemError
 
 namespace CPyIO
 
@@ -351,8 +395,7 @@ Otherwise, run {lean}`x` via {name}`run` or lift it into {lean}`PyIO`
 (via {lean}`toPyIO`) and run it from there.
 -/
 @[inline] public def toEIO (x : CPyIO α) : EIO PyBaseException α :=
-  have : MonadPy BaseIO := ⟨PyContext.init⟩
-  x.run
+  x.toPyIO.toEIO
 
 /--
 Runs the {lean}`CPyIO` function in a supporting monad.
@@ -389,9 +432,170 @@ public abbrev run?
 
 end CPyIO
 
-namespace CPyIO
+/--
+Return type for external CPython functions that may error but produce no value.
+-/
+@[expose] -- for codegen
+public def CPyUnitIO :=
+  BaseIO Int32
 
-end CPyIO
+namespace CPyUnitIO
+
+/--
+Constructs a {lean}`CPyUnitIO` function from its definition.
+
+This function is unsafe because it does not guarantee that an exception
+is set on error.
+-/
+@[inline] def mkUnsafe (x : BaseIO Int32) : CPyUnitIO :=
+  x
+
+/--
+Runs the {lean}`CPyUnitIO` function.
+
+This function is unsafe because it does not guarantee that a set exception
+is handled and thus ensure Python's correctness [requirement][1] that futher
+Python functions are not called while an exception is set.
+
+[1]: https://bugs.python.org/issue23571
+-/
+@[inline] def runUnsafe (x : CPyUnitIO) : BaseIO Int32 :=
+  x
+
+/-- Constructs {lean}`CPyUnitIO` that returns success. -/
+@[inline] public def ok : CPyUnitIO :=
+  mkUnsafe <| pure 0
+
+public instance : Nonempty CPyUnitIO := ⟨ok⟩
+
+/--
+Constructs {lean}`CPyUnitIO` that returns failure.
+
+This function is unsafe because it does not guarantee that an exception
+is set on error.
+-/
+@[inline] def failureUnsafe : CPyUnitIO :=
+  mkUnsafe <| pure (-1)
+
+/--
+Runs the {lean}`CPyIO` function in a supporting monad.
+If a Python error occurs, it is raised via {name}`throw`.
+-/
+@[inline] public def run
+  [Monad m] [MonadPy m]
+  [MonadExcept PyBaseException m] [MonadLiftT BaseIO m]
+  (x : CPyUnitIO)
+: m PUnit := do
+  let ctx ← getPyContext
+  if (← x.runUnsafe) < 0 then
+    let eptr ← getRaisedException.runUnsafe
+    if h : eptr.IsNull then
+      throw ctx.ffiError.toBaseException
+    else
+      throw (ctx.mkObject eptr h)
+
+/--
+Runs the {lean}`CPyUnitIO` function in a supporting monad
+If a Python error occurs, it is set as the exception.
+-/
+public abbrev toExceptT
+  [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyUnitIO)
+: ExceptT PyBaseException m PUnit := x.run
+
+/--
+Lifts the {lean}`CPyUnitIO` function into {lean}`PyIO`,
+reusing its Python context.
+-/
+@[inline] public def toPyIO (x : CPyUnitIO) : PyIO Unit :=
+  x.run
+
+public instance : Coe CPyUnitIO (PyIO Unit) := ⟨toPyIO⟩
+
+/--
+Runs the {lean}`CPyUnitIO` function in {lean}`EIO`.
+
+This creates a new temporary Python context for the call.
+As such, it should only be used when a Python context is not available.
+Otherwise, run {lean}`x` via {name}`run` or lift it into {lean}`PyIO`
+(via {lean}`toPyIO`) and run it from there.
+-/
+@[inline] public def toEIO (x : CPyUnitIO) : EIO PyBaseException Unit :=
+  x.toPyIO.toEIO
+
+/--
+Runs the {lean}`CPyUnitIO` function in a supporting monad.
+If a Python error occurs, it is cleared and {name}`failure` is called.
+-/
+@[inline] public def run'
+  [Monad m] [MonadPy m]
+  [Alternative m] [MonadLiftT BaseIO m]
+  (x : CPyUnitIO)
+: m PUnit := do
+  let ctx ← getPyContext
+  if (← x.runUnsafe) < 0 then
+    ctx.clearError
+    failure
+
+end CPyUnitIO
+
+/--
+Sets the currently raised exception to {lean}`e`.
+If {lean}`e.IsNull`, this just clears the exception.
+
+**This function is not memory-safe.** It is the user's responsibility to
+ensure that {lean}`e` is still alive (if it is not {lean}`CPtr.null`). This
+will usually be the case unless it came from a different Python environment.
+-/
+@[extern "nerodia_raise"]
+opaque CPyIO.raiseUnsafe (e : CPtr PyBaseException) : CPyIO α
+
+/-- Raises the exception {lean}`e`.  -/
+@[inline] public def CPyIO.raise (e : PyBaseException) : CPyIO α :=
+  raiseUnsafe (e.newRefUnsafe.castUnsafe (⟨·⟩))
+
+/-- The type of a Python method with a single positional argument. -/
+@[expose] -- for codegen
+public def PyMethO :=
+  (self : CPtr PyObject) → (arg : CPtr PyObject) →
+  (h_self : ¬ self.IsNull) → (h_arg : ¬ arg.IsNull) → CPyIO PyObject
+
+@[inline] public def PyMethO.ofPyIO
+  (x : (self : PyObject) → (arg : PyObject) → PyIO PyObject)
+: PyMethO := fun self arg h_self h_arg => CPyIO.mk do
+  let ctx ← PyContext.init
+  let res ← x (ctx.mkObjectRef self h_self) (ctx.mkObjectRef arg h_arg) ctx |>.toBaseIO
+  match res with
+  | .ok res =>
+    return res.newRefUnsafe
+  | .error e =>
+    -- TODO: The context should be held until after this.
+    -- However, when called from within Python (as usual), there is
+    -- no danger of the python being finalized or the GIL being lost.
+    CPyIO.raise e
+
+/-- The type of a Python module initialization function. -/
+@[expose] -- for codegen
+public def PyModuleInit :=
+  (mod : CPtr PyModule) → ¬ mod.IsNull → CPyUnitIO
+
+@[inline] public def PyModuleInit.ofPyIO
+  (x : PyModule → PyIO Unit)
+: PyModuleInit := fun mod h => do
+  let ctx ← PyContext.init
+  let res ← x (ctx.mkObjectRef mod h) ctx |>.toBaseIO
+  match res with
+  | .ok _ =>
+    CPyUnitIO.ok
+  | .error e =>
+    -- TODO: The context should be held until after this.
+    -- However, when called from within Python (as usual), there is
+    -- no danger of the python being finalized or the GIL being lost.
+    discard (CPyIO.raise (α := Empty) e).runUnsafe
+    CPyUnitIO.failureUnsafe
+
+/-- Raises a {lean}`PyTypeError` with the given message {lean}`msg`. -/
+@[extern "nerodia_raise_py_type_error"]
+public opaque raisePyTypeError (msg : String) : CPyIO α
 
 /-! ## PyType -/
 
@@ -431,6 +635,15 @@ In Python, the import can be anything, so this may not return a {lean}`PyModule`
 -/
 @[extern "nerodia_import"]
 public opaque «import» (modName : @& String) : CPyIO PyObject
+
+namespace PyModule
+
+/-- Adds an object {lean}`val` to the module {lean}`self` as {lean}`name`. -/
+@[extern "nerodia_py_module_add_by_string"]
+public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyModule) : CPyUnitIO
+
+end PyModule
+
 
 /-! ## Objects -/
 

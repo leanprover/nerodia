@@ -43,6 +43,7 @@ platinclude = sysconfig.get_path('platinclude')
 include_dirs = [include] if include == platinclude else [include, platinclude]
 
 cfg = {
+  "exe": sys.executable,
   "version": sys.version,
   "hexVersion": sys.hexversion,
   "includeDirs": include_dirs,

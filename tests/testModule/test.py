@@ -4,4 +4,12 @@
 
 import testmodule
 
-assert testmodule.mkGreeting() == "hello"
+assert testmodule.greeting == "Hello!"
+
+assert testmodule.greeting_for('Bob') == "Hello, Bob!"
+
+try:
+  testmodule.greeting_for(0)
+  raise AssertionError('expected TypeError')
+except TypeError as e:
+  assert str(e) == "argument must be str"
