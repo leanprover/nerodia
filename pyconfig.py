@@ -42,10 +42,15 @@ include = sysconfig.get_path('include')
 platinclude = sysconfig.get_path('platinclude')
 include_dirs = [include] if include == platinclude else [include, platinclude]
 
+# the paltform-depdenent relative path of site-packages within a Python enviroment
+# useful for adding the packages of a virtual enviroment (venv) to `PYTHONPATH``
+site_packages = sysconfig.get_path('purelib', vars={'base': '', 'platbase': ''}).lstrip(os.sep)
+
 cfg = {
   "version": sys.version,
   "hexVersion": sys.hexversion,
   "includeDirs": include_dirs,
+  "sitePackages": site_packages,
   "libDir": libdir,
   "lib3": (lib3_name, lib3_path),
   "lib3x": (lib3x_name, lib3x_path),

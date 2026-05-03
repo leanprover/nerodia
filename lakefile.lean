@@ -12,6 +12,7 @@ structure PyConfig where
   version : String
   hexVersion : Nat
   includeDirs : Array FilePath
+  sitePackages : FilePath
   libDir : FilePath
   lib3 : String × FilePath
   lib3x : String × FilePath
@@ -94,6 +95,8 @@ lean_exe testExe where
 
 @[test_driver]
 script test do
+  let pkgDir := __dir__
+  let testModuleDir := pkgDir / "tests" / "testModule"
   runBuild do
     let pyJob ← pyconfig.fetch
     let libJob ← Nerodia.fetch
@@ -102,19 +105,19 @@ script test do
     discard <| withRegisterJob "testExe test" do
       pyJob.bindM (sync := true) fun py =>
       exeJob.mapM fun exeFile => do
-        let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
+        let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py pkgDir}
         validateOutput py.version out
     let installJob ← withRegisterJob "testModule install" <| libJob.mapM fun _ => do proc {
       cmd := "uv",
-      args := #["-q", "sync", "--reinstall"]
-      cwd := FilePath.mk "tests" / "testModule"
+      args := #["-q", "sync", "--reinstall", "--no-editable"]
+      cwd := testModuleDir
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
     discard <| withRegisterJob "testModule test" <| installJob.mapM fun _ => do proc {
       cmd := "uv",
-      args := #["-q", "run", "test.py"]
-      cwd := FilePath.mk "tests" / "testModule"
+      args := #["-q", "run", "--no-sync", "test.py"]
+      cwd := testModuleDir
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
@@ -124,13 +127,12 @@ script test do
       let lpl ← captureProc {
         cmd := (← getLake).toString,
         args := #["query", "lpl"]
-        cwd := FilePath.mk "tests" / "testModule"
+        cwd := testModuleDir
       }
       let out ← captureProc {
-        cmd := "uv",
-        args := #["-q", "run", lpl]
-        cwd := FilePath.mk "tests" / "testModule"
-        env := ← getPyEnv py
+        cmd := lpl,
+        cwd := testModuleDir
+        env := ← getPyEnv py testModuleDir
       }
       validateOutput "Hello!" out
   return 0
@@ -141,8 +143,14 @@ where
         \n  {expected}\
         \ngot\
         \n  {actual}"
-  @[inline] getPyEnv py := do
-      -- ensures the executable can find Python's shared libraries
-      let path ← getAugmentedSharedLibPath
-      let path : SearchPath := py.libDir :: path
-      return #[(sharedLibPathEnvVar, some path.toString)]
+  getPyEnv py cwd := do
+    -- ensure the executable can find Python packages
+    let pyPath ← getSearchPath "PYTHONPATH"
+    let pyPath : SearchPath := cwd / ".venv" / py.sitePackages :: pyPath
+    -- ensures the executable can find Python's shared libraries
+    let libPath ← getAugmentedSharedLibPath
+    let libPath : SearchPath := py.libDir :: libPath
+    return #[
+      ("PYTHONPATH", some pyPath.toString),
+      (sharedLibPathEnvVar, some libPath.toString),
+    ]
