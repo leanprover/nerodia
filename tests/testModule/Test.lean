@@ -7,6 +7,7 @@ import Nerodia
 
 open Nerodia
 
+/-- Return a greeting. -/
 @[export test_greeting_for]
 def greetingFor : PyMethO := .ofPyIO fun _ s => do
   if h : s.isStrInstance then

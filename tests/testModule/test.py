@@ -9,7 +9,7 @@ assert testmodule.greeting == "Hello!"
 assert testmodule.greeting_for('Bob') == "Hello, Bob!"
 
 try:
-  testmodule.greeting_for(0)
+  testmodule.greeting_for(0) # type: ignore[ty:invalid-argument-type]
   raise AssertionError('expected TypeError')
 except TypeError as e:
   assert str(e) == "argument must be str"
