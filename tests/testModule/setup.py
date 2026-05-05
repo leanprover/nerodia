@@ -4,24 +4,30 @@
 import os
 import sys
 import json
+import shutil
 import subprocess
 import setuptools
 from setuptools.command.build_ext import build_ext
+from typing import TypedDict
+
+class NerodiaConfig(TypedDict):
+  c: str
+  pyi: str
+  includeDirs: list[str]
+  libDirs: list[str]
+  libs: list[str]
+  objs: list[str]
 
 r=subprocess.run(
-  ["lake", "query", "--json", "Test:static", "Nerodia:static"],
+  ["lake", "query", "--json", "+Test:nerodia"],
   stdout=subprocess.PIPE, env=dict(os.environ, PYTHON3=sys.executable)
 )
 r.check_returncode()
-static_libs = [json.loads(ln) for ln in r.stdout.decode().splitlines()]
+nerodia: NerodiaConfig = json.loads(r.stdout.decode())
 
-r = subprocess.run(
-  ["lean", "--print-prefix"],
-  stdout=subprocess.PIPE
-)
-r.check_returncode()
-lean_sysroot = r.stdout.decode().strip()
-
+mod = "testmodule"
+pyi = os.path.join(mod, "_lean.pyi")
+shutil.copy2(nerodia['pyi'], pyi)
 
 class LeanBuildExt(build_ext):
   """Override compiler selection for Lean FFI compatibility.
@@ -69,24 +75,15 @@ class LeanBuildExt(build_ext):
       self.compiler.set_link_objects(self.link_objects)
     super().build_extensions()
 
-
-if sys.platform == 'win32':
-  shared_libs = [
-    "Lake_shared", "Init_shared",
-    "leanshared_2", "leanshared_1", "leanshared"
-  ]
-else:
-  shared_libs = ["leanshared"]
-
 setuptools.setup(
     cmdclass={"build_ext": LeanBuildExt},
     ext_modules=[
-        setuptools.Extension("testmodule._native",
-            sources=["module.c"],
-            include_dirs=[f"{lean_sysroot}/include"],
-            library_dirs=[f"{lean_sysroot}/lib/lean"],
-            libraries=shared_libs,
-            extra_objects=static_libs,
+        setuptools.Extension(f"{mod}._lean",
+            sources=[nerodia['c']],
+            include_dirs=nerodia['includeDirs'],
+            library_dirs=nerodia['libDirs'],
+            libraries=nerodia['libs'],
+            extra_objects=nerodia['objs'],
             extra_compile_args=["-std=c17"],
         )
     ]

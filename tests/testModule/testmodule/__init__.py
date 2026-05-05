@@ -13,4 +13,4 @@ if sys.platform == "win32":
     r.check_returncode()
     os.add_dll_directory(os.path.join(lean_sysroot, "bin"))
 
-from ._native import *
+from ._lean import *

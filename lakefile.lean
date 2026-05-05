@@ -78,6 +78,62 @@ lean_lib Nerodia where
   moreLinkObjs := #[nerodia.o]
   moreLinkLibs := #[libpython3]
 
+/-! ## Nerodiac -/
+
+lean_exe nerodiac where
+  root := `Nerodiac
+
+structure NerodiaConfig where
+  c : FilePath
+  pyi : FilePath
+  includeDirs : Array FilePath
+  libDirs : Array FilePath
+  libs : Array String
+  objs : Array FilePath
+  deriving ToJson
+
+instance : QueryText NerodiaConfig := ⟨(toJson · |>.compress)⟩
+
+structure CompilerConfig where
+  cFile : FilePath
+  pyiFile : FilePath
+  deriving ToJson, FromJson
+
+module_facet nerodia (mod) : NerodiaConfig := do
+  let cFile := mod.irPath "nerodia.c"
+  let pyiFile := mod.irPath "nerodia.pyi"
+  let cfgFile := mod.irPath "nerodia.json"
+  let traceFile := mod.irPath "nerodia.trace"
+  let libJob ← mod.lib.static.fetch
+  let nerdoiacJob ← nerodiac.fetch
+  let nerodiaJob ← (← Nerodia.get).static.fetch
+  libJob.bindM (sync := true) fun libstatic =>
+  nerdoiacJob.bindM (sync := true) fun nerodiac =>
+  nerodiaJob.mapM fun libnerodia => do
+    addLeanTrace
+    -- TODO: Build both as artifacts
+    buildUnlessUpToDate traceFile (← getTrace) traceFile do
+      let cfg : CompilerConfig := {cFile, pyiFile}
+      IO.FS.writeFile cfgFile (toJson cfg).compress
+      proc {
+        cmd := nerodiac.toString
+        args := #[cfgFile.toString]
+      }
+    return {
+      c := cFile,
+      pyi := pyiFile,
+      includeDirs := #[← getLeanIncludeDir]
+      libDirs := #[← getLeanLibDir]
+      libs :=
+        if System.Platform.isWindows then #[
+          "Lake_shared", "Init_shared",
+          "leanshared_2", "leanshared_1", "leanshared"
+        ] else #["leanshared"]
+      objs := #[libstatic, libnerodia]
+    }
+
+/-! ## Nerodia Tests -/
+
 lean_lib NerodiaTests where
   srcDir := "tests"
   globs := #[`NerodiaTests.+]
