@@ -80,8 +80,10 @@ lean_lib Nerodia where
 
 /-! ## Nerodiac -/
 
+@[default_target]
 lean_exe nerodiac where
   root := `Nerodiac
+  supportInterpreter := true
 
 structure NerodiaConfig where
   c : FilePath
@@ -95,6 +97,7 @@ structure NerodiaConfig where
 instance : QueryText NerodiaConfig := ⟨(toJson · |>.compress)⟩
 
 structure CompilerConfig where
+  leanModule : Lean.Name
   cFile : FilePath
   pyiFile : FilePath
   deriving ToJson, FromJson
@@ -113,11 +116,15 @@ module_facet nerodia (mod) : NerodiaConfig := do
     addLeanTrace
     -- TODO: Build both as artifacts
     buildUnlessUpToDate traceFile (← getTrace) traceFile do
-      let cfg : CompilerConfig := {cFile, pyiFile}
+      let cfg : CompilerConfig := {
+        leanModule := mod.name
+        cFile, pyiFile
+      }
       IO.FS.writeFile cfgFile (toJson cfg).compress
       proc {
         cmd := nerodiac.toString
         args := #[cfgFile.toString]
+        env := #[("LEAN_PATH", some (← getAugmentedLeanPath).toString)]
       }
     return {
       c := cFile,
@@ -158,6 +165,7 @@ script test do
   runBuild do
     let pyJob ← pyconfig.fetch
     let libJob ← Nerodia.fetch
+    let nerodiacJob ← nerodiac.fetch
     discard <| NerodiaTests.fetch
     let exeJob ← testExe.fetch
     discard <| withRegisterJob "testExe test" do
@@ -165,13 +173,15 @@ script test do
       exeJob.mapM fun exeFile => do
         let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
         validateOutput py.version out
-    let installJob ← withRegisterJob "testModule install" <| libJob.mapM fun _ => do proc {
-      cmd := "uv",
-      args := #["-q", "sync", "--reinstall"]
-      cwd := testModuleDir
-      -- ensures Python can find Lean's shared libraries
-      env := ← getAugmentedEnv
-    }
+    let installJob ← withRegisterJob "testModule install" do
+      libJob.bindM (sync := true) fun _ =>
+      nerodiacJob.mapM fun _ => do proc {
+        cmd := "uv",
+        args := #["-q", "sync", "--reinstall"]
+        cwd := testModuleDir
+        -- ensures Python can find Lean's shared libraries
+        env := ← getAugmentedEnv
+      }
     discard <| withRegisterJob "testModule test" <| installJob.mapM fun _ => do proc {
       cmd := "uv",
       args := #["-q", "run", "--no-sync", "test.py"]

@@ -5,6 +5,11 @@ Authors: Mac Malone
 -/
 module
 import Lean.Data.Json
+import Lean.Environment
+import Lean.Compiler.NameMangling
+import Nerodia.CompilerExts
+-- needed due to how Lake links executables (TODO: fix)
+import Nerodia.InitFlag
 
 open System (FilePath)
 open Lean (Json ToJson FromJson toJson fromJson?)
@@ -49,20 +54,20 @@ def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
     #include <lean/lean.h>\n"
   -- Module initialization
   c.putStr "\nvoid nerodia_initialize_lean(void);"
+  c.putStr "\nvoid nerodia_mark_end_initialization(void);"
+  c.putStr "\nvoid nerodia_set_init_error(lean_obj_arg init_res, const char *mod_name);"
   c.putStr s!"\nlean_obj_res {mod.leanInit}(uint8_t builtin);"
   if let some init := mod.init? then
     c.putStr s!"\nint32_t {init}(size_t m);"
   let ok := mod.init?.elim "0" (s!"{·}((size_t)m)")
   let lb := "{"
-  -- TODO: Error class for Lean errors
   c.putStr s!"\n\
     \nstatic int module_exec(PyObject *m) {lb}\
     \n  nerodia_initialize_lean();\
     \n  lean_object* res = {mod.leanInit}(true);\
+    \n  nerodia_mark_end_initialization();\
     \n  if (lean_io_result_is_error(res)) {lb}\
-    \n    lean_dec_ref(res);\
-    \n    PyErr_SetString(PyExc_ImportError,\
-    \n     \"Failed to initialize Lean module '{mod.leanModule}'\");\
+    \n    nerodia_set_init_error(res, {mod.leanModule.toString.quote});\
     \n    return -1;\
     \n  }\
     \n  lean_dec_ref(res);\
@@ -128,6 +133,7 @@ def writePyiFile (path : FilePath) (mod : Module) : IO Unit := do
   pyi.putStr "\n"
 
 structure CompilerConfig where
+  leanModule : Lean.Name
   cFile : FilePath
   pyiFile : FilePath
   deriving ToJson, FromJson
@@ -141,7 +147,7 @@ def testModule : Module where
   leanInit := "initialize_test_Test"
   leanModule := `Test
   doc? := none
-  init? := some "test_init_module"
+  init? := none
   members := #[{
     name := "greeting"
     ty := "str"
@@ -167,7 +173,19 @@ public def main (args : List String) : IO UInt32 := do
     | .error e =>
       IO.eprintln s!"invalid configuration: {e}"
       return 1
-  let mod : Module := testModule
+  unsafe Lean.enableInitializersExecution
+  Lean.initSearchPath (← Lean.findSysroot)
+  let env ← Lean.importModules #[cfg.leanModule] .empty
+    (leakEnv := true) (loadExts := true)
+  let modIdx := env.getModuleIdx? cfg.leanModule |>.get!
+  let some modCfg := modConfigExt.getStateByIdx? env modIdx
+    | IO.eprintln "module lacks a Nerodia configuration"
+      return 1
+  let mod : Module := {testModule with
+    leanInit := Lean.mkModuleInitializationFunctionName cfg.leanModule (env.getModulePackageByIdx? modIdx)
+    leanModule := cfg.leanModule
+    init? := modCfg.init?
+  }
   writeCFile cfg.cFile mod
   writePyiFile cfg.pyiFile mod
   return 0

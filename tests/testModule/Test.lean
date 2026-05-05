@@ -14,7 +14,7 @@ def greetingFor : PyMethO := .ofPyIO fun _ s => do
     mkPyStr s!"Hello, {PyStr.mk s h}!"
   else raisePyTypeError "argument must be str"
 
-@[export test_init_module]
+@[py_module_init]
 def initModule : PyModuleInit := .ofPyIO fun mod => do
   let greeting ← mkPyStr "Hello!"
   mod.addByString "greeting" greeting

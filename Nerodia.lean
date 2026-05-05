@@ -5,3 +5,5 @@ Authors: Mac Malone
 -/
 module
 public import Nerodia.Basic
+public meta import Nerodia.CompilerExts
+public import Nerodia.InitFlag
