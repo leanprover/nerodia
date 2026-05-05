@@ -14,3 +14,4 @@ if sys.platform == "win32":
     os.add_dll_directory(os.path.join(lean_sysroot, "bin"))
 
 from ._lean import *
+from ._lean import __doc__

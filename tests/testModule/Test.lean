@@ -7,6 +7,9 @@ import Nerodia
 
 open Nerodia
 
+/-- A Lean-to-Python test module. -/
+py_module "testmodule"
+
 /-- Return a greeting. -/
 @[export test_greeting_for]
 def greetingFor : PyMethO := .ofPyIO fun _ s => do

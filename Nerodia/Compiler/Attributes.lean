@@ -4,10 +4,12 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
-import Lean
-public import Lean.Compiler.ModPkgExt
+import Lean.Exception
+import Lean.Environment
+import Lean.Compiler.ExportAttr
+public import Nerodia.Compiler.ModuleConfig.Extension
 
-/-! # Neordiac Configuration -/
+/-! # Neordiac Attributes -/
 
 open Lean
 
@@ -27,13 +29,6 @@ namespace Nerodia
 
 /-! ## Configuration -/
 
-public structure ModuleConfig where
-  init? : Option String := none
-  deriving Inhabited
-
-public initialize modConfigExt : ModuleEnvExtension ModuleConfig ←
-  registerModuleEnvExtension (pure {})
-
 initialize
   let attrName := `py_module_init
   let typeName := `Nerodia.PyModuleInit
@@ -49,11 +44,13 @@ initialize
       let env ← getEnv
       unless (env.getModuleIdxFor? declName).isNone do
         throwAttrDeclInImportedModule attrName declName
-      unless modConfigExt.toEnvExtension.asyncMayModify env declName do
+      unless modCfgExt.toEnvExtension.asyncMayModify env declName do
         throwAttrNotInAsyncCtx attrName declName env.asyncPrefix?
       let decl ← getConstInfo declName
       unless decl.type.isConstOf typeName do
         throwAttrDeclNotOfExpectedType attrName declName decl.type (mkConst typeName)
+      unless hasModuleConfig env do
+        throwError m!"Cannot add attribute `[{attrName}]`: A Python module must first be configured with `py_module`."
       let sym ← getFnSymbol declName
-      modifyEnv fun env => modConfigExt.modifyState env ({· with init? := some sym})
+      modifyModuleConfig ({· with init? := some sym})
   }

@@ -4,6 +4,8 @@
 
 import testmodule
 
+assert testmodule.__doc__ == "A Lean-to-Python test module."
+
 assert testmodule.greeting == "Hello!"
 
 assert testmodule.greeting_for('Bob') == "Hello, Bob!"

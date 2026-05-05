@@ -7,7 +7,7 @@ module
 import Lean.Data.Json
 import Lean.Environment
 import Lean.Compiler.NameMangling
-import Nerodia.CompilerExts
+import Nerodia.Compiler.ModuleConfig.Extension
 -- needed due to how Lake links executables (TODO: fix)
 import Nerodia.InitFlag
 
@@ -114,6 +114,9 @@ def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
 def writePyiFile (path : FilePath) (mod : Module) : IO Unit := do
   let pyi ← IO.FS.Handle.mk path .write
   pyi.putStr "# Nerodia compiler output\n"
+  if let some doc := mod.doc? then
+    pyi.putStr doc.quote
+    pyi.putStr "\n"
   for m in mod.members do
     pyi.putStr s!"\n{m.name}: {m.ty}"
     if let some doc := m.doc? then
@@ -178,13 +181,15 @@ public def main (args : List String) : IO UInt32 := do
   let env ← Lean.importModules #[cfg.leanModule] .empty
     (leakEnv := true) (loadExts := true)
   let modIdx := env.getModuleIdx? cfg.leanModule |>.get!
-  let some modCfg := modConfigExt.getStateByIdx? env modIdx
+  let some modCfg := modCfgExt.getStateByIdx? env modIdx |>.join
     | IO.eprintln "module lacks a Nerodia configuration"
       return 1
   let mod : Module := {testModule with
+    name := modCfg.name
+    doc? := modCfg.doc?
+    init? := modCfg.init?
     leanInit := Lean.mkModuleInitializationFunctionName cfg.leanModule (env.getModulePackageByIdx? modIdx)
     leanModule := cfg.leanModule
-    init? := modCfg.init?
   }
   writeCFile cfg.cFile mod
   writePyiFile cfg.pyiFile mod
