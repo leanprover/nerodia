@@ -26,7 +26,7 @@ r.check_returncode()
 nerodia: NerodiaConfig = json.loads(r.stdout.decode())
 
 mod = "testmodule"
-pyi = os.path.join(mod, "_lean.pyi")
+pyi = os.path.join(mod, "__init__.pyi")
 shutil.copy2(nerodia['pyi'], pyi)
 
 class LeanBuildExt(build_ext):
