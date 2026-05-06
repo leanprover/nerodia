@@ -5,6 +5,7 @@ build/
 *.egg-info/
 *.so
 
+_lean.pyi
 __init__.pyi
 /lake-manifest.json
 /uv.lock

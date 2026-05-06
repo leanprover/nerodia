@@ -26,8 +26,10 @@ r.check_returncode()
 nerodia: NerodiaConfig = json.loads(r.stdout.decode())
 
 mod = "testmodule"
-pyi = os.path.join(mod, "__init__.pyi")
-shutil.copy2(nerodia['pyi'], pyi)
+# create `__init__` stub with module definitions and the docstring
+shutil.copy2(nerodia['pyi'], os.path.join(mod, "__init__.pyi"))
+# create empty `_lean` stub to handle `from ._lean` resolution in `__init__`
+open(os.path.join(mod, "_lean.pyi"), 'w').close()
 
 class LeanBuildExt(build_ext):
   """Override compiler selection for Lean FFI compatibility.
