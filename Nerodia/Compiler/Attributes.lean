@@ -7,6 +7,7 @@ module
 import Lean.Exception
 import Lean.Environment
 import Lean.Compiler.ExportAttr
+import Lean.DocString
 public import Nerodia.Compiler.ModuleConfig.Extension
 
 /-! # Neordiac Attributes -/
@@ -27,7 +28,11 @@ namespace Nerodia
   | some _                   => throwInvalidExportName declName
   | none                     => return getSymbolStem env declName
 
-/-! ## Configuration -/
+/-! ## Attributes -/
+
+def throwAttrWithoutModuleConfig [Monad m] [MonadError m] (attrName : Name) : m α :=
+  throwError m!"Cannot add attribute `[{attrName}]`: \
+    A Python module must first be configured with `py_module`."
 
 initialize
   let attrName := `py_module_init
@@ -50,7 +55,45 @@ initialize
       unless decl.type.isConstOf typeName do
         throwAttrDeclNotOfExpectedType attrName declName decl.type (mkConst typeName)
       unless hasModuleConfig env do
-        throwError m!"Cannot add attribute `[{attrName}]`: A Python module must first be configured with `py_module`."
+        throwAttrWithoutModuleConfig attrName
       let sym ← getFnSymbol declName
       modifyModuleConfig ({· with init? := some sym})
+  }
+
+syntax (name := py_module_fn) "py_module_fn" (ppSpace str)?
+  (ppSpace atomic("(" &"sig") " := " str ")")? : attr
+
+initialize
+  let attrName := `py_module_fn
+  let typeName := `Nerodia.PyMethO
+  registerBuiltinAttribute {
+    ref := decl_name%
+    name := attrName
+    descr := "mark a definition as a Python module function"
+    applicationTime := .afterCompilation
+    add := fun declName stx kind => do
+      let `(attr|py_module_fn $[$name?:str]? $[(sig := $pySig?)]?) := stx
+        | throwError "ill-formed [py_module_fn] attribute syntax"
+      unless kind == AttributeKind.global do
+        throwAttrMustBeGlobal attrName kind
+      let env ← getEnv
+      unless (env.getModuleIdxFor? declName).isNone do
+        throwAttrDeclInImportedModule attrName declName
+      unless modCfgExt.toEnvExtension.asyncMayModify env declName do
+        throwAttrNotInAsyncCtx attrName declName env.asyncPrefix?
+      let decl ← getConstInfo declName
+      unless decl.type.isConstOf typeName do
+        throwAttrDeclNotOfExpectedType attrName declName decl.type (mkConst typeName)
+      unless hasModuleConfig env do
+        throwAttrWithoutModuleConfig attrName
+      let cSym ← getFnSymbol declName
+      let meth : MethodDef := {
+        cSym
+        callConv := .o
+        doc? := (← findDocString? env declName).map (·.trimAscii.copy)
+        name := name?.elim declName.getString! (·.getString)
+        cSig := s!"size_t {cSym}(size_t self, size_t arg)"
+        pySig := pySig?.elim "(_: any, /) -> any" (·.getString)
+      }
+      modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push meth}
   }

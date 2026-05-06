@@ -21,22 +21,6 @@ structure Member where
   ty : String
   doc? : Option String
 
-structure MethodFlags where
-  private ofString ::
-    protected toString : String
-
-instance : ToString MethodFlags := ⟨MethodFlags.toString⟩
-
-def MethodFlags.methO : MethodFlags := ⟨"METH_O"⟩
-
-structure Method where
-  name : String
-  doc? : Option String
-  sym : String
-  flags : MethodFlags
-  cSig : String
-  pySig : String
-
 structure Module where
   name : String
   leanInit : String
@@ -44,7 +28,7 @@ structure Module where
   doc? : Option String
   init? : Option String
   members : Array Member
-  methods : Array Method
+  methods : Array MethodDef
 
 def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
   let c ← IO.FS.Handle.mk path .write
@@ -89,7 +73,7 @@ def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
     c.putStr s!"\
       \n \{\
       \n    .ml_name = {m.name.quote},\
-      \n    .ml_meth = (PyCFunction){m.sym},\
+      \n    .ml_meth = (PyCFunction){m.cSym},\
       \n    .ml_flags = {m.flags},\
       \n    .ml_doc = {m.doc?.elim "NULL" (·.quote)},\
       \n  },"
@@ -156,14 +140,7 @@ def testModule : Module where
     ty := "str"
     doc? := some "The standard greeting."
   }]
-  methods := #[{
-    name := "greeting_for",
-    sym := "test_greeting_for"
-    cSig := "size_t test_greeting_for(size_t self, size_t arg)"
-    pySig := "(s: str, /) -> str"
-    flags := .methO
-    doc? := some "Return a specialized greeting."
-  }]
+  methods := #[]
 
 public def main (args : List String) : IO UInt32 := do
   let [arg] := args
@@ -190,6 +167,7 @@ public def main (args : List String) : IO UInt32 := do
     init? := modCfg.init?
     leanInit := Lean.mkModuleInitializationFunctionName cfg.leanModule (env.getModulePackageByIdx? modIdx)
     leanModule := cfg.leanModule
+    methods := modCfg.methods
   }
   writeCFile cfg.cFile mod
   writePyiFile cfg.pyiFile mod

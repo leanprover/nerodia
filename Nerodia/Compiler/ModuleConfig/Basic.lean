@@ -11,8 +11,35 @@ open Lean
 
 namespace Nerodia
 
+/-- The FFI calling convention of a Python function. -/
+public structure CallConv where
+  private ofString ::
+    protected toString : String
+
+public instance : ToString CallConv := ⟨CallConv.toString⟩
+
+public def CallConv.o : CallConv := ⟨"METH_O"⟩
+
+public structure MethodDef where
+  name : String
+  doc? : Option String
+  callConv : CallConv
+  cSym : String
+  cSig : String
+  pySig : String
+
+public structure MethodFlags where
+  private ofString ::
+    protected toString : String
+
+public instance : ToString MethodFlags := ⟨MethodFlags.toString⟩
+
+@[inline] public def MethodDef.flags (meth : MethodDef) : MethodFlags :=
+  ⟨meth.callConv.toString⟩
+
 public structure ModuleConfig where
   name : String
   doc? : Option String := none
   init? : Option String := none
+  methods : Array MethodDef := #[]
   deriving Inhabited

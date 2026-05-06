@@ -30,7 +30,7 @@ public meta def elabPyModuleCmd : CommandElab := fun stx => do
   withRef tk do
   let name := name.getString
   let doc? ← doc?.mapM fun doc => do
-    return (← getDocStringText doc).removeLeadingSpaces.trimAscii.copy
+    return doc.getDocString.removeLeadingSpaces.trimAscii.copy
   if hasModuleConfig (← getEnv) then
     throwError "A Python module has already been configured."
   modifyEnv fun env => modCfgExt.setState env (some {name, doc?})
