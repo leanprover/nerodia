@@ -25,10 +25,10 @@ structure Module where
   name : String
   leanInit : String
   leanModule : Lean.Name
-  doc? : Option String
-  init? : Option String
-  members : Array Member
-  methods : Array MethodDef
+  doc? : Option String := none
+  inits : Array String := #[]
+  members : Array Member := #[]
+  methods : Array MethodDef := #[]
 
 def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
   let c ← IO.FS.Handle.mk path .write
@@ -41,9 +41,8 @@ def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
   c.putStr "\nvoid nerodia_mark_end_initialization(void);"
   c.putStr "\nvoid nerodia_set_init_error(lean_obj_arg init_res, const char *mod_name);"
   c.putStr s!"\nlean_obj_res {mod.leanInit}(uint8_t builtin);"
-  if let some init := mod.init? then
-    c.putStr s!"\nint32_t {init}(size_t m);"
-  let ok := mod.init?.elim "0" (s!"{·}((size_t)m)")
+  for fn in mod.inits do
+    c.putStr s!"\nint32_t {fn}(size_t m);"
   let lb := "{"
   c.putStr s!"\n\
     \nstatic int module_exec(PyObject *m) {lb}\
@@ -54,10 +53,14 @@ def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
     \n    nerodia_set_init_error(res, {mod.leanModule.toString.quote});\
     \n    return -1;\
     \n  }\
-    \n  lean_dec_ref(res);\
-    \n  int ok = {ok};\
-    \n  return ok;\
-    \n}\n"
+    \n  lean_dec_ref(res);"
+  if h : mod.inits.size = 1 then
+    c.putStr s!"\n  return {mod.inits[0]}((size_t)m);"
+  else
+    for fn in mod.inits do
+      c.putStr s!"\n  if ({fn}((size_t)m) != 0) return -1;"
+    c.putStr "\n  return 0;"
+  c.putStr "\n}\n"
   c.putStr "\
     \nstatic PyModuleDef_Slot module_slots[] = {\
     \n  {Py_mod_exec, module_exec},\
@@ -129,18 +132,11 @@ end Nerodia
 
 open Nerodia
 
-def testModule : Module where
-  name := "testmodule"
-  leanInit := "initialize_test_Test"
-  leanModule := `Test
-  doc? := none
-  init? := none
-  members := #[{
-    name := "greeting"
-    ty := "str"
-    doc? := some "The standard greeting."
-  }]
-  methods := #[]
+def testModuleMembers : Array Member := #[{
+  name := "greeting"
+  ty := "str"
+  doc? := some "The standard greeting."
+}]
 
 public def main (args : List String) : IO UInt32 := do
   let [arg] := args
@@ -161,12 +157,13 @@ public def main (args : List String) : IO UInt32 := do
   let some modCfg := modCfgExt.getStateByIdx? env modIdx |>.join
     | IO.eprintln "module lacks a Nerodia configuration"
       return 1
-  let mod : Module := {testModule with
+  let mod : Module := {
     name := modCfg.name
     doc? := modCfg.doc?
-    init? := modCfg.init?
+    inits := modCfg.inits
     leanInit := Lean.mkModuleInitializationFunctionName cfg.leanModule (env.getModulePackageByIdx? modIdx)
     leanModule := cfg.leanModule
+    members := testModuleMembers
     methods := modCfg.methods
   }
   writeCFile cfg.cFile mod

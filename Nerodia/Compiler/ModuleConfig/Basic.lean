@@ -40,6 +40,6 @@ public instance : ToString MethodFlags := ⟨MethodFlags.toString⟩
 public structure ModuleConfig where
   name : String
   doc? : Option String := none
-  init? : Option String := none
+  inits : Array String := #[]
   methods : Array MethodDef := #[]
   deriving Inhabited

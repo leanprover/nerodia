@@ -57,7 +57,7 @@ initialize
       unless hasModuleConfig env do
         throwAttrWithoutModuleConfig attrName
       let sym ← getFnSymbol declName
-      modifyModuleConfig ({· with init? := some sym})
+      modifyModuleConfig fun cfg => {cfg with inits := cfg.inits.push sym}
   }
 
 syntax (name := py_module_fn) "py_module_fn" (ppSpace str)?
