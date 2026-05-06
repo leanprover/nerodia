@@ -104,6 +104,7 @@ structure CompilerConfig where
 
 module_facet nerodia (mod) : NerodiaConfig := do
   let cFile := mod.irPath "nerodia.c"
+  let pyJob ← pyconfig.fetch
   let pyiFile := mod.irPath "nerodia.pyi"
   let cfgFile := mod.irPath "nerodia.json"
   let traceFile := mod.irPath "nerodia.trace"
@@ -112,6 +113,7 @@ module_facet nerodia (mod) : NerodiaConfig := do
   let nerodiaJob ← (← Nerodia.get).static.fetch
   libJob.bindM (sync := true) fun libstatic =>
   nerdoiacJob.bindM (sync := true) fun nerodiac =>
+  pyJob.bindM (sync := true) fun py =>
   nerodiaJob.mapM fun libnerodia => do
     addLeanTrace
     -- TODO: Build both as artifacts
@@ -124,7 +126,13 @@ module_facet nerodia (mod) : NerodiaConfig := do
       proc {
         cmd := nerodiac.toString
         args := #[cfgFile.toString]
-        env := #[("LEAN_PATH", some (← getAugmentedLeanPath).toString)]
+        env := #[
+          ("LEAN_PATH", some (← getAugmentedLeanPath).toString),
+          -- ensures `nerodiac` can find Python's shared libraries
+          -- TODO: make `nerodiac` not depend on Python
+          let libPath : SearchPath := py.libDir :: (← getAugmentedSharedLibPath)
+          (sharedLibPathEnvVar, some libPath.toString),
+        ]
       }
     return {
       c := cFile,
