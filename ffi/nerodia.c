@@ -20,11 +20,11 @@ Authors: Mac Malone, Claude Code
 #include <windows.h>
 static CRITICAL_SECTION g_py_mutex;
 static INIT_ONCE g_py_mutex_once = INIT_ONCE_STATIC_INIT;
-static BOOL CALLBACK init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
+static BOOL CALLBACK py_init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
   InitializeCriticalSection(&g_py_mutex);
   return TRUE;
 }
-#define py_mutex_lock()   (InitOnceExecuteOnce(&g_py_mutex_once, init_mutex, NULL, NULL), \
+#define py_mutex_lock()   (InitOnceExecuteOnce(&g_py_mutex_once, py_init_mutex, NULL, NULL), \
                            EnterCriticalSection(&g_py_mutex))
 #define py_mutex_unlock() LeaveCriticalSection(&g_py_mutex)
 #else
@@ -155,11 +155,11 @@ static inline PyTypeObject* nerodia_to_type_object(b_lean_obj_arg o) {
 #ifdef _WIN32
 static CRITICAL_SECTION g_lean_mutex;
 static INIT_ONCE g_lean_mutex_once = INIT_ONCE_STATIC_INIT;
-static BOOL CALLBACK init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
+static BOOL CALLBACK lean_init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
   InitializeCriticalSection(&g_lean_mutex);
   return TRUE;
 }
-#define lean_mutex_lock()   (InitOnceExecuteOnce(&g_lean_mutex_once, init_mutex, NULL, NULL), \
+#define lean_mutex_lock()   (InitOnceExecuteOnce(&g_lean_mutex_once, lean_init_mutex, NULL, NULL), \
                            EnterCriticalSection(&g_lean_mutex))
 #define lean_mutex_unlock() LeaveCriticalSection(&g_lean_mutex)
 #else
