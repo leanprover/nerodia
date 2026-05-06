@@ -644,6 +644,16 @@ public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyMo
 
 end PyModule
 
+public class ToPyObject (α : Type u) where
+  toPyObject : α → PyIO PyObject
+
+export ToPyObject (toPyObject)
+
+/-- An initializaer thats adds an attribute {lean}`name` to the module with value {lean}`val`. -/
+@[inline] public def PyModuleInit.addAttr
+  [ToPyObject α] (name : String) (val : α)
+: PyModuleInit := .ofPyIO fun mod => do
+  mod.addByString name (← toPyObject val)
 
 /-! ## Objects -/
 
@@ -658,6 +668,8 @@ public opaque PyObject.getAttrByString
 /-- Creates a Python string from a Lean string. -/
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
+
+public instance : ToPyObject String := ⟨(mkPyStr ·)⟩
 
 /--
 Computes a string representation of the object {lean}`self`.

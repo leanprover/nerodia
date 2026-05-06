@@ -11,6 +11,11 @@ open Lean
 
 namespace Nerodia
 
+public structure AttrDef where
+  name : String
+  doc? : Option String
+  ty : String
+
 /-- The FFI calling convention of a Python function. -/
 public structure CallConv where
   private ofString ::
@@ -41,5 +46,6 @@ public structure ModuleConfig where
   name : String
   doc? : Option String := none
   inits : Array String := #[]
+  attrs : Array AttrDef := #[]
   methods : Array MethodDef := #[]
   deriving Inhabited

@@ -7,12 +7,15 @@ module
 import Lean.Exception
 import Lean.Environment
 import Lean.Compiler.ExportAttr
+import Lean.Meta.SynthInstance
+import Lean.Meta.DecLevel
+import Lean.AddDecl
 import Lean.DocString
 public import Nerodia.Compiler.ModuleConfig.Extension
 
 /-! # Neordiac Attributes -/
 
-open Lean
+open Lean Meta
 
 namespace Nerodia
 
@@ -87,7 +90,7 @@ initialize
       unless hasModuleConfig env do
         throwAttrWithoutModuleConfig attrName
       let cSym ← getFnSymbol declName
-      let meth : MethodDef := {
+      let df : MethodDef := {
         cSym
         callConv := .o
         doc? := (← findDocString? env declName).map (·.trimAscii.copy)
@@ -95,5 +98,54 @@ initialize
         cSig := s!"size_t {cSym}(size_t self, size_t arg)"
         pySig := pySig?.elim "(_: any, /) -> any" (·.getString)
       }
-      modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push meth}
+      modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+  }
+
+syntax (name := py_module_attr) "py_module_attr" (ppSpace str)?
+  (ppSpace atomic("(" &"ty") " := " str ")")? : attr
+
+initialize
+  let attrName := `py_module_attr
+  registerBuiltinAttribute {
+    ref := decl_name%
+    name := attrName
+    descr := "mark a definition as a Python module attribute"
+    applicationTime := .afterCompilation
+    add := fun declName stx kind => do
+      let `(attr|py_module_attr $[$name?:str]? $[(ty := $ty?)]?) := stx
+        | throwError "ill-formed [py_module_attr attribute syntax"
+      unless kind == AttributeKind.global do
+        throwAttrMustBeGlobal attrName kind
+      let env ← getEnv
+      unless (env.getModuleIdxFor? declName).isNone do
+        throwAttrDeclInImportedModule attrName declName
+      unless modCfgExt.toEnvExtension.asyncMayModify env declName do
+        throwAttrNotInAsyncCtx attrName declName env.asyncPrefix?
+      let decl ← getConstInfo declName
+      unless hasModuleConfig env do
+        throwAttrWithoutModuleConfig attrName
+      let name := name?.elim declName.getString! (·.getString)
+      let df : AttrDef := {
+        name
+        doc? := (← findDocString? env declName).map (·.trimAscii.copy)
+        -- TODO: infer (also import any)
+        ty := ty?.elim "any" (·.getString)
+      }
+      modifyModuleConfig fun cfg => {cfg with attrs := cfg.attrs.push df}
+      MetaM.run' do
+      let u ← getDecLevel decl.type
+      let inst ← synthInstance (mkApp (mkConst `Nerodia.ToPyObject [u]) decl.type)
+      let initName ← mkAuxDeclName `_pyAttr
+      let us := decl.levelParams.map .param
+      addAndCompile <| .defnDecl {
+        name := initName
+        levelParams := decl.levelParams
+        type := mkConst `Nerodia.PyModuleInit
+        value := mkApp4 (mkConst `Nerodia.PyModuleInit.addAttr [u])
+          decl.type inst (mkStrLit name) (mkConst declName us)
+        hints := .opaque
+        safety := .safe
+      }
+      let initSym ← getFnSymbol initName
+      modifyModuleConfig fun cfg => {cfg with inits := cfg.inits.push initSym}
   }

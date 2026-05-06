@@ -27,7 +27,7 @@ structure Module where
   leanModule : Lean.Name
   doc? : Option String := none
   inits : Array String := #[]
-  members : Array Member := #[]
+  attrs : Array AttrDef := #[]
   methods : Array MethodDef := #[]
 
 def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
@@ -104,7 +104,7 @@ def writePyiFile (path : FilePath) (mod : Module) : IO Unit := do
   if let some doc := mod.doc? then
     pyi.putStr doc.quote
     pyi.putStr "\n"
-  for m in mod.members do
+  for m in mod.attrs do
     pyi.putStr s!"\n{m.name}: {m.ty}"
     if let some doc := m.doc? then
       pyi.putStr "\n"
@@ -132,12 +132,6 @@ end Nerodia
 
 open Nerodia
 
-def testModuleMembers : Array Member := #[{
-  name := "greeting"
-  ty := "str"
-  doc? := some "The standard greeting."
-}]
-
 public def main (args : List String) : IO UInt32 := do
   let [arg] := args
     | IO.eprintln "USAGE: nerodiac <config.json>"
@@ -163,7 +157,7 @@ public def main (args : List String) : IO UInt32 := do
     inits := modCfg.inits
     leanInit := Lean.mkModuleInitializationFunctionName cfg.leanModule (env.getModulePackageByIdx? modIdx)
     leanModule := cfg.leanModule
-    members := testModuleMembers
+    attrs := modCfg.attrs
     methods := modCfg.methods
   }
   writeCFile cfg.cFile mod
