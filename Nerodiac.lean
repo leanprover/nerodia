@@ -41,6 +41,8 @@ def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
   c.putStr "\nvoid nerodia_mark_end_initialization(void);"
   c.putStr "\nvoid nerodia_set_init_error(lean_obj_arg init_res, const char *mod_name);"
   c.putStr s!"\nlean_obj_res {mod.leanInit}(uint8_t builtin);"
+  for a in mod.attrs do
+    c.putStr s!"\nsize_t {a.cSym}(void);"
   for fn in mod.inits do
     c.putStr s!"\nint32_t {fn}(size_t m);"
   let lb := "{"
@@ -54,13 +56,13 @@ def writeCFile (path : FilePath) (mod : Module) : IO Unit := do
     \n    return -1;\
     \n  }\
     \n  lean_dec_ref(res);"
-  if h : mod.inits.size = 1 then
-    c.putStr s!"\n  return {mod.inits[0]}((size_t)m);"
-  else
-    for fn in mod.inits do
-      c.putStr s!"\n  if ({fn}((size_t)m) != 0) return -1;"
-    c.putStr "\n  return 0;"
-  c.putStr "\n}\n"
+  for a in mod.attrs do
+    c.putStr s!"\n  if (PyModule_Add(m, {a.name.quote}, (PyObject*){a.cSym}()) != 0) return -1;"
+  for fn in mod.inits do
+    c.putStr s!"\n  if ({fn}((size_t)m) != 0) return -1;"
+  c.putStr "\
+    \n  return 0;\
+    \n}\n"
   c.putStr "\
     \nstatic PyModuleDef_Slot module_slots[] = {\
     \n  {Py_mod_exec, module_exec},\

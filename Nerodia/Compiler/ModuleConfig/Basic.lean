@@ -14,6 +14,7 @@ namespace Nerodia
 public structure AttrDef where
   name : String
   doc? : Option String
+  cSym : String
   ty : String
 
 /-- The FFI calling convention of a Python function. -/

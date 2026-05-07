@@ -339,6 +339,10 @@ that a Python environment exists and the returned pointer does not outlive it.
 @[inline] def runUnsafe (x : CPyIO α) : BaseIO (CPtr α) :=
   x
 
+/-- Converts a {lean}`CPyIO` returning a typed Python object into untyped general object. -/
+@[inline] public def cast (x : CPyIO α) : CPyIO PyObject :=
+  unsafe unsafeCast x
+
 end CPyIO
 
 /-- Clears the current exception and returns it. -/
@@ -644,16 +648,12 @@ public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyMo
 
 end PyModule
 
-public class ToPyObject (α : Type u) where
-  toPyObject : α → PyIO PyObject
-
-export ToPyObject (toPyObject)
-
-/-- An initializaer thats adds an attribute {lean}`name` to the module with value {lean}`val`. -/
-@[inline] public def PyModuleInit.addAttr
-  [ToPyObject α] (name : String) (val : α)
-: PyModuleInit := .ofPyIO fun mod => do
-  mod.addByString name (← toPyObject val)
+/--
+Type class used to construct Python attributes from Lean objects.
+Used by {lit}`@[py_module_attr]`.
+-/
+public class MkAttr (α : Type u) (ty : outParam String) where
+  mkAttr : α → CPyIO PyObject
 
 /-! ## Objects -/
 
@@ -669,7 +669,7 @@ public opaque PyObject.getAttrByString
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
-public instance : ToPyObject String := ⟨(mkPyStr ·)⟩
+public instance : MkAttr String "str" := ⟨(mkPyStr · |>.cast)⟩
 
 /--
 Computes a string representation of the object {lean}`self`.

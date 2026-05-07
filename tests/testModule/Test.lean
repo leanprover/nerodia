@@ -18,5 +18,5 @@ def greetingFor : PyMethO := .ofPyIO fun _ s => do
   else raisePyTypeError "argument must be str"
 
 /-- The standard greeting. -/
-@[py_module_attr (ty := "str")]
+@[py_module_attr]
 def greeting : String := "Hello!"
