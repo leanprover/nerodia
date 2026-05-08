@@ -86,6 +86,7 @@ lean_exe nerodiac where
   supportInterpreter := true
 
 structure NerodiaConfig where
+  name : String
   c : FilePath
   pyi : FilePath
   includeDirs : Array FilePath
@@ -102,11 +103,16 @@ structure CompilerConfig where
   pyiFile : FilePath
   deriving ToJson, FromJson
 
+structure CompilerOutput where
+  name : String
+  deriving ToJson, FromJson
+
 module_facet nerodia (mod) : NerodiaConfig := do
   let cFile := mod.irPath "nerodia.c"
   let pyJob ← pyconfig.fetch
   let pyiFile := mod.irPath "nerodia.pyi"
-  let cfgFile := mod.irPath "nerodia.json"
+  let inFile := mod.irPath "nerodia.in.json"
+  let outFile := mod.irPath "nerodia.out.json"
   let traceFile := mod.irPath "nerodia.trace"
   let libJob ← mod.lib.static.fetch
   let nerdoiacJob ← nerodiac.fetch
@@ -116,16 +122,16 @@ module_facet nerodia (mod) : NerodiaConfig := do
   pyJob.bindM (sync := true) fun py =>
   nerodiaJob.mapM fun libnerodia => do
     addLeanTrace
-    -- TODO: Build both as artifacts
-    buildUnlessUpToDate traceFile (← getTrace) traceFile do
+    -- TODO: Build all outputs as artifacts
+    buildUnlessUpToDate outFile (← getTrace) traceFile do
       let cfg : CompilerConfig := {
         leanModule := mod.name
         cFile, pyiFile
       }
-      IO.FS.writeFile cfgFile (toJson cfg).compress
+      IO.FS.writeFile inFile (toJson cfg).compress
       proc {
         cmd := nerodiac.toString
-        args := #[cfgFile.toString]
+        args := #[inFile.toString, outFile.toString]
         env := #[
           ("LEAN_PATH", some (← getAugmentedLeanPath).toString),
           -- ensures `nerodiac` can find Python's shared libraries
@@ -134,9 +140,14 @@ module_facet nerodia (mod) : NerodiaConfig := do
           (sharedLibPathEnvVar, some libPath.toString),
         ]
       }
+    let out ←
+      match Json.parse (← IO.FS.readFile outFile) >>= fromJson? with
+      | .ok (out : CompilerOutput) => pure out
+      | .error e => error s!"nerodiac produced invalid output: {e}"
     return {
-      c := cFile,
-      pyi := pyiFile,
+      name := out.name
+      c := cFile
+      pyi := pyiFile
       includeDirs := #[← getLeanIncludeDir]
       libDirs := #[← getLeanLibDir]
       libs :=

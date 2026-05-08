@@ -11,6 +11,7 @@ from setuptools.command.build_ext import build_ext
 from typing import TypedDict
 
 class NerodiaConfig(TypedDict):
+  name: str
   c: str
   pyi: str
   includeDirs: list[str]
@@ -25,7 +26,7 @@ r=subprocess.run(
 r.check_returncode()
 nerodia: NerodiaConfig = json.loads(r.stdout.decode())
 
-mod = "testmodule"
+mod = nerodia['name']
 # create `__init__` stub with module definitions and the docstring
 shutil.copy2(nerodia['pyi'], os.path.join(mod, "__init__.pyi"))
 # create empty `_lean` stub to handle `from ._lean` resolution in `__init__`

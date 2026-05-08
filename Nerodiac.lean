@@ -130,29 +130,29 @@ structure CompilerConfig where
   pyiFile : FilePath
   deriving ToJson, FromJson
 
+structure CompilerOutput where
+  name : String
+  deriving ToJson, FromJson
+
 end Nerodia
 
 open Nerodia
 
-public def main (args : List String) : IO UInt32 := do
-  let [arg] := args
-    | IO.eprintln "USAGE: nerodiac <config.json>"
-      return 1
-  let contents ← IO.FS.readFile arg
-  let cfg ←
-    match Json.parse contents >>= fromJson? with
-    | .ok (cfg : CompilerConfig) => pure cfg
-    | .error e =>
-      IO.eprintln s!"invalid configuration: {e}"
-      return 1
+def readConfig (path : FilePath) : IO CompilerConfig := do
+  let contents ← IO.FS.readFile path
+  match Json.parse contents >>= fromJson? with
+  | .ok (cfg : CompilerConfig) => return cfg
+  | .error e =>
+    throw <| IO.userError s!"invalid configuration: {e}"
+
+def run (cfg : CompilerConfig) : IO CompilerOutput := do
   unsafe Lean.enableInitializersExecution
   Lean.initSearchPath (← Lean.findSysroot)
   let env ← Lean.importModules #[cfg.leanModule] .empty
     (leakEnv := true) (loadExts := true)
   let modIdx := env.getModuleIdx? cfg.leanModule |>.get!
   let some modCfg := modCfgExt.getStateByIdx? env modIdx |>.join
-    | IO.eprintln "module lacks a Nerodia configuration"
-      return 1
+    | throw <| IO.userError "module lacks a Nerodia configuration"
   let mod : Module := {
     name := modCfg.name
     doc? := modCfg.doc?
@@ -164,4 +164,24 @@ public def main (args : List String) : IO UInt32 := do
   }
   writeCFile cfg.cFile mod
   writePyiFile cfg.pyiFile mod
-  return 0
+  return {
+    name := modCfg.name
+  }
+
+public def main (args : List String) : IO UInt32 := do
+  try
+    match args with
+    | [cfgFile] =>
+      let out ← run (← readConfig cfgFile)
+      IO.print (toJson out).pretty
+      return (0 : UInt32)
+    | [cfgFile, outFile] =>
+      let out ← run (← readConfig cfgFile)
+      IO.FS.writeFile outFile (toJson out).pretty
+      return 0
+    | _ =>
+      IO.eprintln "USAGE: nerodiac <config.json> [<out.json>]"
+      return 1
+  catch e =>
+    IO.eprintln e
+    return 1
