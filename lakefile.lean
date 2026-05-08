@@ -114,6 +114,7 @@ module_facet nerodia (mod) : NerodiaConfig := do
   let inFile := mod.irPath "nerodia.in.json"
   let outFile := mod.irPath "nerodia.out.json"
   let traceFile := mod.irPath "nerodia.trace"
+  -- TODO: include all imported libraries
   let libJob ← mod.lib.static.fetch
   let nerdoiacJob ← nerodiac.fetch
   let nerodiaJob ← (← Nerodia.get).static.fetch

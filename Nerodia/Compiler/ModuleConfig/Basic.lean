@@ -50,3 +50,7 @@ public structure ModuleConfig where
   attrs : Array AttrDef := #[]
   methods : Array MethodDef := #[]
   deriving Inhabited
+
+public structure ModuleDef extends config : ModuleConfig where
+  leanInit : String
+  leanModule : Lean.Name
