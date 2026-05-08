@@ -147,6 +147,29 @@ module_facet nerodia (mod) : NerodiaConfig := do
       objs := #[libstatic, libnerodia]
     }
 
+/--
+Generates a Python extension module from a Lean module.
+
+USAGE:
+  lake script run nerodia/genExt <module-name>
+
+Generates the C code and `.pyi` type stub for the extension using `nerodiac`
+and outputs a JSON data structure containing the information needed to construct
+the extension module on the Python side.
+-/
+script genExt (args : List String) do
+  let [modStr] := args
+    | error "USAGE: lake script run nerodia/genExt <module-name>"
+  let modName := modStr.toName
+  if modName.isAnonymous then
+    error "invalid module name"
+  let some mod ← findModule? modName
+    | error s!"unknown module '{modName}'"
+  let cfg ← runBuild do
+    mod.facet `nerodia |>.fetch
+  IO.println (toJson cfg).compress
+  return 0
+
 /-! ## Nerodia Tests -/
 
 lean_lib NerodiaTests where

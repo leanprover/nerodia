@@ -19,7 +19,7 @@ class NerodiaConfig(TypedDict):
   objs: list[str]
 
 r=subprocess.run(
-  ["lake", "query", "--json", "+Test:nerodia"],
+  ["lake", "script", "run", "nerodia/genExt", "Test"],
   stdout=subprocess.PIPE, env=dict(os.environ, PYTHON3=sys.executable)
 )
 r.check_returncode()
