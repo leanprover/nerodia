@@ -7,14 +7,16 @@ import Nerodia
 
 open Nerodia
 
+/-- A Lean-to-Python test module. -/
+py_module "testmodule"
+
 /-- Return a greeting. -/
-@[export test_greeting_for]
+@[py_module_fn "greeting_for" (sig := "(s: str, /) -> str")]
 def greetingFor : PyMethO := .ofPyIO fun _ s => do
   if h : s.isStrInstance then
     mkPyStr s!"Hello, {PyStr.mk s h}!"
   else raisePyTypeError "argument must be str"
 
-@[export test_init_module]
-def initModule : PyModuleInit := .ofPyIO fun mod => do
-  let greeting ← mkPyStr "Hello!"
-  mod.addByString "greeting" greeting
+/-- The standard greeting. -/
+@[py_module_attr]
+def greeting : String := "Hello!"

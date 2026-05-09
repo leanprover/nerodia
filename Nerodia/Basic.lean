@@ -339,6 +339,10 @@ that a Python environment exists and the returned pointer does not outlive it.
 @[inline] def runUnsafe (x : CPyIO α) : BaseIO (CPtr α) :=
   x
 
+/-- Converts a {lean}`CPyIO` returning a typed Python object into untyped general object. -/
+@[inline] public def cast (x : CPyIO α) : CPyIO PyObject :=
+  unsafe unsafeCast x
+
 end CPyIO
 
 /-- Clears the current exception and returns it. -/
@@ -644,6 +648,12 @@ public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyMo
 
 end PyModule
 
+/--
+Type class used to construct Python attributes from Lean objects.
+Used by {lit}`@[py_module_attr]`.
+-/
+public class MkAttr (α : Type u) (ty : outParam String) where
+  mkAttr : α → CPyIO PyObject
 
 /-! ## Objects -/
 
@@ -658,6 +668,8 @@ public opaque PyObject.getAttrByString
 /-- Creates a Python string from a Lean string. -/
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
+
+public instance : MkAttr String "str" := ⟨(mkPyStr · |>.cast)⟩
 
 /--
 Computes a string representation of the object {lean}`self`.

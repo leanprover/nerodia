@@ -8,21 +8,25 @@ Authors: Mac Malone, Claude Code
 #include <stdatomic.h>
 #include <string.h>
 
-/* ## Mutex */
-
 #ifdef _WIN32
 #include <windows.h>
+#else
+#include <pthread.h>
+#endif
+
+/* ## Python Mutex */
+
+#ifdef _WIN32
 static CRITICAL_SECTION g_py_mutex;
 static INIT_ONCE g_py_mutex_once = INIT_ONCE_STATIC_INIT;
-static BOOL CALLBACK init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
+static BOOL CALLBACK py_init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
   InitializeCriticalSection(&g_py_mutex);
   return TRUE;
 }
-#define py_mutex_lock()   (InitOnceExecuteOnce(&g_py_mutex_once, init_mutex, NULL, NULL), \
+#define py_mutex_lock()   (InitOnceExecuteOnce(&g_py_mutex_once, py_init_mutex, NULL, NULL), \
                            EnterCriticalSection(&g_py_mutex))
 #define py_mutex_unlock() LeaveCriticalSection(&g_py_mutex)
 #else
-#include <pthread.h>
 static pthread_mutex_t g_py_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define py_mutex_lock()   pthread_mutex_lock(&g_py_mutex)
 #define py_mutex_unlock() pthread_mutex_unlock(&g_py_mutex)
@@ -146,15 +150,32 @@ static inline PyTypeObject* nerodia_to_type_object(b_lean_obj_arg o) {
 
 /* ## Python C Extension API */
 
+#ifdef _WIN32
+static CRITICAL_SECTION g_lean_mutex;
+static INIT_ONCE g_lean_mutex_once = INIT_ONCE_STATIC_INIT;
+static BOOL CALLBACK lean_init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
+  InitializeCriticalSection(&g_lean_mutex);
+  return TRUE;
+}
+#define lean_mutex_lock()   (InitOnceExecuteOnce(&g_lean_mutex_once, lean_init_mutex, NULL, NULL), \
+                           EnterCriticalSection(&g_lean_mutex))
+#define lean_mutex_unlock() LeaveCriticalSection(&g_lean_mutex)
+#else
+static pthread_mutex_t g_lean_mutex = PTHREAD_MUTEX_INITIALIZER;
+#define lean_mutex_lock()   pthread_mutex_lock(&g_lean_mutex)
+#define lean_mutex_unlock() pthread_mutex_unlock(&g_lean_mutex)
+#endif
+
 void lean_initialize(void);
 uint8_t lean_io_initializing(void);
+lean_obj_res nerodia_internal_set_init(uint8_t init);
 
 /** Initializes Nerodia for use in a Python extension.  */
 LEAN_EXPORT void nerodia_initialize_lean(void) {
   // Remark: This function many be called from multiple Lean extension imports,
   // or if Lean code imports a Python module which imports Lean code, so it must
   // be idempotent and race-free in all cases.
-  py_mutex_lock();
+  lean_mutex_lock();
   if (lean_io_initializing()) {
     // Remark: Consider use of `lean_setup_args` via `Py_GetArgcArgv`.
     // However, it is not clear whether there is a good way to keep them in sync.
@@ -162,9 +183,29 @@ LEAN_EXPORT void nerodia_initialize_lean(void) {
     lean_init_task_manager();
     lean_io_mark_end_initialization();
   }
-  py_mutex_unlock();
+  nerodia_internal_set_init(true);
 }
 
+/** Marks the end of Nerodia initialization from Python. */
+LEAN_EXPORT void nerodia_mark_end_initialization(void) {
+  nerodia_internal_set_init(false);
+  // Remark: Must hold mutex until here to avoid races on the `Lean.initializing` flag.
+  lean_mutex_unlock();
+}
+
+lean_obj_res lean_io_error_to_string(lean_obj_arg e);
+
+/** Sets a Python exeception on an Lean module initialization failure.  */
+LEAN_EXPORT void nerodia_set_init_error(lean_obj_arg init_res, const char *mod_name) {
+  lean_object* err = lean_io_result_get_error(init_res);
+  lean_inc_ref(err);
+  lean_dec_ref(init_res);
+  err = lean_io_error_to_string(err);
+  PyErr_Format(PyExc_ImportError, // TODO: Error class for Lean errors
+    "Failed to initialize Lean module '%s': %s",
+    mod_name, lean_string_cstr(err));
+  lean_dec_ref(err);
+}
 /* ## Lean API */
 
 LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {

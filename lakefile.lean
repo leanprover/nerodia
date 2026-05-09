@@ -78,6 +78,114 @@ lean_lib Nerodia where
   moreLinkObjs := #[nerodia.o]
   moreLinkLibs := #[libpython3]
 
+/-! ## Nerodiac -/
+
+@[default_target]
+lean_exe nerodiac where
+  root := `Nerodiac
+  supportInterpreter := true
+
+structure NerodiaConfig where
+  name : String
+  c : FilePath
+  pyi : FilePath
+  includeDirs : Array FilePath
+  libDirs : Array FilePath
+  libs : Array String
+  objs : Array FilePath
+  deriving ToJson
+
+instance : QueryText NerodiaConfig := ⟨(toJson · |>.compress)⟩
+
+structure CompilerConfig where
+  leanModule : Lean.Name
+  cFile : FilePath
+  pyiFile : FilePath
+  deriving ToJson, FromJson
+
+structure CompilerOutput where
+  name : String
+  deriving ToJson, FromJson
+
+module_facet nerodia (mod) : NerodiaConfig := do
+  let cFile := mod.irPath "nerodia.c"
+  let pyJob ← pyconfig.fetch
+  let pyiFile := mod.irPath "nerodia.pyi"
+  let inFile := mod.irPath "nerodia.in.json"
+  let outFile := mod.irPath "nerodia.out.json"
+  let traceFile := mod.irPath "nerodia.trace"
+  let modJob ← mod.leanArts.fetch
+  let nerodiacJob ← nerodiac.fetch
+  -- TODO: include all imported libraries
+  let libJob ← mod.lib.static.fetch
+  let nerodiaJob ← (← Nerodia.get).static.fetch
+  libJob.bindM (sync := true) fun libstatic =>
+  modJob.bindM (sync := true) fun _ =>
+  nerodiacJob.bindM (sync := true) fun nerodiac =>
+  pyJob.bindM (sync := true) fun py =>
+  nerodiaJob.mapM fun libnerodia => do
+    addLeanTrace
+    -- TODO: Build all outputs as artifacts
+    buildUnlessUpToDate outFile (← getTrace) traceFile do
+      let cfg : CompilerConfig := {
+        leanModule := mod.name
+        cFile, pyiFile
+      }
+      IO.FS.writeFile inFile (toJson cfg).compress
+      proc {
+        cmd := nerodiac.toString
+        args := #[inFile.toString, outFile.toString]
+        env := #[
+          ("LEAN_PATH", some (← getAugmentedLeanPath).toString),
+          -- ensures `nerodiac` can find Python's shared libraries
+          -- TODO: make `nerodiac` not depend on Python
+          let libPath : SearchPath := py.libDir :: (← getAugmentedSharedLibPath)
+          (sharedLibPathEnvVar, some libPath.toString),
+        ]
+      }
+    let out ←
+      match Json.parse (← IO.FS.readFile outFile) >>= fromJson? with
+      | .ok (out : CompilerOutput) => pure out
+      | .error e => error s!"nerodiac produced invalid output: {e}"
+    return {
+      name := out.name
+      c := cFile
+      pyi := pyiFile
+      includeDirs := #[← getLeanIncludeDir]
+      libDirs := #[← getLeanLibDir]
+      libs :=
+        if System.Platform.isWindows then #[
+          "Lake_shared", "Init_shared",
+          "leanshared_2", "leanshared_1", "leanshared"
+        ] else #["leanshared"]
+      objs := #[libstatic, libnerodia]
+    }
+
+/--
+Generates a Python extension module from a Lean module.
+
+USAGE:
+  lake script run nerodia/genExt <module-name>
+
+Generates the C code and `.pyi` type stub for the extension using `nerodiac`
+and outputs a JSON data structure containing the information needed to construct
+the extension module on the Python side.
+-/
+script genExt (args : List String) do
+  let [modStr] := args
+    | error "USAGE: lake script run nerodia/genExt <module-name>"
+  let modName := modStr.toName
+  if modName.isAnonymous then
+    error "invalid module name"
+  let some mod ← findModule? modName
+    | error s!"unknown module '{modName}'"
+  let cfg ← runBuild do
+    mod.facet `nerodia |>.fetch
+  IO.println (toJson cfg).compress
+  return 0
+
+/-! ## Nerodia Tests -/
+
 lean_lib NerodiaTests where
   srcDir := "tests"
   globs := #[`NerodiaTests.+]
@@ -102,6 +210,7 @@ script test do
   runBuild do
     let pyJob ← pyconfig.fetch
     let libJob ← Nerodia.fetch
+    let nerodiacJob ← nerodiac.fetch
     discard <| NerodiaTests.fetch
     let exeJob ← testExe.fetch
     discard <| withRegisterJob "testExe test" do
@@ -109,19 +218,26 @@ script test do
       exeJob.mapM fun exeFile => do
         let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
         validateOutput py.version out
-    let installJob ← withRegisterJob "testModule install" <| libJob.mapM fun _ => do proc {
-      cmd := "uv",
-      args := #["-q", "sync", "--reinstall"]
-      cwd := testModuleDir
-      -- ensures Python can find Lean's shared libraries
-      env := ← getAugmentedEnv
-    }
+    let installJob ← withRegisterJob "testModule install" do
+      libJob.bindM (sync := true) fun _ =>
+      nerodiacJob.mapM fun _ => do proc {
+        cmd := "uv",
+        args := #["-q", "sync", "--reinstall"]
+        cwd := testModuleDir
+        -- ensures Python can find Lean's shared libraries
+        env := ← getAugmentedEnv
+      }
     discard <| withRegisterJob "testModule test" <| installJob.mapM fun _ => do proc {
       cmd := "uv",
       args := #["-q", "run", "--no-sync", "test.py"]
       cwd := testModuleDir
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
+    }
+    discard <| withRegisterJob "testModule ty" <| installJob.mapM fun _ => do proc {
+      cmd := "uvx",
+      args := #["-q", "ty", "check", "-q", "test.py"]
+      cwd := testModuleDir
     }
     withRegisterJob "testModule lpl" <| installJob.mapM fun _ => do
       let out ← captureProc {
