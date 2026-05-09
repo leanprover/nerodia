@@ -97,8 +97,7 @@ initialize
         doc? := (← findDocString? env declName).map (·.trimAscii.copy)
         name := name?.elim declName.getString! (·.getString)
         cSig := s!"size_t {cSym}(size_t self, size_t arg)"
-        -- TODO: import `Any`
-        pySig := pySig?.elim "(_: Any, /) -> Any" (·.getString)
+        pySig := pySig?.elim "(_, /)" (·.getString)
       }
       modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
   }
