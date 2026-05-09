@@ -5,7 +5,7 @@ Authors: Mac Malone
 -/
 module
 
-/-! # Neordiac Module Configuration -/
+/-! # Nerodiac Module Configuration -/
 
 open Lean
 

@@ -14,18 +14,18 @@ import Lean.DocString
 import Lean.Meta.Eval
 import Nerodia.Compiler.ModuleConfig.Extension
 
-/-! # Neordiac Attributes -/
+/-! # Nerodiac Attributes -/
 
 open Lean Meta
 
 namespace Nerodia
 
-/-! ## Utilites -/
+/-! ## Utilities -/
 
 @[inline] def throwInvalidExportName [Monad m] [MonadError m] (n : Name) : m α :=
   throwError s!"invalid export name '{n}'"
 
-@[inline] def getFnSymbol[Monad m] [MonadEnv m] [MonadError m] (declName : Name) : m String := do
+@[inline] def getFnSymbol [Monad m] [MonadEnv m] [MonadError m] (declName : Name) : m String := do
   let env ← getEnv
   match getExportNameFor? env declName with
   | some (.str .anonymous s) => return s
@@ -115,7 +115,7 @@ initialize
     applicationTime := .afterCompilation
     add := fun declName stx kind => do
       let `(attr|py_module_attr $[$name?:str]? $[(ty := $ty?)]?) := stx
-        | throwError "ill-formed [py_module_attr attribute syntax"
+        | throwError "ill-formed [py_module_attr] attribute syntax"
       unless kind == AttributeKind.global do
         throwAttrMustBeGlobal attrName kind
       let env ← getEnv

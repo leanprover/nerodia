@@ -7,7 +7,7 @@ module
 public import Lean.Compiler.ModPkgExt
 public import Nerodia.Compiler.ModuleConfig.Basic
 
-/-! # Neordiac Configuration Extension -/
+/-! # Nerodiac Configuration Extension -/
 
 open Lean
 

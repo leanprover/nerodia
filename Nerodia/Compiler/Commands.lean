@@ -10,7 +10,7 @@ public import Lean.DocString.Extension
 public meta import Nerodia.Compiler.ModuleConfig
 public meta import Nerodia.Compiler.ModuleConfig.Extension
 
-/-! # Neordiac Commands -/
+/-! # Nerodiac Commands -/
 
 open Lean Elab Command
 

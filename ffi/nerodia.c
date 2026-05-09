@@ -17,7 +17,6 @@ Authors: Mac Malone, Claude Code
 /* ## Python Mutex */
 
 #ifdef _WIN32
-#include <windows.h>
 static CRITICAL_SECTION g_py_mutex;
 static INIT_ONCE g_py_mutex_once = INIT_ONCE_STATIC_INIT;
 static BOOL CALLBACK py_init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
@@ -28,7 +27,6 @@ static BOOL CALLBACK py_init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
                            EnterCriticalSection(&g_py_mutex))
 #define py_mutex_unlock() LeaveCriticalSection(&g_py_mutex)
 #else
-#include <pthread.h>
 static pthread_mutex_t g_py_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define py_mutex_lock()   pthread_mutex_lock(&g_py_mutex)
 #define py_mutex_unlock() pthread_mutex_unlock(&g_py_mutex)
@@ -197,7 +195,7 @@ LEAN_EXPORT void nerodia_mark_end_initialization(void) {
 
 lean_obj_res lean_io_error_to_string(lean_obj_arg e);
 
-/** Sets a Python exeception on an Lean module initializaiton failure.  */
+/** Sets a Python exeception on an Lean module initialization failure.  */
 LEAN_EXPORT void nerodia_set_init_error(lean_obj_arg init_res, const char *mod_name) {
   lean_object* err = lean_io_result_get_error(init_res);
   lean_inc_ref(err);
