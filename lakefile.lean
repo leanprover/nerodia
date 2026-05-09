@@ -114,11 +114,13 @@ module_facet nerodia (mod) : NerodiaConfig := do
   let inFile := mod.irPath "nerodia.in.json"
   let outFile := mod.irPath "nerodia.out.json"
   let traceFile := mod.irPath "nerodia.trace"
+  let modJob ← mod.leanArts.fetch
+  let nerodiacJob ← nerodiac.fetch
   -- TODO: include all imported libraries
   let libJob ← mod.lib.static.fetch
-  let nerodiacJob ← nerodiac.fetch
   let nerodiaJob ← (← Nerodia.get).static.fetch
   libJob.bindM (sync := true) fun libstatic =>
+  modJob.bindM (sync := true) fun _ =>
   nerodiacJob.bindM (sync := true) fun nerodiac =>
   pyJob.bindM (sync := true) fun py =>
   nerodiaJob.mapM fun libnerodia => do
