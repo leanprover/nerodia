@@ -234,6 +234,11 @@ script test do
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
+    discard <| withRegisterJob "testModule ty" <| installJob.mapM fun _ => do proc {
+      cmd := "uvx",
+      args := #["-q", "ty", "check", "-q", "test.py"]
+      cwd := testModuleDir
+    }
     withRegisterJob "testModule lpl" <| installJob.mapM fun _ => do
       let out ← captureProc {
         cmd := "uv",
