@@ -162,26 +162,31 @@ module_facet nerodia (mod) : NerodiaConfig := do
     }
 
 /--
-Generates a Python extension module from a Lean module.
+Generates Python extension modules from Lean modules.
 
 USAGE:
-  lake script run nerodia/genExt <module-name>
+  lake script run nerodia/genExt <module-name>...
 
-Generates the C code and `.pyi` type stub for the extension using `nerodiac`
-and outputs a JSON data structure containing the information needed to construct
-the extension module on the Python side.
+Generates the C code and `.pyi` type stub for each extension using `nerodiac`
+and outputs a JSON data structure for each on a separate line containing the
+information needed to construct the extension module on the Python side.
 -/
 script genExt (args : List String) do
-  let [modStr] := args
-    | error "USAGE: lake script run nerodia/genExt <module-name>"
-  let modName := modStr.toName
-  if modName.isAnonymous then
-    error "invalid module name"
-  let some mod ← findModule? modName
-    | error s!"unknown module '{modName}'"
-  let cfg ← runBuild do
-    mod.facet `nerodia |>.fetch
-  IO.println (toJson cfg).compress
+  if args.isEmpty then
+    IO.println "USAGE: lake script run nerodia/genExt <module-name>..."
+    return 0
+  let mods ← args.toArray.mapM fun modStr => do
+    let modName := modStr.toName
+    if modName.isAnonymous then
+      error s!"invalid module name '{modStr}'"
+    let some mod ← findModule? modName
+      | error s!"unknown module '{modName}'"
+    return mod
+  let cfgs ← runBuild do
+    Job.collectArray <$> mods.mapM fun mod =>
+      mod.facet `nerodia |>.fetch
+  for cfg in cfgs do
+    IO.println (toJson cfg).compress
   return 0
 
 /-! ## Nerodia Tests -/
@@ -220,13 +225,24 @@ script test do
         validateOutput py.version out
     let installJob ← withRegisterJob "testModule install" do
       libJob.bindM (sync := true) fun _ =>
-      nerodiacJob.mapM fun _ => do proc {
-        cmd := "uv",
-        args := #["-q", "sync", "--reinstall"]
-        cwd := testModuleDir
-        -- ensures Python can find Lean's shared libraries
-        env := ← getAugmentedEnv
-      }
+      nerodiacJob.mapM fun _ => do
+        proc {
+          cmd := "uv",
+          args := #["-q", "venv", "--clear"]
+          cwd := testModuleDir
+        }
+        proc {
+          cmd := "uv",
+          args := #["-q", "pip", "install", "-e", (pkgDir / "setuptools-lean").toString]
+          cwd := testModuleDir
+        }
+        proc {
+          cmd := "uv",
+          args := #["-q", "sync", "--no-build-isolation-package", "test"]
+          cwd := testModuleDir
+          -- ensures Python can find Lean's shared libraries
+          env := ← getAugmentedEnv
+        }
     discard <| withRegisterJob "testModule test" <| installJob.mapM fun _ => do proc {
       cmd := "uv",
       args := #["-q", "run", "--no-sync", "test.py"]

@@ -1,0 +1,16 @@
+[project]
+name = "setuptools-lean"
+version = "0.1.0"
+description = "Setuptools plugin for building Lean/Nerodia Python extensions"
+requires-python = ">=3.13"
+dependencies = ["setuptools"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project.entry-points."setuptools.finalize_distribution_options"]
+setuptools-lean = "setuptools_lean:finalize_lean"
+
+[project.entry-points."distutils.commands"]
+build_ext = "setuptools_lean:LeanBuildExt"
