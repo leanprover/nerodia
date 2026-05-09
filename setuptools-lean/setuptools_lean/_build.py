@@ -11,6 +11,7 @@ import setuptools
 from pathlib import Path
 from setuptools.command.build_ext import build_ext
 from setuptools.dist import Distribution
+from setuptools._distutils.core import Command
 from typing import TypedDict
 
 class NerodiaConfig(TypedDict):
@@ -45,27 +46,33 @@ def finalize_lean(dist: Distribution):
   if not ext_modules:
     return
   dist.setuptools_lean_modules = ext_modules
+  dist.cmdclass.setdefault("build_lean", build_lean)
   dist.cmdclass.setdefault("build_ext", LeanBuildExt)
   # Ensure setuptools treats this as an extension package (needed for wheels).
   dist.has_ext_modules = lambda: True
 
-class LeanBuildExt(build_ext):
-  """Build Lean/Nerodia Python extension modules.
+class build_lean(Command):
+  """Run Lake to generate Lean/Nerodia Python extension modules."""
 
-  Overrides compiler selection for Lean FFI compatibility.
-  Lean is built with a Unix-style toolchain (MinGW/clang on Windows),
-  so its headers and libraries are incompatible with MSVC. This replaces
-  setuptools' compiler with a UnixCCompiler to ensure compatibility.
-  """
+  description = "build Lean/Nerodia extension modules"
+  user_options = []
+
+  def initialize_options(self):
+    pass
+
+  def finalize_options(self):
+    pass
 
   def run(self):
     ext_mods = getattr(self.distribution, 'setuptools_lean_modules', None)
     if not ext_mods:
-      super().run()
       return
 
     lean_mods = [m['lean-module'] for m in ext_mods]
     configs = run_lake(lean_mods)
+
+    if self.distribution.ext_modules is None:
+      self.distribution.ext_modules = []
 
     for nerodia in configs:
       mod = nerodia['name']
@@ -74,23 +81,40 @@ class LeanBuildExt(build_ext):
       # Create empty `_lean` stub to handle `from ._lean` resolution in `__init__`
       open(os.path.join(mod, "_lean.pyi"), 'w').close()
       # Create Python extension
-      ext = setuptools.Extension(f"{mod}._lean",
-        sources=[nerodia['c']],
-        include_dirs=nerodia['includeDirs'],
-        library_dirs=nerodia['libDirs'],
-        libraries=nerodia['libs'],
-        extra_objects=nerodia['objs'],
-        extra_compile_args=["-std=c17"],
+      self.distribution.ext_modules.append(
+        setuptools.Extension(f"{mod}._lean",
+          sources=[nerodia['c']],
+          include_dirs=nerodia['includeDirs'],
+          library_dirs=nerodia['libDirs'],
+          libraries=nerodia['libs'],
+          extra_objects=nerodia['objs'],
+          extra_compile_args=["-std=c17"],
+        )
       )
-      # Initialize attributes that setuptools' finalize_options normally sets.
+
+class LeanBuildExt(build_ext):
+  """Build extension modules with Lean FFI compatibility.
+
+  Runs ``build_lean`` to generate extensions, then overrides compiler
+  selection for Lean FFI compatibility. Lean is built with a Unix-style
+  toolchain (MinGW/clang on Windows), so its headers and libraries are
+  incompatible with MSVC. This replaces setuptools' compiler with a
+  UnixCCompiler to ensure compatibility.
+  """
+
+  def run(self):
+    self.run_command("build_lean")
+    # build_lean populates dist.ext_modules after finalize_options ran,
+    # so re-read extensions and initialize setuptools' internal state.
+    self.extensions = self.distribution.ext_modules or []
+    self.check_extensions_list(self.extensions)
+    for ext in self.extensions:
       ext._full_name = self.get_ext_fullname(ext.name)
       ext._links_to_dynamic = False
       ext._needs_stub = False
       ext._file_name = self.get_ext_filename(ext._full_name)
       self.ext_map[ext._full_name] = ext
       self.ext_map[ext._full_name.split('.')[-1]] = ext
-      self.extensions.append(ext)
-
     super().run()
 
   def build_extensions(self):
