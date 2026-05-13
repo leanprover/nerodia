@@ -5,6 +5,7 @@ import os
 import sys
 import json
 import shutil
+import sysconfig
 import tomllib
 import subprocess
 from pathlib import Path
@@ -25,9 +26,14 @@ def run_lake(modules: list[str]) -> list[NerodiaConfig]:
   Generates extension configurations for the given modules using Lake.
   Returns one configuration per module.
   """
+  env = dict(os.environ, PYTHON3=sys.executable)
+  if sys.platform == 'darwin':
+    # Override Lean's default MACOSX_DEPLOYMENT_TARGET (99.0) with the value
+    # Python was built with so the extension's platform tag matches Python's.
+    env['MACOSX_DEPLOYMENT_TARGET'] = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
   r = subprocess.run(
     ["lake", "script", "run", "nerodia/genExt", *modules],
-    stdout=subprocess.PIPE, env=dict(os.environ, PYTHON3=sys.executable),
+    stdout=subprocess.PIPE, env=env,
   )
   r.check_returncode()
   return [json.loads(line) for line in r.stdout.decode().splitlines()]
