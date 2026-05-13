@@ -260,7 +260,7 @@ script test do
       exeJob.mapM fun exeFile => do
         let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
         validateOutput py.version out
-    let installJob ← withRegisterJob "testModule install" do
+    let editableJob ← withRegisterJob "testModule editable install" do
       libJob.bindM (sync := true) fun _ =>
       nerodiacJob.mapM fun _ => do
         proc {
@@ -281,19 +281,53 @@ script test do
           -- ensures Python can find Lean's shared libraries
           env := ← getAugmentedEnv
         }
-    discard <| withRegisterJob "testModule test" <| installJob.mapM fun _ => do proc {
+    let venvDir := testModuleDir / ".lake" / "dist-venv"
+    let nonEditableJob ← withRegisterJob "testModule non-editable install" do
+      libJob.bindM (sync := true) fun _ =>
+      nerodiacJob.mapM fun _ => do
+        proc {
+          cmd := "uv",
+          args := #["-q", "venv", "--clear", venvDir.toString]
+          cwd := testModuleDir
+        }
+        proc {
+          cmd := "uv",
+          args := #[
+            "-q", "pip", "install", "--python", venvDir.toString,
+            "-e", (pkgDir / "setuptools-lean").toString
+          ]
+          cwd := testModuleDir
+        }
+        proc {
+          cmd := "uv",
+          args := #[
+            "-q", "pip", "install", "--python", venvDir.toString,
+            "--no-build-isolation", "."
+          ]
+          cwd := testModuleDir
+          -- ensures Python can find Lean's shared libraries
+          env := ← getAugmentedEnv
+        }
+    discard <| withRegisterJob "testModule test" <| editableJob.mapM fun _ => do proc {
       cmd := "uv",
       args := #["-q", "run", "--no-sync", "test.py"]
       cwd := testModuleDir
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
-    discard <| withRegisterJob "testModule ty" <| installJob.mapM fun _ => do proc {
+    discard <| withRegisterJob "testModule test (non-editable)" <| nonEditableJob.mapM fun _ => do proc {
+      cmd := "uv",
+      args := #["-q", "run", "--python", venvDir.toString, "--no-sync", "test.py"]
+      cwd := testModuleDir
+      -- ensures Python can find Lean's shared libraries
+      env := ← getAugmentedEnv
+    }
+    discard <| withRegisterJob "testModule ty" <| editableJob.mapM fun _ => do proc {
       cmd := "uvx",
       args := #["-q", "ty", "check", "-q", "test.py"]
       cwd := testModuleDir
     }
-    withRegisterJob "testModule lpl" <| installJob.mapM fun _ => do
+    withRegisterJob "testModule lpl" <| editableJob.mapM fun _ => do
       let out ← captureProc {
         cmd := "uv",
         args := #["run", "--no-sync", (← getLake).toString, "query", "--json", "lpl", "pyconfig"]
