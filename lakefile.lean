@@ -88,6 +88,7 @@ lean_exe nerodiac where
 structure NerodiaConfig where
   name : String
   c : FilePath
+  o : FilePath
   pyi : FilePath
   includeDirs : Array FilePath
   libDirs : Array FilePath
@@ -108,8 +109,9 @@ structure CompilerOutput where
   deriving ToJson, FromJson
 
 module_facet nerodia (mod) : NerodiaConfig := do
-  let cFile := mod.irPath "nerodia.c"
   let pyJob ← pyconfig.fetch
+  let cFile := mod.irPath "nerodia.c"
+  let oFile := mod.irPath "nerodia.o"
   let pyiFile := mod.irPath "nerodia.pyi"
   let inFile := mod.irPath "nerodia.in.json"
   let outFile := mod.irPath "nerodia.out.json"
@@ -147,9 +149,18 @@ module_facet nerodia (mod) : NerodiaConfig := do
       match Json.parse (← IO.FS.readFile outFile) >>= fromJson? with
       | .ok (out : CompilerOutput) => pure out
       | .error e => error s!"nerodiac produced invalid output: {e}"
+    let cc := (← IO.getEnv "CC").getD "cc"
+    let args := #["-fPIC", "-std=c17"]
+    addPureTrace args "traceArgs"
+    addPlatformTrace -- object files are platform-dependent artifacts
+    let art ← buildArtifactUnlessUpToDate oFile (ext := "o") do
+      let args := args.push "-I" |>.push (← getLeanIncludeDir).toString
+      let args := py.includeDirs.foldl (·.push "-I" |>.push ·.toString) args
+      compileO oFile cFile args cc
     return {
       name := out.name
       c := cFile
+      o := art.path
       pyi := pyiFile
       includeDirs := #[← getLeanIncludeDir]
       libDirs := #[← getLeanLibDir]
@@ -158,7 +169,7 @@ module_facet nerodia (mod) : NerodiaConfig := do
           "Lake_shared", "Init_shared",
           "leanshared_2", "leanshared_1", "leanshared"
         ] else #["leanshared"]
-      objs := #[libstatic, libnerodia]
+      objs := #[art.path, libstatic, libnerodia]
     }
 
 /--

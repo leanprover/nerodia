@@ -5,7 +5,6 @@ import os
 import sys
 import json
 import shutil
-import sysconfig
 import tomllib
 import subprocess
 import setuptools
@@ -18,6 +17,7 @@ from typing import TypedDict, cast
 class NerodiaConfig(TypedDict):
   name: str
   c: str
+  o: str
   pyi: str
   includeDirs: list[str]
   libDirs: list[str]
@@ -55,7 +55,7 @@ def finalize_lean(dist: Distribution):
 class build_lean(Command):
   """Build Lean/Nerodia Python extension modules.
 
-  Runs Lake to generate C sources and type stubs, then compiles and links
+  Runs Lake to generate compiled C sources and type stubs, then links
   each extension directly using a Unix-style C compiler.
   """
 
@@ -84,7 +84,7 @@ class build_lean(Command):
       shutil.copy2(nerodia['pyi'], os.path.join(mod, "__init__.pyi"))
       # Create empty `_lean` stub to handle `from ._lean` resolution in `__init__`
       open(os.path.join(mod, "_lean.pyi"), 'w').close()
-      # Compile and link the extension
+      # Build the the extension's shared library
       self._build_extension(nerodia, build_ext_cmd)
 
   def _build_extension(self, config: NerodiaConfig, build_ext_cmd: build_ext):
@@ -92,20 +92,6 @@ class build_lean(Command):
     mod = config['name']
     ext_name = f"{mod}._lean"
     output_path = build_ext_cmd.get_ext_fullpath(ext_name)
-    build_temp = build_ext_cmd.build_temp
-    python_include = sysconfig.get_path('include')
-
-    source = config['c']
-    os.makedirs(build_temp, exist_ok=True)
-    obj = os.path.join(build_temp, os.path.basename(source).replace('.c', '.o'))
-
-    # Compile
-    compile_cmd = [cc, '-fPIC']
-    for d in config['includeDirs']:
-      compile_cmd.extend(['-I', d])
-    compile_cmd.extend(['-I', python_include])
-    compile_cmd.extend(['-c', source, '-o', obj, '-std=c17'])
-    subprocess.run(compile_cmd, check=True)
 
     # Link
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -114,7 +100,6 @@ class build_lean(Command):
     # (provided by the interpreter at load time) don't cause link errors.
     if sys.platform == 'darwin':
       link_cmd.extend(['-undefined', 'dynamic_lookup'])
-    link_cmd.append(obj)
     link_cmd.extend(config['objs'])
     for d in config['libDirs']:
       link_cmd.extend(['-L', d])
