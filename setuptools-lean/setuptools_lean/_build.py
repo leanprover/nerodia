@@ -5,6 +5,7 @@ import os
 import sys
 import json
 import shutil
+import sysconfig
 import tomllib
 import subprocess
 import setuptools
@@ -12,7 +13,7 @@ from pathlib import Path
 from setuptools.command.build_ext import build_ext
 from setuptools.dist import Distribution
 from setuptools._distutils.core import Command
-from typing import TypedDict
+from typing import TypedDict, cast
 
 class NerodiaConfig(TypedDict):
   name: str
@@ -52,7 +53,11 @@ def finalize_lean(dist: Distribution):
   dist.has_ext_modules = lambda: True
 
 class build_lean(Command):
-  """Run Lake to generate Lean/Nerodia Python extension modules."""
+  """Build Lean/Nerodia Python extension modules.
+
+  Runs Lake to generate C sources and type stubs, then compiles and links
+  each extension directly using a Unix-style C compiler.
+  """
 
   description = "build Lean/Nerodia extension modules"
   user_options = []
@@ -71,8 +76,7 @@ class build_lean(Command):
     lean_mods = [m['lean-module'] for m in ext_mods]
     configs = run_lake(lean_mods)
 
-    if self.distribution.ext_modules is None:
-      self.distribution.ext_modules = []
+    build_ext_cmd = cast(build_ext, self.get_finalized_command('build_ext'))
 
     for nerodia in configs:
       mod = nerodia['name']
@@ -80,77 +84,48 @@ class build_lean(Command):
       shutil.copy2(nerodia['pyi'], os.path.join(mod, "__init__.pyi"))
       # Create empty `_lean` stub to handle `from ._lean` resolution in `__init__`
       open(os.path.join(mod, "_lean.pyi"), 'w').close()
-      # Create Python extension
-      self.distribution.ext_modules.append(
-        setuptools.Extension(f"{mod}._lean",
-          sources=[nerodia['c']],
-          include_dirs=nerodia['includeDirs'],
-          library_dirs=nerodia['libDirs'],
-          libraries=nerodia['libs'],
-          extra_objects=nerodia['objs'],
-          extra_compile_args=["-std=c17"],
-        )
-      )
+      # Compile and link the extension
+      self._build_extension(nerodia, build_ext_cmd)
 
-class LeanBuildExt(build_ext):
-  """Build extension modules with Lean FFI compatibility.
-
-  Runs ``build_lean`` to generate extensions, then overrides compiler
-  selection for Lean FFI compatibility. Lean is built with a Unix-style
-  toolchain (MinGW/clang on Windows), so its headers and libraries are
-  incompatible with MSVC. This replaces setuptools' compiler with a
-  UnixCCompiler to ensure compatibility.
-  """
-
-  def run(self):
-    self.run_command("build_lean")
-    # build_lean populates dist.ext_modules after finalize_options ran,
-    # so re-read extensions and initialize setuptools' internal state.
-    self.extensions = self.distribution.ext_modules or []
-    self.check_extensions_list(self.extensions)
-    for ext in self.extensions:
-      ext._full_name = self.get_ext_fullname(ext.name)
-      ext._links_to_dynamic = False
-      ext._needs_stub = False
-      ext._file_name = self.get_ext_filename(ext._full_name)
-      self.ext_map[ext._full_name] = ext
-      self.ext_map[ext._full_name.split('.')[-1]] = ext
-    super().run()
-
-  def build_extensions(self):
-    from setuptools._distutils.unixccompiler import UnixCCompiler
+  def _build_extension(self, config: NerodiaConfig, build_ext_cmd: build_ext):
     cc = os.environ.get("CC", "cc")
-    cxx = os.environ.get("CXX", "c++")
+    mod = config['name']
+    ext_name = f"{mod}._lean"
+    output_path = build_ext_cmd.get_ext_fullpath(ext_name)
+    build_temp = build_ext_cmd.build_temp
+    python_include = sysconfig.get_path('include')
+
+    source = config['c']
+    os.makedirs(build_temp, exist_ok=True)
+    obj = os.path.join(build_temp, os.path.basename(source).replace('.c', '.o'))
+
+    # Compile
+    compile_cmd = [cc, '-fPIC']
+    for d in config['includeDirs']:
+      compile_cmd.extend(['-I', d])
+    compile_cmd.extend(['-I', python_include])
+    compile_cmd.extend(['-c', source, '-o', obj, '-std=c17'])
+    subprocess.run(compile_cmd, check=True)
+
+    # Link
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    link_cmd = [cc, '-shared']
     # macOS requires -undefined dynamic_lookup so that Python C API symbols
     # (provided by the interpreter at load time) don't cause link errors.
-    if sys.platform == "darwin":
-      linker_so = f"{cc} -shared -undefined dynamic_lookup"
-    else:
-      linker_so = f"{cc} -shared"
-    self.compiler = UnixCCompiler()
-    self.compiler.set_executables(
-      compiler=cc,
-      compiler_so=f"{cc} -fPIC",
-      compiler_cxx=cxx,
-      linker_so=linker_so,
-      linker_exe=cc,
-    )
-    # Re-apply command-level settings that build_ext.run()
-    # applied to the old compiler before calling build_extensions().
-    if self.include_dirs:
-      self.compiler.set_include_dirs(self.include_dirs)
-    if self.define:
-      for name, value in self.define:
-        self.compiler.define_macro(name, value)
-    if self.undef:
-      for macro in self.undef:
-        self.compiler.undefine_macro(macro)
-    if self.libraries:
-      self.compiler.set_libraries(self.libraries)
-    if self.library_dirs:
-      self.compiler.set_library_dirs(self.library_dirs)
-    if self.rpath:
-      self.compiler.set_runtime_library_dirs(self.rpath)
-    if self.link_objects:
-      self.compiler.set_link_objects(self.link_objects)
-    super().build_extensions()
+    if sys.platform == 'darwin':
+      link_cmd.extend(['-undefined', 'dynamic_lookup'])
+    link_cmd.append(obj)
+    link_cmd.extend(config['objs'])
+    for d in config['libDirs']:
+      link_cmd.extend(['-L', d])
+    for lib in config['libs']:
+      link_cmd.extend(['-l', lib])
+    link_cmd.extend(['-o', output_path])
+    subprocess.run(link_cmd, check=True)
+
+class LeanBuildExt(build_ext):
+  """Thin shim that delegates Lean extension building to ``build_lean``."""
+
+  def run(self):
+    super().run()
+    self.run_command("build_lean")
