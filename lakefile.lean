@@ -185,7 +185,10 @@ module_facet nerodia (mod) : NerodiaConfig := do
   outJob.bindM (sync := true) fun out => do
     let lean ← getLeanInstall
     let objs := #[Job.pure out.o, libJob, nerodiaJob]
-    let libs := lean.sharedDynlibs.map Job.pure |>.push libPyJob
+    -- On Windows, all symbols must be resolved at link time.
+    -- On Unix, Python symbols are provided by the interpreter at load time.
+    let libs := lean.sharedDynlibs.map Job.pure
+    let libs := if System.Platform.isWindows then libs.push libPyJob else libs
     let libJob ← buildSharedLib out.name libFile
       objs libs lean.ccLinkSharedFlags traceArgs lean.cc.toString
       (linkDeps := true) -- extension should load deps when loaded in Python
