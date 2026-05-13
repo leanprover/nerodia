@@ -85,15 +85,18 @@ lean_exe nerodiac where
   root := `Nerodiac
   supportInterpreter := true
 
+structure NerodiacOutput where
+  name : String
+  c : FilePath
+  o : FilePath
+  pyi : FilePath
+
 structure NerodiaConfig where
   name : String
   c : FilePath
   o : FilePath
   pyi : FilePath
-  includeDirs : Array FilePath
-  libDirs : Array FilePath
-  libs : Array String
-  objs : Array FilePath
+  lib : FilePath
   deriving ToJson
 
 instance : QueryText NerodiaConfig := ⟨(toJson · |>.compress)⟩
@@ -108,24 +111,35 @@ structure CompilerOutput where
   name : String
   deriving ToJson, FromJson
 
+def Lake.LeanInstall.sharedDynlibs (lean : LeanInstall) : Array Dynlib :=
+  if System.Platform.isWindows then #[
+    {name := "Init_shared", path := lean.initSharedLib},
+    {name := "leanshared_2", path := lean.leanLibDir / s!"libleanshared_2.{sharedLibExt}"},
+    {name := "leanshared_1", path := lean.leanLibDir / s!"libleanshared_1.{sharedLibExt}"},
+    {name := "leanshared", path := lean.sharedLib},
+  ] else #[{name := "leanshared", path := lean.sharedLib}]
+
 module_facet nerodia (mod) : NerodiaConfig := do
-  let pyJob ← pyconfig.fetch
+  let cc := (← IO.getEnv "CC").getD "cc"
   let cFile := mod.irPath "nerodia.c"
   let oFile := mod.irPath "nerodia.o"
+  let libFile := mod.irPath s!"nerodia.{sharedLibExt}"
   let pyiFile := mod.irPath "nerodia.pyi"
   let inFile := mod.irPath "nerodia.in.json"
   let outFile := mod.irPath "nerodia.out.json"
   let traceFile := mod.irPath "nerodia.trace"
+  let pyJob ← pyconfig.fetch
   let modJob ← mod.leanArts.fetch
   let nerodiacJob ← nerodiac.fetch
+  let libPyJob ← libpython3.fetch
   -- TODO: include all imported libraries
   let libJob ← mod.lib.static.fetch
   let nerodiaJob ← (← Nerodia.get).static.fetch
-  libJob.bindM (sync := true) fun libstatic =>
+  -- Generate and compile extension
+  let outJob ←
   modJob.bindM (sync := true) fun _ =>
   nerodiacJob.bindM (sync := true) fun nerodiac =>
-  pyJob.bindM (sync := true) fun py =>
-  nerodiaJob.mapM fun libnerodia => do
+  pyJob.mapM fun py => do
     addLeanTrace
     -- TODO: Build all outputs as artifacts
     buildUnlessUpToDate outFile (← getTrace) traceFile do
@@ -149,7 +163,6 @@ module_facet nerodia (mod) : NerodiaConfig := do
       match Json.parse (← IO.FS.readFile outFile) >>= fromJson? with
       | .ok (out : CompilerOutput) => pure out
       | .error e => error s!"nerodiac produced invalid output: {e}"
-    let cc := (← IO.getEnv "CC").getD "cc"
     let args := #["-fPIC", "-std=c17"]
     addPureTrace args "traceArgs"
     addPlatformTrace -- object files are platform-dependent artifacts
@@ -162,14 +175,27 @@ module_facet nerodia (mod) : NerodiaConfig := do
       c := cFile
       o := art.path
       pyi := pyiFile
-      includeDirs := #[← getLeanIncludeDir]
-      libDirs := #[← getLeanLibDir]
-      libs :=
-        if System.Platform.isWindows then #[
-          "Lake_shared", "Init_shared",
-          "leanshared_2", "leanshared_1", "leanshared"
-        ] else #["leanshared"]
-      objs := #[art.path, libstatic, libnerodia]
+      : NerodiacOutput
+    }
+  -- Link extension
+  let traceArgs :=
+    -- macOS requires `-undefined dynamic_lookup` so that Python C API symbols
+    -- (provided by the interpreter at load time) don't cause link errors.
+    if System.Platform.isOSX then #["-undefined", "dynamic_lookup"] else #[]
+  outJob.bindM (sync := true) fun out => do
+    let lean ← getLeanInstall
+    let objs := #[Job.pure out.o, libJob, nerodiaJob]
+    let libs := lean.sharedDynlibs.map Job.pure |>.push libPyJob
+    let libJob ← buildSharedLib out.name libFile
+      objs libs lean.ccLinkSharedFlags traceArgs lean.cc.toString
+      (linkDeps := true) -- extension should load deps when loaded in Python
+      (extraDepTrace := getLeanTrace)
+    return libJob.map (sync := true) fun libFile => {
+      name := out.name
+      c := out.c
+      o := out.o
+      pyi := out.pyi
+      lib := libFile
     }
 
 /--
@@ -247,9 +273,10 @@ script test do
           args := #["-q", "pip", "install", "-e", (pkgDir / "setuptools-lean").toString]
           cwd := testModuleDir
         }
+        let pyPkg := "test"
         proc {
           cmd := "uv",
-          args := #["-q", "sync", "--no-build-isolation-package", "test"]
+          args := #["-q", "sync", "--no-build-isolation-package", pyPkg, "--reinstall-package", pyPkg]
           cwd := testModuleDir
           -- ensures Python can find Lean's shared libraries
           env := ← getAugmentedEnv
