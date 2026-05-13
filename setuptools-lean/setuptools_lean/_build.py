@@ -120,6 +120,14 @@ class build_lean(Command):
       link_cmd.extend(['-L', d])
     for lib in config['libs']:
       link_cmd.extend(['-l', lib])
+    # On Windows/MinGW and Cygwin, all symbols in shared libraries must be
+    # resolved at link time, so we must link against the Python library.
+    # We also add build_ext's library dirs which include Python's lib path.
+    if sys.platform in ('win32', 'cygwin'):
+      for d in (build_ext_cmd.library_dirs or []):
+        link_cmd.extend(['-L', d])
+      for lib in build_ext_cmd.get_libraries(setuptools.Extension(ext_name, sources=[])):
+        link_cmd.extend(['-l', lib])
     link_cmd.extend(['-o', output_path])
     subprocess.run(link_cmd, check=True)
 
