@@ -12,6 +12,7 @@ from pathlib import Path
 from setuptools.dist import Distribution
 from setuptools.command.build_ext import build_ext
 from setuptools._distutils.core import Command
+from importlib.resources import files, as_file
 from typing import TypedDict, cast
 
 class NerodiaConfig(TypedDict):
@@ -83,16 +84,40 @@ class build_lean(Command):
 
     for config in configs:
       mod = config['name']
-      # Create `__init__` stub with module definitions and the docstring
-      shutil.copy2(config['pyi'], os.path.join(mod, "__init__.pyi"))
-      # Create empty `_lean` stub to handle `from ._lean` resolution in `__init__`
-      open(os.path.join(mod, "_lean.pyi"), 'w').close()
-      # Create the extension's shared library
-      ext_path = build_ext_cmd.get_ext_fullpath(f"{mod}._lean")
+      generated = not os.path.isdir(mod)
+
+      # Determine target directory for the package.
+      # For generated packages in editable mode, install directly to site-packages
+      # since setuptools' editable mechanism won't find generated packages.
+      if generated and build_ext_cmd.inplace:
+        pkg_dir = os.path.join(sysconfig.get_path('purelib'), mod)
+      elif not build_ext_cmd.inplace:
+        pkg_dir = os.path.join(build_ext_cmd.build_lib, mod)
+      else:
+        pkg_dir = mod
+      os.makedirs(pkg_dir, exist_ok=True)
+
+      # Generate __init__.py if no source directory exists
+      if generated:
+        with as_file(files('setuptools_lean').joinpath('data/init_stub')) as init_stub:
+          shutil.copy2(init_stub, os.path.join(pkg_dir, "__init__.py"))
+
+      # Create type stubs
+      shutil.copy2(config['pyi'], os.path.join(pkg_dir, "__init__.pyi"))
+      open(os.path.join(pkg_dir, "_lean.pyi"), 'w').close()
+      open(os.path.join(pkg_dir, "py.typed"), 'w').close()
+
+      # Copy the extension's shared library
+      if generated and build_ext_cmd.inplace:
+        ext_path = os.path.join(
+          pkg_dir, f"_lean{sysconfig.get_config_var('EXT_SUFFIX')}")
+      else:
+        ext_path = build_ext_cmd.get_ext_fullpath(f"{mod}._lean")
       os.makedirs(os.path.dirname(ext_path), exist_ok=True)
       shutil.copy2(config['lib'], ext_path)
-      # Bundle Lean shared libs for non-editable installs
-      if not build_ext_cmd.inplace:
+
+      # Bundle Lean shared libs (skip for user-provided editable installs)
+      if not (not generated and build_ext_cmd.inplace):
         libs_dir = os.path.join(os.path.dirname(ext_path), ".libs")
         os.makedirs(libs_dir, exist_ok=True)
         for lib in config['libs']:
