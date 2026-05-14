@@ -34,14 +34,14 @@ def run_lake(modules: list[str]) -> list[NerodiaConfig]:
     # Python was built with so the extension's platform tag matches Python's.
     env['MACOSX_DEPLOYMENT_TARGET'] = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
   r = subprocess.run(
-    ["lake", "script", "run", "nerodia/genExt", *modules],
+    ["lake", "script", "run", "nerodia/buildExt", *modules],
     stdout=subprocess.PIPE, env=env,
   )
   r.check_returncode()
   return [json.loads(line) for line in r.stdout.decode().splitlines()]
 
 def finalize_lean(dist: Distribution):
-  """setuptools.finalize_distribution_options entry point."""
+  """Entry point for setuptools via `finalize_distribution_options`."""
   pyproject = Path("pyproject.toml")
   if not pyproject.exists():
     return
@@ -59,8 +59,8 @@ def finalize_lean(dist: Distribution):
 class build_lean(Command):
   """Build Lean/Nerodia Python extension modules.
 
-  Runs Lake to generate compiled C sources and type stubs, then links
-  each extension directly using a Unix-style C compiler.
+  Runs Lake to generate and compile the Python extension, then
+  bundles it up into a distributable package.
   """
 
   description = "build Lean/Nerodia extension modules"
@@ -83,21 +83,21 @@ class build_lean(Command):
     build_ext_cmd = cast(build_ext, self.get_finalized_command('build_ext'))
 
     for config in configs:
-      mod = config['name']
-      generated = not os.path.isdir(mod)
+      mod_pkg = config['name']
+      generated = not os.path.isdir(mod_pkg)
 
       # Determine target directory for the package.
       # For generated packages in editable mode, install directly to site-packages
       # since setuptools' editable mechanism won't find generated packages.
       if generated and build_ext_cmd.inplace:
-        pkg_dir = os.path.join(sysconfig.get_path('purelib'), mod)
+        pkg_dir = os.path.join(sysconfig.get_path('purelib'), mod_pkg)
       elif not build_ext_cmd.inplace:
-        pkg_dir = os.path.join(build_ext_cmd.build_lib, mod)
+        pkg_dir = os.path.join(build_ext_cmd.build_lib, mod_pkg)
       else:
-        pkg_dir = mod
+        pkg_dir = mod_pkg
       os.makedirs(pkg_dir, exist_ok=True)
 
-      # Generate __init__.py if no source directory exists
+      # Generate `__init__.py` if no source directory exists
       if generated:
         with as_file(files('setuptools_lean').joinpath('data/init_stub')) as init_stub:
           shutil.copy2(init_stub, os.path.join(pkg_dir, "__init__.py"))
@@ -112,12 +112,12 @@ class build_lean(Command):
         ext_path = os.path.join(
           pkg_dir, f"_lean{sysconfig.get_config_var('EXT_SUFFIX')}")
       else:
-        ext_path = build_ext_cmd.get_ext_fullpath(f"{mod}._lean")
+        ext_path = build_ext_cmd.get_ext_fullpath(f"{mod_pkg}._lean")
       os.makedirs(os.path.dirname(ext_path), exist_ok=True)
       shutil.copy2(config['lib'], ext_path)
 
       # Bundle Lean shared libs (skip for user-provided editable installs)
-      if not (not generated and build_ext_cmd.inplace):
+      if generated or not build_ext_cmd.inplace:
         libs_dir = os.path.join(os.path.dirname(ext_path), ".libs")
         os.makedirs(libs_dir, exist_ok=True)
         for lib in config['libs']:

@@ -220,18 +220,19 @@ module_facet nerodia (mod) : NerodiaConfig := do
     }
 
 /--
-Generates Python extension modules from Lean modules.
+Generates and builds Python extension modules from Lean modules.
 
 USAGE:
-  lake script run nerodia/genExt <module-name>...
+  lake script run nerodia/buildExt <module-name>...
 
-Generates the C code and `.pyi` type stub for each extension using `nerodiac`
-and outputs a JSON data structure for each on a separate line containing the
-information needed to construct the extension module on the Python side.
+Generates the C code and `.pyi` type stub for each extension using `nerodiac`,
+builds the Python extension shared library, and outputs a JSON description of
+the results (a JSON object per line for each module). These descriptions can
+then be used by `setuptools-lean` to bundle the extensions for distribution.
 -/
-script genExt (args : List String) do
+script buildExt (args : List String) do
   if args.isEmpty then
-    IO.println "USAGE: lake script run nerodia/genExt <module-name>..."
+    IO.println "USAGE: lake script run nerodia/buildExt <module-name>..."
     return 0
   let mods ← args.toArray.mapM fun modStr => do
     let modName := modStr.toName
