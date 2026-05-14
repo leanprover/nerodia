@@ -344,7 +344,14 @@ script test do
         -- run from a different CWD with `-P` to ensure that Python is using the installed test module
         "python", "-P", testModuleDir / "test.py" |>.toString
       ]
-      -- Non-editable installs bundle libraries, so no environment augmentation should be necessary
+      -- Non-editable installs bundle libraries, so it should run in a minimal environment.
+      env := #[
+        ("PATH", ← IO.getEnv "PATH"),
+        ("HOME", ← IO.getEnv "HOME"),
+        ("TMPDIR", ← IO.getEnv "TMPDIR"),
+        ("UV_PYTHON_INSTALL_DIR", ← IO.getEnv "UV_PYTHON_INSTALL_DIR"),
+        ("UV_CACHE_DIR", ← IO.getEnv "UV_CACHE_DIR"),
+      ]
     }
     discard <| withRegisterJob "testModule ty" <| editableJob.mapM fun _ => do proc {
       cmd := "uvx",
