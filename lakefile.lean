@@ -97,6 +97,7 @@ structure NerodiaConfig where
   o : FilePath
   pyi : FilePath
   lib : FilePath
+  libs : Array FilePath
   deriving ToJson
 
 instance : QueryText NerodiaConfig := ⟨(toJson · |>.compress)⟩
@@ -182,12 +183,19 @@ module_facet nerodia (mod) : NerodiaConfig := do
     -- macOS requires `-undefined dynamic_lookup` so that Python C API symbols
     -- (provided by the interpreter at load time) don't cause link errors.
     if System.Platform.isOSX then #["-undefined", "dynamic_lookup"] else #[]
+  -- Set RPATH so the extension finds bundled Lean shared libs in `.libs/`.
+  let traceArgs :=
+    if System.Platform.isWindows then traceArgs
+    else if System.Platform.isOSX then traceArgs.push "-Wl,-rpath,@loader_path/.libs"
+    else traceArgs.push "-Wl,-rpath,$ORIGIN/.libs"
   outJob.bindM (sync := true) fun out => do
     let lean ← getLeanInstall
+    let lake ← getLakeInstall
+    let dynlibs := lean.sharedDynlibs
     let objs := #[Job.pure out.o, libJob, nerodiaJob]
     -- On Windows, all symbols must be resolved at link time.
     -- On Unix, Python symbols are provided by the interpreter at load time.
-    let libs := lean.sharedDynlibs.map Job.pure
+    let libs := dynlibs.map Job.pure
     let libs := if System.Platform.isWindows then libs.push libPyJob else libs
     let libJob ← buildSharedLib out.name libFile
       objs libs lean.ccLinkSharedFlags traceArgs lean.cc.toString
@@ -199,6 +207,9 @@ module_facet nerodia (mod) : NerodiaConfig := do
       o := out.o
       pyi := out.pyi
       lib := libFile
+      -- Lake is linked implicitly on an "as-needed" basis.
+      -- Thus, it should be available in the bundle.
+      libs := dynlibs.map (·.path) |>.push lake.sharedLib
     }
 
 /--
@@ -325,8 +336,7 @@ script test do
         -- run from a different CWD with `-P` to ensure that Python is using the installed test module
         "python", "-P", testModuleDir / "test.py" |>.toString
       ]
-      -- ensures Python can find Lean's shared libraries
-      env := ← getAugmentedEnv
+      -- Non-editable installs bundle libraries, so no environment augmentation should be necessary
     }
     discard <| withRegisterJob "testModule ty" <| editableJob.mapM fun _ => do proc {
       cmd := "uvx",

@@ -20,6 +20,7 @@ class NerodiaConfig(TypedDict):
   o: str
   pyi: str
   lib: str
+  libs: list[str]
 
 def run_lake(modules: list[str]) -> list[NerodiaConfig]:
   """
@@ -90,6 +91,12 @@ class build_lean(Command):
       ext_path = build_ext_cmd.get_ext_fullpath(f"{mod}._lean")
       os.makedirs(os.path.dirname(ext_path), exist_ok=True)
       shutil.copy2(config['lib'], ext_path)
+      # Bundle Lean shared libs for non-editable installs
+      if not build_ext_cmd.inplace:
+        libs_dir = os.path.join(os.path.dirname(ext_path), ".libs")
+        os.makedirs(libs_dir, exist_ok=True)
+        for lib in config['libs']:
+          shutil.copy2(lib, libs_dir)
 
 
 class LeanBuildExt(build_ext):
