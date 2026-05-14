@@ -320,8 +320,11 @@ script test do
     }
     discard <| withRegisterJob "testModule test (non-editable)" <| nonEditableJob.mapM fun _ => do proc {
       cmd := "uv",
-      args := #["-q", "run", "--python", venvDir.toString, "--no-sync", "test.py"]
-      cwd := testModuleDir
+      args := #[
+        "-q", "run", "--python", venvDir.toString, "--no-sync",
+        -- run from a different CWD with `-P` to ensure that Python is using the installed test module
+        "python", "-P", testModuleDir / "test.py" |>.toString
+      ]
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
