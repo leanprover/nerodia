@@ -113,12 +113,19 @@ structure CompilerOutput where
   deriving ToJson, FromJson
 
 def Lake.LeanInstall.sharedDynlibs (lean : LeanInstall) : Array Dynlib :=
+  -- libLake_shared links against the split libs on all platforms,
+  -- so they must be included in the bundle even when they are empty stubs.
   if System.Platform.isWindows then #[
+    {name := "Init_shared", path := lean.initSharedLib},
+    {name := "leanshared_2", path := lean.binDir / s!"libleanshared_2.{sharedLibExt}"},
+    {name := "leanshared_1", path := lean.binDir / s!"libleanshared_1.{sharedLibExt}"},
+    {name := "leanshared", path := lean.sharedLib},
+  ] else #[
     {name := "Init_shared", path := lean.initSharedLib},
     {name := "leanshared_2", path := lean.leanLibDir / s!"libleanshared_2.{sharedLibExt}"},
     {name := "leanshared_1", path := lean.leanLibDir / s!"libleanshared_1.{sharedLibExt}"},
     {name := "leanshared", path := lean.sharedLib},
-  ] else #[{name := "leanshared", path := lean.sharedLib}]
+  ]
 
 module_facet nerodia (mod) : NerodiaConfig := do
   let cc := (← IO.getEnv "CC").getD "cc"
