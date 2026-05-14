@@ -2,6 +2,23 @@
 name = "setuptools-lean"
 version = "0.1.0"
 description = "Setuptools plugin for Lean/Nerodia Python extensions"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [
+  {name = "Mac Malone", email = "mac@lean-fro.org"},
+]
+keywords = ["distutils", "setuptools", "lean", "nerodia"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Build Tools",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.13",
+  "Operating System :: POSIX",
+  "Operating System :: MacOS :: MacOS X",
+  "Operating System :: Microsoft :: Windows",
+]
 requires-python = ">=3.13"
 dependencies = ["setuptools"]
 
