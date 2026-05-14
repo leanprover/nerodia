@@ -10,7 +10,7 @@ import tomllib
 import subprocess
 from pathlib import Path
 from setuptools.dist import Distribution
-from setuptools.command.build_ext import build_ext
+from setuptools.command.build_ext import build_ext, get_abi3_suffix
 from setuptools._distutils.core import Command
 from importlib.resources import files, as_file
 from typing import TypedDict, cast
@@ -55,6 +55,11 @@ def finalize_lean(dist: Distribution):
   dist.cmdclass.setdefault("build_ext", LeanBuildExt)
   # Ensure setuptools treats this as an extension package (needed for wheels).
   dist.has_ext_modules = lambda: True
+  # Nerodia extensions use the Python Limited API (abi3).
+  # Set the wheel tag so a single wheel works across Python versions.
+  # TODO: Determine the minimum abi3 version from Lake instead of hardcoding.
+  bdist_wheel = dist.get_option_dict("bdist_wheel")
+  bdist_wheel.setdefault("py_limited_api", ("setuptools-lean", "cp313"))
 
 class build_lean(Command):
   """Build Lean/Nerodia Python extension modules.
@@ -108,11 +113,15 @@ class build_lean(Command):
       open(os.path.join(pkg_dir, "py.typed"), 'w').close()
 
       # Copy the extension's shared library
+      abi3_suffix = get_abi3_suffix()
       if generated and build_ext_cmd.inplace:
-        ext_path = os.path.join(
-          pkg_dir, f"_lean{sysconfig.get_config_var('EXT_SUFFIX')}")
+        ext_suffix = abi3_suffix or sysconfig.get_config_var('EXT_SUFFIX')
+        ext_path = os.path.join(pkg_dir, f"_lean{ext_suffix}")
       else:
         ext_path = build_ext_cmd.get_ext_fullpath(f"{mod_pkg}._lean")
+        if abi3_suffix is not None:
+          so_ext = sysconfig.get_config_var('EXT_SUFFIX')
+          ext_path = ext_path[:-len(so_ext)] + abi3_suffix
       os.makedirs(os.path.dirname(ext_path), exist_ok=True)
       shutil.copy2(config['lib'], ext_path)
 
