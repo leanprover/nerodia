@@ -65,7 +65,7 @@ class build_lean(Command):
   """Build Lean/Nerodia Python extension modules.
 
   Runs Lake to generate and compile the Python extension, then
-  bundles it up into a distributable package.
+  bundles it up into a distributable package (or editable install).
   """
 
   description = "build Lean/Nerodia extension modules"
@@ -94,6 +94,8 @@ class build_lean(Command):
       # Determine target directory for the package.
       # For generated packages in editable mode, install directly to site-packages
       # since setuptools' editable mechanism won't find generated packages.
+      # This assumes the build runs with the target venv's Python (i.e., no
+      # build isolation), which is the case for editable installs.
       if generated and build_ext_cmd.inplace:
         pkg_dir = os.path.join(sysconfig.get_path('purelib'), mod_pkg)
       elif not build_ext_cmd.inplace:
@@ -116,11 +118,13 @@ class build_lean(Command):
       abi3_suffix = get_abi3_suffix()
       if generated and build_ext_cmd.inplace:
         ext_suffix = abi3_suffix or sysconfig.get_config_var('EXT_SUFFIX')
+        assert isinstance(ext_suffix, str)
         ext_path = os.path.join(pkg_dir, f"_lean{ext_suffix}")
       else:
         ext_path = build_ext_cmd.get_ext_fullpath(f"{mod_pkg}._lean")
         if abi3_suffix is not None:
           so_ext = sysconfig.get_config_var('EXT_SUFFIX')
+          assert isinstance(so_ext, str)
           ext_path = ext_path[:-len(so_ext)] + abi3_suffix
       os.makedirs(os.path.dirname(ext_path), exist_ok=True)
       shutil.copy2(config['lib'], ext_path)

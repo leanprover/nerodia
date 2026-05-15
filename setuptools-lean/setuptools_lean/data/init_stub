@@ -4,7 +4,7 @@ import sys
 import types
 import subprocess
 
-# On Windows 3.8+, PATH doesn't affect DLL resolution for extensions.
+# On Windows, PATH doesn't affect DLL resolution for extensions.
 # Add the directory containing Lean's shared libraries so they are found.
 if sys.platform == "win32":
     _libs = os.path.join(os.path.dirname(__file__), ".libs")
@@ -12,8 +12,8 @@ if sys.platform == "win32":
         os.add_dll_directory(_libs)
     else:
         r = subprocess.run(["lean", "--print-prefix"], stdout=subprocess.PIPE)
-        lean_sysroot = r.stdout.decode().strip()
         r.check_returncode()
+        lean_sysroot = r.stdout.decode().strip()
         os.add_dll_directory(os.path.join(lean_sysroot, "bin"))
         del r, lean_sysroot
     del _libs
