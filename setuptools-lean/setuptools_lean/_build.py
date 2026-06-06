@@ -98,8 +98,10 @@ class build_lean(Command):
       # Determine target directory for the package.
       # For generated packages in editable mode, install directly to site-packages
       # since setuptools' editable mechanism won't find generated packages.
-      # This assumes the build runs with the target venv's Python (i.e., no
-      # build isolation), which is the case for editable installs.
+      # This relies on the build running with the target venv's Python, which
+      # is the case for editable installs (even with build isolation).
+      # Note: An editable install with build isolation was manually tested,
+      # but is not currently (06/06/2026) in the test suite.
       if generated and build_ext_cmd.inplace:
         pkg_dir = os.path.join(sysconfig.get_path('purelib'), mod_pkg)
       elif not build_ext_cmd.inplace:
