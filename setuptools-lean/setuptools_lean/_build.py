@@ -32,7 +32,11 @@ def run_lake(modules: list[str]) -> list[NerodiaConfig]:
   if sys.platform == 'darwin':
     # Override Lean's default MACOSX_DEPLOYMENT_TARGET (99.0) with the value
     # Python was built with so the extension's platform tag matches Python's.
-    env['MACOSX_DEPLOYMENT_TARGET'] = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
+    # `get_config_var` may return None/empty on some macOS builds (e.g. conda);
+    # only override when a concrete value is available.
+    target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
+    if target:
+      env['MACOSX_DEPLOYMENT_TARGET'] = target
   r = subprocess.run(
     ["lake", "script", "run", "nerodia/buildExt", *modules],
     stdout=subprocess.PIPE, env=env,

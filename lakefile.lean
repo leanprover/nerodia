@@ -174,7 +174,8 @@ module_facet nerodia (mod) : NerodiaConfig := do
       match Json.parse (← IO.FS.readFile outFile) >>= fromJson? with
       | .ok (out : CompilerOutput) => pure out
       | .error e => error s!"nerodiac produced invalid output: {e}"
-    let args := #["-fPIC", "-std=c17"]
+    -- `Py_LIMITED_API` must always be defined for abi3-tagged wheels
+    let args := #[s!"-DPy_LIMITED_API={minHexVersion}", "-fPIC", "-std=c17"]
     addPureTrace args "traceArgs"
     addPlatformTrace -- object files are platform-dependent artifacts
     let art ← buildArtifactUnlessUpToDate oFile (ext := "o") do
