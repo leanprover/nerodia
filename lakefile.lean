@@ -115,17 +115,20 @@ structure CompilerOutput where
 def Lake.LeanInstall.sharedDynlibs (lean : LeanInstall) : Array Dynlib :=
   -- libLake_shared links against the split libs on all platforms,
   -- so they must be included in the bundle even when they are empty stubs.
-  if System.Platform.isWindows then #[
-    {name := "Init_shared", path := lean.initSharedLib},
-    {name := "leanshared_2", path := lean.binDir / s!"libleanshared_2.{sharedLibExt}"},
-    {name := "leanshared_1", path := lean.binDir / s!"libleanshared_1.{sharedLibExt}"},
-    {name := "leanshared", path := lean.sharedLib},
-  ] else #[
-    {name := "Init_shared", path := lean.initSharedLib},
-    {name := "leanshared_2", path := lean.leanLibDir / s!"libleanshared_2.{sharedLibExt}"},
-    {name := "leanshared_1", path := lean.leanLibDir / s!"libleanshared_1.{sharedLibExt}"},
-    {name := "leanshared", path := lean.sharedLib},
-  ]
+  if System.Platform.isWindows then
+    -- On Windows, libraries are in `bin` and link to one another
+    let init := {name := "Init_shared", path := lean.initSharedLib}
+    let lean1 := {name := "leanshared_1", path := lean.binDir / s!"libleanshared_1.{sharedLibExt}", deps := #[init]}
+    let lean2 := {name := "leanshared_2", path := lean.binDir / s!"libleanshared_2.{sharedLibExt}", deps := #[lean1, init]}
+    let lean := {name := "leanshared", path := lean.sharedLib, deps := #[lean2, lean1, init]}
+    #[lean, lean2, lean1, init]
+  else
+    -- On Unix, libraries are in `lean/lib` and are independent
+    let init := {name := "Init_shared", path := lean.initSharedLib}
+    let lean1 := {name := "leanshared_1", path := lean.leanLibDir / s!"libleanshared_1.{sharedLibExt}"}
+    let lean2 := {name := "leanshared_2", path := lean.leanLibDir / s!"libleanshared_2.{sharedLibExt}"}
+    let lean := {name := "leanshared", path := lean.sharedLib}
+    #[lean, lean2, lean1, init]
 
 module_facet nerodia (mod) : NerodiaConfig := do
   let cc := (← IO.getEnv "CC").getD "cc"
