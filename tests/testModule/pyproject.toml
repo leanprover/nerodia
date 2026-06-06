@@ -4,5 +4,8 @@ version = "0.0.0"
 requires-python = ">=3.13"
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "setuptools-lean"]
 build-backend = "setuptools.build_meta"
+
+[[tool.setuptools-lean.ext-modules]]
+lean-module = "Test"
