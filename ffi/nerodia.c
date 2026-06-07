@@ -252,16 +252,16 @@ LEAN_EXPORT size_t nerodia_get_raised_exception() {
   return (size_t)PyErr_GetRaisedException();
 }
 
-/* CPtr PyBaseException -> CPyIO α */
-LEAN_EXPORT size_t nerodia_raise(size_t e) {
+/* CPtr PyBaseException -> BaseIO Unit */
+LEAN_EXPORT lean_obj_res nerodia_set_raised_exception(size_t e) {
   PyErr_SetRaisedException((PyObject*)e);
-  return (size_t)NULL;
+  return lean_box(0);
 }
 
-/* @& String -> CPyIO α */
-LEAN_EXPORT size_t nerodia_raise_py_type_error(b_lean_obj_arg msg) {
+/* @& String -> BaseIO α */
+LEAN_EXPORT lean_obj_res nerodia_set_py_type_error(b_lean_obj_arg msg) {
   PyErr_SetString(PyExc_TypeError, lean_string_cstr(msg));
-  return (size_t)NULL;
+  return lean_box(0);
 }
 
 /* PyContext -> PySystemError */
