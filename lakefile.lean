@@ -4,7 +4,6 @@ open Lean (Json ToJson FromJson toJson fromJson?)
 
 package nerodia where
   leanOptions := #[⟨`doc.verso, true⟩]
-  buildType := .debug
 
 /-! ## Python -/
 
