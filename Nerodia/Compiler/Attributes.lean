@@ -140,7 +140,7 @@ initialize
       addAndCompile <| .defnDecl {
         name := attrDeclName
         levelParams := decl.levelParams
-        type := mkApp (mkConst `Nerodia.CPyIO [levelZero]) (mkConst `Nerodia.PyObject)
+        type := mkApp (mkConst `Nerodia.CPyIO [.zero]) (mkConst `Nerodia.PyObject)
         value := mkApp4 (mkConst `Nerodia.MkAttr.mkAttr [u])
           decl.type ty inst (mkConst declName us)
         hints := .opaque
