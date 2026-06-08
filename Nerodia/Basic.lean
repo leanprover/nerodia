@@ -907,7 +907,7 @@ def main : IO Unit := do
 where
   formatError (e : PyBaseException) : PyBaseIO String := do
     -- Aims to mirror `print_exception`
-    -- https://github.com/python/cpython/blob/v3.13.2/Python/pythonrun.c#L923
+    -- https://github.com/python/cpython/blob/v3.14.5/Python/pythonrun.c#L965
     -- TODO: include traceback & module name
     let ename ← id do
       let some n ← e.type.getQualName.run?

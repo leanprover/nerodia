@@ -14,7 +14,7 @@ if ldlib and libdir and sys.platform != 'win32':
   lib3_name = lib3x_name = f'python{ldversion}'
   if sys.platform == 'darwin' and sysconfig.get_config_var('PYTHONFRAMEWORK'):
     # macOS framework build: LDLIBRARY is the framework binary (e.g.,
-    # Python.framework/Versions/3.13/Python), not a dylib.
+    # Python.framework/Versions/3.14/Python), not a dylib.
     # LIBDIR contains a libpython{LDVERSION}.dylib symlink to it.
     lib3_path = lib3x_path = os.path.join(libdir, f'libpython{ldversion}.dylib')
   else:

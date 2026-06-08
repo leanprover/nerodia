@@ -22,7 +22,7 @@ This module can then be bundled into a Python package with the following configu
 ```toml
 [project]
 name = "mypackage"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 
 [build-system]
 requires = ["setuptools", "setuptools-lean"]

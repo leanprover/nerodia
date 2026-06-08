@@ -14,12 +14,12 @@ classifiers = [
   "Intended Audience :: Developers",
   "Topic :: Software Development :: Build Tools",
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Operating System :: POSIX",
   "Operating System :: MacOS :: MacOS X",
   "Operating System :: Microsoft :: Windows",
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = ["setuptools"]
 
 [build-system]
