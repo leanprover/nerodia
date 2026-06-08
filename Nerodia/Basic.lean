@@ -239,24 +239,18 @@ namespace PyContext
 
 /-! ### Constants -/
 
-private noncomputable opaque noneOpaque (ctx : PyContext) : PyObject
-
 @[extern "nerodia_py_context_none"]
-public opaque none (ctx : PyContext) : PyObject
+public opaque none (ctx : @& PyContext) : PyObject
 
 /-! ### Type Objects -/
 
-private noncomputable opaque typeTypeOpaque (ctx : PyContext) : PyType
-
 /-- Returns a reference to the type of types (i.e., {lit}`type` in Python). -/
 @[extern "nerodia_py_context_type_type"]
-public opaque typeType (ctx : PyContext) : PyType
-
-private noncomputable opaque strTypeOpaque (ctx : PyContext) : PyType
+public opaque typeType (ctx : @& PyContext) : PyType
 
 /-- Returns a reference to the unicode string type (i.e., {lit}`str` in Python). -/
 @[extern "nerodia_py_context_str_type"]
-public opaque strType (ctx : PyContext) : PyType
+public opaque strType (ctx : @& PyContext) : PyType
 
 end PyContext
 
@@ -387,14 +381,24 @@ end CPyIO
 @[extern "nerodia_get_raised_exception"]
 private opaque getRaisedException : CPyIO PyBaseException
 
-/-- The {lit}`SystemError` for when the C FFI does not set an exception. -/
-@[extern "nerodia_py_context_ffi_error"]
-public opaque PyContext.ffiError (ctx : PyContext) : PySystemError
+/--
+Constructs a {lit}`SystemError` with the string {lean}`msg`.
+Panics if the construction fails (e.g., due to lack of memeory).
+-/
+@[extern "nerodia_py_context_system_error"]
+opaque PyContext.systemError! (msg : @& String) (ctx : @& PyContext) : PySystemError
 
-@[inline] protected def PyContext.getRaisedException (ctx : PyContext) : BaseIO PyBaseException := do
+/-- The exception used when when no other exception is set. -/
+@[inline] public def PyContext.unsetException (ctx : PyContext) : PySystemError :=
+  ctx.systemError! "no exception was set"
+
+/-- Returns the currently raised exception or {name}`unsetException` if none. -/
+@[inline] public protected def PyContext.getRaisedException
+  (ctx : PyContext)
+: BaseIO PyBaseException := do
   let eptr ← getRaisedException.runUnsafe
   if h : eptr.IsNull then
-    return ctx.ffiError.toBaseException
+    return ctx.unsetException
   else
     return ctx.mkObject eptr h
 

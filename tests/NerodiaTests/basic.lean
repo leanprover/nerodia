@@ -24,7 +24,7 @@ open Nerodia
 #eval PyIO.toIO do
   return (← (← getPyContext).none.repr).toString
 
-/-- error: SystemError: C FFI returned NULL without setting an exception -/
+/-- error: SystemError: no exception was set -/
 #guard_msgs in
 #eval (unsafeCast (pure CPtr.null : BaseIO (CPtr Empty)) : CPyIO Empty)
 

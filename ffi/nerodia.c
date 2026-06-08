@@ -126,14 +126,13 @@ lean_obj_res nerodia_of_object_core(PyObject* o) {
   return lean_alloc_external(g_py_object_external_class, o);
 }
 
-static inline lean_obj_res nerodia_of_object(PyObject* o, lean_obj_arg ctx) {
+static inline lean_obj_res nerodia_of_object(PyObject* o, b_lean_obj_arg ctx) {
   // convert reference to `ctx` to a global reference to the Python environment
   atomic_fetch_add(&g_py_holders, 1);
-  lean_dec_ref(ctx);
   return nerodia_of_object_core(o);
 }
 
-static inline lean_obj_res nerodia_of_immortal_object(PyObject* o, lean_obj_arg ctx) {
+static inline lean_obj_res nerodia_of_immortal_object(PyObject* o, b_lean_obj_arg ctx) {
   // Note: Python 3.13+ allows references to immortal objects (e.g., types)
   // to be decremented without an increment, so we can avoid one here.
   return nerodia_of_object(o, ctx);
@@ -229,16 +228,12 @@ LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
 
 /* mkObject : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
 LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object(b_lean_obj_arg ctx, size_t ptr) {
-  // the object holds a global reference to the Python environment
-  atomic_fetch_add(&g_py_holders, 1);
-  return nerodia_of_object_core((PyObject*)ptr);
+  return nerodia_of_object((PyObject*)ptr, ctx);
 }
 
 /* mkObjectRef : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
 LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object_ref(b_lean_obj_arg ctx, size_t ptr) {
-  // the object holds a global reference to the Python environment
-  atomic_fetch_add(&g_py_holders, 1);
-  return nerodia_of_object_core(Py_NewRef((PyObject*)ptr));
+  return nerodia_of_object(Py_NewRef((PyObject*)ptr), ctx);
 }
 
 /* clearError : @& PyContext -> BaseIO Unit */
@@ -264,29 +259,31 @@ LEAN_EXPORT lean_obj_res nerodia_set_py_type_error(b_lean_obj_arg msg) {
   return lean_box(0);
 }
 
-/* PyContext -> PySystemError */
-LEAN_EXPORT lean_obj_res nerodia_py_context_ffi_error(lean_obj_arg ctx) {
-  PyObject* msg = PyUnicode_FromString(
-    "C FFI returned NULL without setting an exception");
-  if (LEAN_LIKELY(msg != NULL)) {
-    PyObject* ex = PyObject_CallFunctionObjArgs(
-      PyExc_SystemError, msg, NULL);
-    Py_DECREF(msg);
-    if (LEAN_LIKELY(ex != NULL)) {
-      return nerodia_of_object(ex, ctx);
-    }
-  }
+LEAN_NORETURN void nerodia_exception_panic() {
   if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
-    lean_dec_ref(ctx);
     lean_internal_panic_out_of_memory();
   } else {
     PyErr_WriteUnraisable(NULL);
-    lean_dec_ref(ctx);
     lean_internal_panic_unreachable();
   }
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_none(lean_obj_arg ctx) {
+/* @& String -> @& PyContext -> PySystemError */
+LEAN_EXPORT lean_obj_res nerodia_py_context_system_error(b_lean_obj_arg msg, b_lean_obj_arg ctx) {
+  PyObject* msg_obj = PyUnicode_FromString(lean_string_cstr(msg));
+  if (LEAN_LIKELY(msg != NULL)) {
+    PyObject* ex = PyObject_CallFunctionObjArgs(
+      PyExc_SystemError, msg_obj, NULL);
+    Py_DECREF(msg_obj);
+    if (LEAN_LIKELY(ex != NULL)) {
+      return nerodia_of_object(ex, ctx);
+    }
+  }
+  nerodia_exception_panic();
+}
+
+
+LEAN_EXPORT lean_obj_res nerodia_py_context_none(b_lean_obj_arg ctx) {
   return nerodia_of_immortal_object(Py_None, ctx);
 }
 
@@ -324,11 +321,11 @@ LEAN_EXPORT uint8_t nerodia_py_object_is_str_instance(b_lean_obj_arg self) {
   return PyUnicode_Check(nerodia_to_object(self)) != 0;
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_type_type(lean_obj_arg ctx) {
+LEAN_EXPORT lean_obj_res nerodia_py_context_type_type(b_lean_obj_arg ctx) {
   return nerodia_of_immortal_object((PyObject*)&PyType_Type, ctx);
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_str_type(lean_obj_arg ctx) {
+LEAN_EXPORT lean_obj_res nerodia_py_context_str_type(b_lean_obj_arg ctx) {
   return nerodia_of_immortal_object((PyObject*)&PyUnicode_Type, ctx);
 }
 
@@ -375,14 +372,10 @@ LEAN_EXPORT lean_obj_res nerodia_py_str_to_string(b_lean_obj_arg o) {
     // Both Lean and `AsUTF8AndSize` have a null terminator,
     // but neither include it in `size`
     return lean_mk_string_from_bytes_unchecked(cs, size);
-  } else if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
-    lean_internal_panic_out_of_memory();
-  } else {
-    // It should be impossible for the encode to fail
-    // except in the case of memory errors
-    PyErr_WriteUnraisable(NULL);
-    lean_internal_panic_unreachable();
   }
+  // It should be impossible for the encode to fail
+  // except in the case of memory errors
+  nerodia_exception_panic();
 }
 
 /* utf8Encode : @& PyStr -> BaseIO (CPtr PyBytes) */
