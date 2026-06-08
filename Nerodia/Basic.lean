@@ -46,7 +46,7 @@ public abbrev IsNull (self : CPtr α) : Prop :=
 
 public theorem nonempty_of_not_isNull
   {p : CPtr α} (h : ¬ IsNull p) : Nonempty α
-:= by exact p.nonempty_of_addr_ne_zero (by simpa [← addr_inj] using h)
+:= p.nonempty_of_addr_ne_zero <| by simpa [← addr_inj, null] using h
 
 /--
 Casts a pointer of type {lean}`α` to a pointer of type {lean}`β`.
