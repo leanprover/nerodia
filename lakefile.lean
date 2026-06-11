@@ -397,5 +397,7 @@ where
     return #[
       (sharedLibPathEnvVar, some libPath.toString),
       -- activate the venv for embedded Python if necessary
-      ("__PYVENV_LAUNCHER__", some py.exe.toString),
+      -- normalized for Windows: CPython's getpath only splits on backslashes,
+      -- so a forward-slash path breaks venv detection (fatal as of 3.14)
+      ("__PYVENV_LAUNCHER__", some py.exe.normalize.toString),
     ]
