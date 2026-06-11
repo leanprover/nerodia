@@ -11,11 +11,9 @@ open Nerodia
 py_module "testmodule"
 
 /-- Return a greeting. -/
-@[py_module_fn "greeting_for" (sig := "(s: str, /) -> str")]
-def greetingFor : PyMethO := .ofPyIO fun _ s => do
-  if h : s.isStrInstance then
-    mkPyStr s!"Hello, {PyStr.mk s h}!"
-  else raisePyTypeError "argument must be str"
+@[py_module_fn "greeting_for"]
+def greetingFor (s : String) : String :=
+  s!"Hello, {s}!"
 
 /-- The standard greeting. -/
 @[py_module_attr]

@@ -20,7 +20,7 @@ try:
   testmodule.greeting_for(0) # type: ignore[ty:invalid-argument-type]
   raise AssertionError('expected TypeError')
 except TypeError as e:
-  assert str(e) == "argument must be str"
+  assert str(e) == "testmodule.greeting_for() argument 1 must be str"
 
 try:
   testmodule.greeting_for("a", "b") # type: ignore[ty:too-many-positional-arguments]

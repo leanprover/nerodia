@@ -306,16 +306,20 @@ that an exception is set on error.
 @[inline] public protected def pure (a : α) : PyIO α :=
   mk <| pure a
 
+public instance : Pure PyIO := ⟨PyIO.pure⟩
+
 @[inline] public protected def map (f : α → β) (x : PyIO α) : PyIO β :=
   mk <| Functor.map f x
+
+public instance : Functor PyIO where map := PyIO.map
 
 @[inline] public protected def bind (x : PyIO α) (f : α → PyIO β) : PyIO β :=
   mk <| bind x f
 
-public instance : Monad PyIO where
-  pure := PyIO.pure
-  map := PyIO.map
-  bind := PyIO.bind
+-- used by @[py_module_fn]
+public instance instBind : Bind PyIO := ⟨PyIO.bind⟩
+
+public instance : Monad PyIO := {}
 
 end PyIO
 
@@ -747,6 +751,10 @@ public def PyMethO :=
   | some res => return res.newRefUnsafe
   | none => return .null
 
+@[inline] public def PyMethO.ofPyIO'
+  (x : (arg : PyObject) → PyIO PyObject)
+: PyMethO := ofPyIO fun _ => x
+
 /-- The type of a Python module initialization function. -/
 @[expose] -- for codegen
 public def PyModuleInit :=
@@ -817,11 +825,20 @@ public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyMo
 end PyModule
 
 /--
+Type class used to construct a Lean object from a Python function argument.
+Used by {lit}`@[py_module_fn]`.
+-/
+public class OfPyArg (α : Type) (ty : outParam String) where
+  ofPyArg (fn : String) (i : Nat) : PyObject → PyIO α
+
+/--
 Type class used to construct Python attributes from Lean objects.
 Used by {lit}`@[py_module_attr]`.
 -/
 public class MkAttr (α : Type u) (ty : outParam String) where
   mkAttr : α → CPyIO PyObject
+
+public abbrev PyAttrInit := CPyIO PyObject
 
 /-! ## Objects -/
 
@@ -861,6 +878,12 @@ public opaque PyObject.repr (self : @& PyObject) : CPyIO PyStr
 public opaque PyStr.toString (self : @& PyStr) : String
 
 public instance : ToString PyStr := ⟨PyStr.toString⟩
+
+public instance : OfPyArg String "str" where
+  ofPyArg fn i o :=
+    if h : o.isStrInstance then
+      return (PyStr.mk o h).toString
+    else raisePyTypeError s!"{fn} argument {i} must be str"
 
 /-- Returns the UTF8-encoded value of the Python string as Python bytes. -/
 @[extern "nerodia_py_str_utf8_encode"]
