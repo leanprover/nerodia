@@ -63,7 +63,7 @@ def finalize_lean(dist: Distribution):
   # Set the wheel tag so a single wheel works across Python versions.
   # TODO: Determine the minimum abi3 version from Lake instead of hardcoding.
   bdist_wheel = dist.get_option_dict("bdist_wheel")
-  bdist_wheel.setdefault("py_limited_api", ("setuptools-lean", "cp313"))
+  bdist_wheel.setdefault("py_limited_api", ("setuptools-lean", "cp314"))
 
 class build_lean(Command):
   """Build Lean/Nerodia Python extension modules.

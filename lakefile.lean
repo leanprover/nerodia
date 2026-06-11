@@ -23,7 +23,7 @@ input_file pyconfigSrc where
   text := true
   path := "pyconfig.py"
 
-def minHexVersion : Nat := 0x030D00A0 -- 3.13 (a0)
+def minHexVersion : Nat := 0x030E00A0 -- 3.14 (a0)
 
 target pyconfig : PyConfig := do
   (← pyconfigSrc.fetch).mapM fun srcFile => do
@@ -34,7 +34,7 @@ target pyconfig : PyConfig := do
     match Json.parse out >>= fromJson? with
     | .ok py =>
       unless py.hexVersion ≥ minHexVersion do
-        error s!"Nerodia requires Python 3.13+, got {py.version}"
+        error s!"Nerodia requires Python 3.14+, got {py.version}"
       setTrace <| .ofHash
         (pureHash py.lib3.1) s!"pyconfig: {py.lib3.1}"
       return py
@@ -397,5 +397,7 @@ where
     return #[
       (sharedLibPathEnvVar, some libPath.toString),
       -- activate the venv for embedded Python if necessary
-      ("__PYVENV_LAUNCHER__", some py.exe.toString),
+      -- normalized for Windows: CPython's getpath only splits on backslashes,
+      -- so a forward-slash path breaks venv detection (fatal as of 3.14)
+      ("__PYVENV_LAUNCHER__", some py.exe.normalize.toString),
     ]
