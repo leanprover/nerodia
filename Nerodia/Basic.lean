@@ -381,6 +381,28 @@ that an exception is set on error.
 
 end CPyIO
 
+/--
+Runs a {lean}`PyIO` action producing a Python object in {lean}`CPyIO`.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyIO.toCPyIO (x : PyIO PyObject) : CPyIO PyObject := .mkUnsafe do
+  let ctx ← PyContext.init
+  match ( ← x.runUnsafe? ctx) with
+  | some obj => return obj.newRefUnsafe
+  | none => CPyIO.failureUnsafe
+
+/--
+Sequences a {lean}`CPyIO` action after a {lean}`PyIO` action.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyIO.bindC (x : PyIO α) (f : α → CPyIO β) : CPyIO β := .mkUnsafe do
+  let ctx ← PyContext.init
+  match (← x.runUnsafe? ctx) with
+  | some a => f a
+  | none => CPyIO.failureUnsafe
+
 /-- Clears the current exception and returns it. -/
 @[extern "nerodia_get_raised_exception"]
 private opaque getRaisedException : CPyIO PyBaseException
@@ -735,6 +757,30 @@ If {name}`x` raises an exception, clears it and runs {lean}`f ()`.
 
 end PyIO
 
+
+/-- The type of a Python method with no arguments. -/
+@[expose] -- for codegen
+public def PyMethNoArgs :=
+  (self : CPtr PyObject) → (arg : CPtr PyObject) →
+  (h_self : ¬ self.IsNull) → (h_arg : arg.IsNull) → CPyIO PyObject
+
+@[inline] public def PyMethNoArgs.ofPyIO
+  (x : (self : PyObject) → PyIO PyObject)
+: PyMethNoArgs := fun self _ h_self _ => CPyIO.mkUnsafe do
+  let ctx ← PyContext.init
+  let self := ctx.mkObjectRef self h_self
+  match (← x self |>.runUnsafe? ctx) with
+  | some res => return res.newRefUnsafe
+  | none => CPyIO.failureUnsafe
+
+@[inline] public def PyMethNoArgs.ofPyIO'
+  (x : PyIO PyObject)
+: PyMethNoArgs := ofPyIO fun _ => x
+
+@[inline] public def PyMethNoArgs.ofCPyIO
+  (x : CPyIO PyObject)
+: PyMethNoArgs := fun _ _ _ _ => x
+
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
 public def PyMethO :=
@@ -749,7 +795,7 @@ public def PyMethO :=
   let arg := ctx.mkObjectRef arg h_arg
   match (← x self arg |>.runUnsafe? ctx) with
   | some res => return res.newRefUnsafe
-  | none => return .null
+  | none => CPyIO.failureUnsafe
 
 @[inline] public def PyMethO.ofPyIO'
   (x : (arg : PyObject) → PyIO PyObject)
@@ -837,6 +883,15 @@ Used by {lit}`@[py_module_attr]`.
 -/
 public class MkAttr (α : Type u) (ty : outParam String) where
   mkAttr : α → CPyIO PyObject
+
+public instance : MkAttr PUnit "None" where
+  mkAttr _ := private .mkUnsafe <| return (← PyContext.init).none.newRefUnsafe
+
+public instance [MkAttr α ty] : MkAttr (BaseIO α) ty where
+  mkAttr x := private .mkUnsafe do MkAttr.mkAttr (← x)
+
+public instance [MkAttr α ty] : MkAttr (PyIO α) ty where
+  mkAttr x := x.bindC MkAttr.mkAttr
 
 public abbrev PyAttrInit := CPyIO PyObject
 

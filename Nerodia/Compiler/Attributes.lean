@@ -92,6 +92,20 @@ def mkArg (fn : Expr) (i : Nat) (ty : Expr) (x : Expr) : MetaM (Expr × String) 
     (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyIO.instBind)
     ty (mkConst `Nerodia.PyObject) ma lam
 
+def mkAuxSym
+  (name : Name) (levelParams : List Name) (typeName : Name) (value : Expr)
+: CoreM String := do
+  let auxDeclName ← mkAuxDeclName name
+  addAndCompile <| .defnDecl {
+    name := auxDeclName
+    levelParams
+    type := mkConst typeName
+    value
+    hints := .opaque
+    safety := .safe
+  }
+  getFnSymbol auxDeclName
+
 initialize
   let attrName := `py_module_fn
   registerBuiltinAttribute {
@@ -115,7 +129,17 @@ initialize
       let name := name?.elim declName.getString! (·.getString)
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
       if let .const n .. := decl.type then
-        if n == `Nerodia.PyMethO then
+        match n with
+        | `Nerodia.PyMethNoArgs =>
+          let cSym ← getFnSymbol declName
+          let df : MethodDef := {
+            name, doc?, cSym
+            callConv := .noArgs
+            cSig := s!"size_t {cSym}(size_t self, size_t arg)"
+            pySig := pySig?.elim "()" (·.getString)
+          }
+          modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+        | `Nerodia.PyMethO =>
           let cSym ← getFnSymbol declName
           let df : MethodDef := {
             name, doc?, cSym
@@ -124,9 +148,19 @@ initialize
             pySig := pySig?.elim "(_, /)" (·.getString)
           }
           modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
-        else
-          -- TODO: `PyMethNoArgs`
-          throwError "only functions with a single argument are currently supported"
+        | _ =>
+          MetaM.run' do
+          let us := decl.levelParams.map .param
+          let (val, pyTy) ← mkResult decl.type (mkConst decl.name us)
+          let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) val
+          let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethNoArgs val
+          let df : MethodDef := {
+            name, doc?, cSym
+            callConv := .noArgs
+            cSig := s!"size_t {cSym}(size_t self, size_t arg)"
+            pySig := pySig?.elim s!"() -> {pyTy}" (·.getString)
+          }
+          modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
       else
         MetaM.run' do
         let fn := mkStrLit s!"{moduleCfg.name}.{name}()"
@@ -137,44 +171,46 @@ initialize
           let us := decl.levelParams.map .param
           let rx := mkAppN (mkConst decl.name us) as
           let (rx, pyRet) ← mkResult rTy rx
-          let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
-          let (rx, pySig) ← argIdxs.size.foldM (init := (rx, "(")) fun i h (rx, pySig) => do
-            let a := as[argIdxs[i]]
-            let ldecl ← getFVarLocalDecl a
-            let (ma, pyTy) ← mkArg fn i ldecl.type a
-            let lam ← mkLambdaFVars #[a] rx
-            let rx := mkPyBind ldecl.type ma lam
-            let pyName := ldecl.userName.getString!
-            let pySig := s!"{pySig}{pyName}: {pyTy}, "
-            return (rx, pySig)
-          let pySig := pySig?.elim s!"{pySig}/) -> {pyRet}" (·.getString)
-          let val ← id do
-            if h : argIdxs.size = 1 then
-              let a := as[argIdxs[0]]
-              let lctx := (← getLCtx).modifyLocalDecl a.fvarId!
-                (·.setType (mkConst `Nerodia.PyObject))
-              let lam ← withReader ({·  with lctx}) <| mkLambdaFVars #[a] rx
-              return mkApp (mkConst `Nerodia.PyMethO.ofPyIO') lam
-            else
-              -- TODO: `PyMethFastCall`
-              throwError "only functions with a single argument are currently supported"
-          let fnDeclName ← mkAuxDeclName `_pyFn
-          addAndCompile <| .defnDecl {
-            name := fnDeclName
-            levelParams := decl.levelParams
-            type := mkConst `Nerodia.PyMethO
-            value := val
-            hints := .opaque
-            safety := .safe
-          }
-          let cSym ← getFnSymbol fnDeclName
-          let df : MethodDef := {
-            name, doc?, cSym
-            callConv := .o
-            cSig := s!"size_t {cSym}(size_t self, size_t arg)"
-            pySig
-          }
-          modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+          if argIdxs.size = 0 then
+            let us := decl.levelParams.map .param
+            let (val, pyTy) ← mkResult decl.type (mkConst decl.name us)
+            let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) val
+            let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethNoArgs val
+            let df : MethodDef := {
+              name, doc?, cSym
+              callConv := .noArgs
+              cSig := s!"size_t {cSym}(size_t self, size_t arg)"
+              pySig := pySig?.elim s!"() -> {pyTy}" (·.getString)
+            }
+            modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+          else if h : argIdxs.size = 1 then
+            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
+            let (rx, pySig) ← argIdxs.size.foldM (init := (rx, "(")) fun i h (rx, pySig) => do
+              let a := as[argIdxs[i]]
+              let ldecl ← getFVarLocalDecl a
+              let (ma, pyTy) ← mkArg fn i ldecl.type a
+              let lam ← mkLambdaFVars #[a] rx
+              let rx := mkPyBind ldecl.type ma lam
+              let pyName := ldecl.userName.getString!
+              let pySig := s!"{pySig}{pyName}: {pyTy}, "
+              return (rx, pySig)
+            let pySig := pySig?.elim s!"{pySig}/) -> {pyRet}" (·.getString)
+            let a := as[argIdxs[0]]
+            let lctx := (← getLCtx).modifyLocalDecl a.fvarId!
+              (·.setType (mkConst `Nerodia.PyObject))
+            let lam ← withReader ({·  with lctx}) <| mkLambdaFVars #[a] rx
+            let val := mkApp (mkConst `Nerodia.PyMethO.ofPyIO') lam
+            let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethO val
+            let df : MethodDef := {
+              name, doc?, cSym
+              callConv := .o
+              cSig := s!"size_t {cSym}(size_t self, size_t arg)"
+              pySig
+            }
+            modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+          else
+            -- TODO: `PyMethFastCall`
+            throwError "only functions with a single argument are currently supported"
   }
 
 syntax (name := py_module_attr) "py_module_attr" (ppSpace str)?
@@ -206,18 +242,9 @@ initialize
       MetaM.run' do
       let us := decl.levelParams.map .param
       let (val, pyTy) ← mkResult decl.type (mkConst declName us)
-      let attrDeclName ← mkAuxDeclName `_pyAttr
-      addAndCompile <| .defnDecl {
-        name := attrDeclName
-        levelParams := decl.levelParams
-        type := mkConst `Nerodia.PyAttrInit
-        value := val
-        hints := .opaque
-        safety := .safe
-      }
+      let cSym ← mkAuxSym `_pyAttr decl.levelParams `Nerodia.PyAttrInit val
       let df : AttrDef := {
-        name, doc?
-        cSym := ← getFnSymbol attrDeclName
+        name, doc?, cSym
         ty := ty?.elim pyTy (·.getString)
       }
       modifyModuleConfig fun cfg => {cfg with attrs := cfg.attrs.push df}

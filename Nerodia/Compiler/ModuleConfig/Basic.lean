@@ -24,6 +24,8 @@ public structure CallConv where
 
 public instance : ToString CallConv := ⟨CallConv.toString⟩
 
+public def CallConv.noArgs : CallConv := ⟨"METH_NOARGS"⟩
+
 public def CallConv.o : CallConv := ⟨"METH_O"⟩
 
 public structure MethodDef where
