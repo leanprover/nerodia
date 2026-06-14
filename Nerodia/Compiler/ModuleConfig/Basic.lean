@@ -26,6 +26,8 @@ public instance : ToString CallConv := ⟨CallConv.toString⟩
 
 public def CallConv.noArgs : CallConv := ⟨"METH_NOARGS"⟩
 
+public def CallConv.fastCall : CallConv := ⟨"METH_FASTCALL"⟩
+
 public def CallConv.o : CallConv := ⟨"METH_O"⟩
 
 public structure MethodDef where

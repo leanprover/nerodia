@@ -20,6 +20,11 @@ def greet : String :=
 def greetingFor (s : String) : String :=
   s!"Hello, {s}!"
 
+/-- Return a greeting for two entities. -/
+@[py_module_fn]
+def greet2 (a b : String) : String :=
+  s!"Hello, {a} and {b}!"
+
 /-- The standard greeting. -/
 @[py_module_attr]
 def greeting : String := "Hello!"

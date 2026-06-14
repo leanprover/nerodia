@@ -77,18 +77,26 @@ def mkResult (ty : Expr) (x : Expr) : MetaM (Expr × String) := do
   let x := mkApp4 (mkConst `Nerodia.MkAttr.mkAttr [u]) ty hintExpr inst x
   return (x, hint)
 
-def mkArg (fn : Expr) (i : Nat) (ty : Expr) (x : Expr) : MetaM (Expr × String) := do
+def mkArgCore
+  (fnName : Name)
+  (fn : Expr) (i : Expr) (ty : Expr) (arg : Expr)
+: MetaM (Expr × String) := do
   let hintTy := mkConst ``String
   let hintExpr ← mkFreshExprMVar (some hintTy)
   let inst ← synthInstance (mkApp2 (mkConst `Nerodia.OfPyArg) ty hintExpr)
   let hintExpr ← instantiateMVars hintExpr
   let hint ← unsafe evalExpr String hintTy hintExpr
-  let i := mkNatLit (i + 1)
-  let x := mkApp6 (mkConst `Nerodia.OfPyArg.ofPyArg) ty hintExpr inst fn i x
+  let x := mkApp6 (mkConst fnName) ty hintExpr inst fn i arg
   return (x, hint)
 
+@[inline] def mkArg (fn : Expr) (i : Nat) (ty : Expr) (arg : Expr) : MetaM (Expr × String) := do
+  mkArgCore `Nerodia.OfPyArg.ofPyArg fn (toExpr (i+1)) ty arg
+
+@[inline] def mkCArg (fn : Expr) (i : USize) (ty : Expr) (args : Expr) : MetaM (Expr × String) := do
+  mkArgCore `Nerodia.ofPyArgUnsafe fn (toExpr i) ty args
+
 @[inline] def mkPyBind (ty ma lam : Expr) : Expr :=
-  mkApp6 (mkConst ``Bind.bind [.zero, .zero])
+  mkApp6 (mkConst ``Bind.bind [0, 0])
     (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyIO.instBind)
     ty (mkConst `Nerodia.PyObject) ma lam
 
@@ -139,6 +147,15 @@ initialize
             pySig := pySig?.elim "()" (·.getString)
           }
           modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+        | `Nerodia.PyMethFastCall =>
+          let cSym ← getFnSymbol declName
+          let df : MethodDef := {
+            name, doc?, cSym
+            callConv := .fastCall
+            cSig := s!"size_t {cSym}(size_t self, size_t args, size_t nargs)"
+            pySig := pySig?.elim "(*_, /)" (·.getString)
+          }
+          modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
         | `Nerodia.PyMethO =>
           let cSym ← getFnSymbol declName
           let df : MethodDef := {
@@ -184,33 +201,59 @@ initialize
             }
             modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
           else if h : argIdxs.size = 1 then
+            withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
             let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
-            let (rx, pySig) ← argIdxs.size.foldM (init := (rx, "(")) fun i h (rx, pySig) => do
-              let a := as[argIdxs[i]]
-              let ldecl ← getFVarLocalDecl a
-              let (ma, pyTy) ← mkArg fn i ldecl.type a
-              let lam ← mkLambdaFVars #[a] rx
-              let rx := mkPyBind ldecl.type ma lam
-              let pyName := ldecl.userName.getString!
-              let pySig := s!"{pySig}{pyName}: {pyTy}, "
-              return (rx, pySig)
-            let pySig := pySig?.elim s!"{pySig}/) -> {pyRet}" (·.getString)
             let a := as[argIdxs[0]]
-            let lctx := (← getLCtx).modifyLocalDecl a.fvarId!
-              (·.setType (mkConst `Nerodia.PyObject))
-            let lam ← withReader ({·  with lctx}) <| mkLambdaFVars #[a] rx
+            let ldecl ← getFVarLocalDecl a
+            let (ma, pyTy) ← mkArg fn 0 ldecl.type arg
+            let lam ← mkLambdaFVars #[a] rx
+            let rx := mkPyBind ldecl.type ma lam
+            let pyName := ldecl.userName.getString!
+            let lam ← mkLambdaFVars #[arg] rx
             let val := mkApp (mkConst `Nerodia.PyMethO.ofPyIO') lam
             let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethO val
             let df : MethodDef := {
               name, doc?, cSym
               callConv := .o
               cSig := s!"size_t {cSym}(size_t self, size_t arg)"
-              pySig
+              pySig := pySig?.elim s!"({pyName}: {pyTy}, /) -> {pyRet}" (·.getString)
+            }
+            modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+          else if lt32 : argIdxs.size < UInt32.size then
+            withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun args => do
+            withLocalDeclD `nargs (mkConst ``USize) fun nargs => do
+            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
+            let init := (rx, s!"/) -> {pyRet}")
+            let (rx, pySig) ← argIdxs.size.foldRevM (init := init) fun i h (rx, pySig) => do
+              let a := as[argIdxs[i]]
+              let ldecl ← getFVarLocalDecl a
+              let i := USize.ofNat32 i (Nat.lt_trans h lt32)
+              let (ma, pyTy) ← mkCArg fn i ldecl.type args
+              let lam ← mkLambdaFVars #[a] rx
+              let rx := mkPyBind ldecl.type ma lam
+              let pyName := ldecl.userName.getString!
+              let pySig := s!"{pyName}: {pyTy}, {pySig}"
+              return (rx, pySig)
+            let nx := toExpr argIdxs.size.toUSize
+            let mTy := mkApp (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyObject)
+            let eqN := mkApp2 (mkApp (mkConst ``Eq [1]) (mkConst ``USize)) nargs nx
+            let err := mkApp4 (mkConst `Nerodia.raiseArityNotEq [0]) (mkConst `Nerodia.PyObject) fn nx nargs
+            let err := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) err
+            let deq := mkApp2 (mkConst ``instDecidableEqUSize) nargs nx
+            let rx := mkApp5 (mkConst ``ite [1]) mTy eqN deq rx err
+            let lam ← mkLambdaFVars #[args, nargs] rx
+            let val := mkApp (mkConst `Nerodia.PyMethFastCall.mkInternalUnsafe) lam
+            let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethFastCall val
+            let df : MethodDef := {
+              name, doc?, cSym
+              callConv := .fastCall
+              cSig := s!"size_t {cSym}(size_t self, size_t args, size_t nargs)"
+              pySig := pySig?.elim s!"({pySig}" (·.getString)
             }
             modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
           else
-            -- TODO: `PyMethFastCall`
-            throwError "only functions with a single argument are currently supported"
+            throwError "Cannot generate Python function: \
+              {.ofConstName declName} has too many arguments ({argIdxs.size})"
   }
 
 syntax (name := py_module_attr) "py_module_attr" (ppSpace str)?

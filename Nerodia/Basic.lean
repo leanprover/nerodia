@@ -630,6 +630,17 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
 end CPyUnitIO
 
 /--
+Runs a {lean}`PyIO` action producing nothing in {lean}`CPyUnitIO`.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyIO.toCPyUnitIO (x : PyIO Unit) : CPyUnitIO := .mkUnsafe do
+  let ctx ← PyContext.init
+  match ( ← x.runUnsafe? ctx) with
+  | some _ => CPyUnitIO.ok
+  | none => CPyUnitIO.failureUnsafe
+
+/--
 Sets the currently raised exception to {lean}`e`.
 If {lean}`e.IsNull`, this just clears the exception.
 
@@ -757,21 +768,30 @@ If {name}`x` raises an exception, clears it and runs {lean}`f ()`.
 
 end PyIO
 
+/-- A raw C object pointer provided as a Python function argument. -/
+public structure TCPyArg (α : Type u) where
+  private mk ::
+    private ptr : CPtr α
+    private not_isNull_ptr : ¬ ptr.IsNull
+
+/-- A raw C object pointer provided as a Python function argument. -/
+public abbrev CPyArg := TCPyArg PyObject
+
+@[inline] def PyContext.mkArgUnsafe (ctx : PyContext) (arg : TCPyArg α) : α :=
+  ctx.mkObjectRef arg.ptr arg.not_isNull_ptr
 
 /-- The type of a Python method with no arguments. -/
 @[expose] -- for codegen
 public def PyMethNoArgs :=
-  (self : CPtr PyObject) → (arg : CPtr PyObject) →
-  (h_self : ¬ self.IsNull) → (h_arg : arg.IsNull) → CPyIO PyObject
+  (self : CPyArg) → (arg : CPtr PyObject) →
+  (h_arg : arg.IsNull) → CPyIO PyObject
 
 @[inline] public def PyMethNoArgs.ofPyIO
   (x : (self : PyObject) → PyIO PyObject)
-: PyMethNoArgs := fun self _ h_self _ => CPyIO.mkUnsafe do
-  let ctx ← PyContext.init
-  let self := ctx.mkObjectRef self h_self
-  match (← x self |>.runUnsafe? ctx) with
-  | some res => return res.newRefUnsafe
-  | none => CPyIO.failureUnsafe
+: PyMethNoArgs := fun self _ _ => PyIO.toCPyIO do
+  let ctx ← getPyContext
+  let self := ctx.mkArgUnsafe self
+  x self
 
 @[inline] public def PyMethNoArgs.ofPyIO'
   (x : PyIO PyObject)
@@ -779,23 +799,49 @@ public def PyMethNoArgs :=
 
 @[inline] public def PyMethNoArgs.ofCPyIO
   (x : CPyIO PyObject)
-: PyMethNoArgs := fun _ _ _ _ => x
+: PyMethNoArgs := fun _ _ _ => x
+
+/-- A raw C array of Python function arguments. -/
+public structure CPyArgs where
+  private mk ::
+    private addr : USize
+
+@[extern "nerodia_py_context_mk_args"]
+opaque PyContext.mkArgsUnsafe (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyObject
+
+@[extern "nerodia_py_context_mk_nth_arg"]
+opaque PyContext.mkNthArgUnsafe (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyObject
+
+/-- The type of a Python method with a single positional argument. -/
+@[expose] -- for codegen
+public def PyMethFastCall :=
+  (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO PyObject
+
+@[inline] public def PyMethFastCall.ofPyIO
+  (x : (self : PyObject) → (args : Array PyObject) → PyIO PyObject)
+: PyMethFastCall := fun self args nargs => PyIO.toCPyIO do
+  let ctx ← getPyContext
+  let self := ctx.mkArgUnsafe self
+  let args := ctx.mkArgsUnsafe args nargs
+  x self args
+
+/-- **Do not use.** Internal function for {lit}`@[py_module_fn]`. -/
+@[inline] public def PyMethFastCall.mkInternalUnsafe
+  (x : (args : CPyArgs) → (nargs : USize) → PyIO PyObject)
+: PyMethFastCall := fun _ args nargs =>  x args nargs |>.toCPyIO
 
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
 public def PyMethO :=
-  (self : CPtr PyObject) → (arg : CPtr PyObject) →
-  (h_self : ¬ self.IsNull) → (h_arg : ¬ arg.IsNull) → CPyIO PyObject
+  (self : CPyArg) → (arg : CPyArg) → CPyIO PyObject
 
 @[inline] public def PyMethO.ofPyIO
   (x : (self : PyObject) → (arg : PyObject) → PyIO PyObject)
-: PyMethO := fun self arg h_self h_arg => CPyIO.mkUnsafe do
-  let ctx ← PyContext.init
-  let self := ctx.mkObjectRef self h_self
-  let arg := ctx.mkObjectRef arg h_arg
-  match (← x self arg |>.runUnsafe? ctx) with
-  | some res => return res.newRefUnsafe
-  | none => CPyIO.failureUnsafe
+: PyMethO := fun self arg => PyIO.toCPyIO do
+  let ctx ← getPyContext
+  let self := ctx.mkArgUnsafe self
+  let arg := ctx.mkArgUnsafe arg
+  x self arg
 
 @[inline] public def PyMethO.ofPyIO'
   (x : (arg : PyObject) → PyIO PyObject)
@@ -804,16 +850,13 @@ public def PyMethO :=
 /-- The type of a Python module initialization function. -/
 @[expose] -- for codegen
 public def PyModuleInit :=
-  (mod : CPtr PyModule) → ¬ mod.IsNull → CPyUnitIO
+  (mod : TCPyArg PyModule) → CPyUnitIO
 
 @[inline] public def PyModuleInit.ofPyIO
   (x : PyModule → PyIO Unit)
-: PyModuleInit := fun mod h => do
-  let ctx ← PyContext.init
-  let mod := ctx.mkObjectRef mod h
-  match (← x mod |>.runUnsafe? ctx) with
-  | some _ => CPyUnitIO.ok
-  | none => CPyUnitIO.failureUnsafe
+: PyModuleInit := fun mod => PyIO.toCPyUnitIO do
+  let ctx ← getPyContext
+  x (ctx.mkArgUnsafe mod)
 
 @[extern "nerodia_set_py_type_error"]
 opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
@@ -822,6 +865,10 @@ opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
 @[inline] public def raisePyTypeError (msg : String) : CPyIO α := .mkUnsafe do
   setPyTypeErrorUnsafe msg
   return .null
+
+/-- Raises a {lean}`PyTypeError` indicating {lit}`fn` was called with the wrong number of arguments. -/
+@[inline] public def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α := do
+  raisePyTypeError s!"{fn} takes exactly {expected} arguments ({given} given)"
 
 /-! ## PyType -/
 
@@ -876,6 +923,11 @@ Used by {lit}`@[py_module_fn]`.
 -/
 public class OfPyArg (α : Type) (ty : outParam String) where
   ofPyArg (fn : String) (i : Nat) : PyObject → PyIO α
+
+/-- **Do not use.** Internal function for {lit}`@[py_module_fn]`.  -/
+@[inline] public def ofPyArgUnsafe
+  [OfPyArg α ty] (fn : String) (i : USize) (args : CPyArgs) : PyIO α
+:= do OfPyArg.ofPyArg fn (i.toNat+1) ((← getPyContext).mkNthArgUnsafe args i)
 
 /--
 Type class used to construct Python attributes from Lean objects.

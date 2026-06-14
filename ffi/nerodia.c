@@ -236,6 +236,21 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object_ref(b_lean_obj_arg ctx, si
   return nerodia_of_object(Py_NewRef((PyObject*)ptr), ctx);
 }
 
+/* mkArgsUnsafe : @& PyContext -> CPyArgs -> USize -> Array PyObject */
+LEAN_EXPORT lean_obj_res nerodia_py_context_mk_args(b_lean_obj_arg ctx, size_t args, size_t nargs) {
+  lean_obj_res objs = lean_alloc_array(nargs, nargs);
+  for (size_t i = 0; i < nargs; ++i) {
+    lean_array_set_core(objs, i,
+      nerodia_of_object(Py_NewRef(((PyObject**)args)[i]), ctx));
+  }
+  return objs;
+}
+
+/* mkNthArgUnsafe : @& PyContext -> CPyArgs -> USize -> PyObject */
+LEAN_EXPORT lean_obj_res nerodia_py_context_mk_nth_arg(b_lean_obj_arg ctx, size_t args, size_t i) {
+  return nerodia_of_object(Py_NewRef(((PyObject**)args)[i]), ctx);
+}
+
 /* clearError : @& PyContext -> BaseIO Unit */
 LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(b_lean_obj_arg ctx) {
   PyErr_Clear();
