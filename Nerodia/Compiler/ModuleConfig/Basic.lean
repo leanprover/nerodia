@@ -17,35 +17,114 @@ public structure AttrDef where
   cSym : String
   ty : String
 
-/-- The FFI calling convention of a Python function. -/
-public structure CallConv where
-  private ofString ::
-    protected toString : String
-
-public instance : ToString CallConv := ⟨CallConv.toString⟩
-
-public def CallConv.noArgs : CallConv := ⟨"METH_NOARGS"⟩
-
-public def CallConv.fastCall : CallConv := ⟨"METH_FASTCALL"⟩
-
-public def CallConv.o : CallConv := ⟨"METH_O"⟩
-
-public structure MethodDef where
-  name : String
-  doc? : Option String
-  callConv : CallConv
-  cSym : String
-  cSig : String
-  pySig : String
-
 public structure MethodFlags where
   private ofString ::
     protected toString : String
 
 public instance : ToString MethodFlags := ⟨MethodFlags.toString⟩
 
-@[inline] public def MethodDef.flags (meth : MethodDef) : MethodFlags :=
-  ⟨meth.callConv.toString⟩
+/-- Implementation detail of {lit}`CallConv`. -/
+inductive CallConv.Raw
+| varArgsNoKeywords
+| varArgsWithKeywords
+| fastCallNoKeywords
+| fastCallWithKeywords
+| method
+| noArgs
+| o
+deriving Nonempty, DecidableEq
+
+/-- The FFI calling convention of a Python function. -/
+public structure CallConv where
+  private mk ::
+    -- Recursor is not public API.
+    -- More convetions may be added as Python evolves.
+    private raw : CallConv.Raw
+    deriving Nonempty, DecidableEq
+
+namespace CallConv
+
+@[inline] public def varArgs (keywords := false) : CallConv :=
+  if keywords then ⟨.varArgsWithKeywords⟩ else ⟨.varArgsNoKeywords⟩
+
+@[inline] public def fastCall (keywords := false) : CallConv :=
+  if keywords then ⟨.fastCallWithKeywords⟩ else ⟨.fastCallNoKeywords⟩
+
+@[inline] public def noArgs : CallConv :=
+  ⟨.noArgs⟩
+
+@[inline] public def method : CallConv :=
+  ⟨.method⟩
+
+@[inline] public def o : CallConv :=
+  ⟨.o⟩
+
+@[inline_if_reduce]
+public def flags (self : CallConv) : MethodFlags :=
+  match self.raw with
+  | .varArgsNoKeywords => ⟨"METH_VARARGS"⟩
+  | .varArgsWithKeywords => ⟨"METH_VARARGS | METH_KEYWORDS"⟩
+  | .fastCallNoKeywords => ⟨"METH_FASTCALL"⟩
+  | .fastCallWithKeywords => ⟨"METH_FASTCALL | METH_KEYWORDS"⟩
+  | .method => ⟨"METH_METHOD | METH_FASTCALL | METH_KEYWORDS"⟩
+  | .noArgs => ⟨"METH_NOARGS"⟩
+  | .o => ⟨"METH_O"⟩
+
+@[inline] public def CallConv.toString (self : CallConv) : String :=
+  self.flags.toString
+
+public instance : ToString CallConv := ⟨CallConv.toString⟩
+
+/--
+Given Lean function with the C symbol name {lean}`sym`,
+returns the C function signature for this calling convention.
+-/
+@[inline_if_reduce]
+public def cSig (self : CallConv) (sym : String) : String :=
+  match self.raw with
+  | .varArgsNoKeywords => s!"size_t {sym}(size_t self, size_t args)"
+  | .varArgsWithKeywords => s!"size_t {sym}(size_t self, size_t args, size_t, kwargs)"
+  | .fastCallNoKeywords => s!"size_t {sym}(size_t self, size_t args, size_t nargs)"
+  | .fastCallWithKeywords => s!"size_t {sym}(size_t self, size_t arg, size_t narg, size_t kwnames)"
+  | .method => s!"size_t {sym}(size_t self, size_t defining_class, size_t arg, size_t narg, size_t kwnames)"
+  | .noArgs => s!"size_t {sym}(size_t self, size_t arg)"
+  | .o => s!"size_t {sym}(size_t self, size_t arg)"
+
+/--
+Returns the default, untyped Python signature for a Python
+module function using this calling convention.
+-/
+@[inline_if_reduce]
+public def pySig (self : CallConv) : String :=
+  match self.raw with
+  | .varArgsNoKeywords => s!"(*args)"
+  | .varArgsWithKeywords => s!"(*args, **kwds)"
+  | .fastCallNoKeywords => s!"(*args)"
+  | .fastCallWithKeywords => s!"(*args, **kwds)"
+  | .method => s!"(*args, **kwds)"
+  | .noArgs => "()"
+  | .o => "(_)"
+
+end CallConv
+
+public structure MethodDef where
+  name : String
+  doc? : Option String
+  callConv : CallConv
+  coexist : Bool := false
+  cSym : String
+  pySig : String := callConv.pySig
+
+/--  The C fucnction signature of the method's Lean defintion. -/
+@[inline] public def MethodDef.cSig (self : MethodDef) : String :=
+  self.callConv.cSig self.cSym
+
+public def MethodDef.flags (self : MethodDef) : MethodFlags :=
+  let flags := self.callConv.flags.toString
+  if self.coexist then
+    ⟨s!"{flags} |  METH_COEXIST"⟩
+  else
+    ⟨flags⟩
 
 public structure ModuleConfig where
   name : String
