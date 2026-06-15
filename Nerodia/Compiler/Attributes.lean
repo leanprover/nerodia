@@ -71,10 +71,10 @@ def mkResult (ty : Expr) (x : Expr) : MetaM (Expr × String) := do
   let u ← getDecLevel ty
   let hintTy := mkConst ``String
   let hintExpr ← mkFreshExprMVar (some hintTy)
-  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.MkAttr [u]) ty hintExpr)
+  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.MkResult [u]) ty hintExpr)
   let hintExpr ← instantiateMVars hintExpr
   let hint ← unsafe evalExpr String hintTy hintExpr
-  let x := mkApp4 (mkConst `Nerodia.MkAttr.mkAttr [u]) ty hintExpr inst x
+  let x := mkApp4 (mkConst `Nerodia.MkResult.mkResult [u]) ty hintExpr inst x
   return (x, hint)
 
 def mkArgCore
@@ -93,7 +93,7 @@ def mkArgCore
   mkArgCore `Nerodia.OfPyArg.ofPyArg fn (toExpr (i+1)) ty arg
 
 @[inline] def mkCArg (fn : Expr) (i : USize) (ty : Expr) (args : Expr) : MetaM (Expr × String) := do
-  mkArgCore `Nerodia.ofPyArgUnsafe fn (toExpr i) ty args
+  mkArgCore `Nerodia.Internal.ofPyArgUnsafe fn (toExpr i) ty args
 
 @[inline] def mkPyBind (ty ma lam : Expr) : Expr :=
   mkApp6 (mkConst ``Bind.bind [0, 0])
@@ -220,7 +220,7 @@ initialize
             let deq := mkApp2 (mkConst ``instDecidableEqUSize) nargs nx
             let rx := mkApp5 (mkConst ``ite [1]) mTy eqN deq rx err
             let lam ← mkLambdaFVars #[cargs, nargs] rx
-            let val := mkApp (mkConst `Nerodia.PyMethFastCall.mkInternalUnsafe) lam
+            let val := mkApp (mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe) lam
             let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethFastCall val
             addMethodDef {name, doc?, cSym, pySig, callConv := .fastCall}
           else

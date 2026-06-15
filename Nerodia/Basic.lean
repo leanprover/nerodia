@@ -316,8 +316,8 @@ public instance : Functor PyIO where map := PyIO.map
 @[inline] public protected def bind (x : PyIO α) (f : α → PyIO β) : PyIO β :=
   mk <| bind x f
 
--- used by @[py_module_fn]
-public instance instBind : Bind PyIO := ⟨PyIO.bind⟩
+-- Internally used by `@[py_module_fn]`
+public instance : Bind PyIO := ⟨PyIO.bind⟩
 
 public instance : Monad PyIO := {}
 
@@ -826,7 +826,7 @@ public def PyMethFastCall :=
   x self args
 
 /-- **Do not use.** Internal function for {lit}`@[py_module_fn]`. -/
-@[inline] public def PyMethFastCall.mkInternalUnsafe
+@[inline] public def Internal.mkPyMethFastCallUnsafe
   (x : (args : CPyArgs) → (nargs : USize) → PyIO PyObject)
 : PyMethFastCall := fun _ args nargs =>  x args nargs |>.toCPyIO
 
@@ -919,31 +919,33 @@ end PyModule
 
 /--
 Type class used to construct a Lean object from a Python function argument.
+
 Used by {lit}`@[py_module_fn]`.
 -/
 public class OfPyArg (α : Type) (ty : outParam String) where
   ofPyArg (fn : String) (i : Nat) : PyObject → PyIO α
 
 /-- **Do not use.** Internal function for {lit}`@[py_module_fn]`.  -/
-@[inline] public def ofPyArgUnsafe
+@[inline] public def Internal.ofPyArgUnsafe
   [OfPyArg α ty] (fn : String) (i : USize) (args : CPyArgs) : PyIO α
 := do OfPyArg.ofPyArg fn (i.toNat+1) ((← getPyContext).mkNthArgUnsafe args i)
 
 /--
-Type class used to construct Python attributes from Lean objects.
-Used by {lit}`@[py_module_attr]`.
+Type class used to construct Python returns from Lean objects.
+
+Used by {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
 -/
-public class MkAttr (α : Type u) (ty : outParam String) where
-  mkAttr : α → CPyIO PyObject
+public class MkResult (α : Type u) (ty : outParam String) where
+  mkResult : α → CPyIO PyObject
 
-public instance : MkAttr PUnit "None" where
-  mkAttr _ := private .mkUnsafe <| return (← PyContext.init).none.newRefUnsafe
+public instance : MkResult PUnit "None" where
+  mkResult _ := private .mkUnsafe <| return (← PyContext.init).none.newRefUnsafe
 
-public instance [MkAttr α ty] : MkAttr (BaseIO α) ty where
-  mkAttr x := private .mkUnsafe do MkAttr.mkAttr (← x)
+public instance [MkResult α ty] : MkResult (BaseIO α) ty where
+  mkResult x := private .mkUnsafe do MkResult.mkResult (← x)
 
-public instance [MkAttr α ty] : MkAttr (PyIO α) ty where
-  mkAttr x := x.bindC MkAttr.mkAttr
+public instance [MkResult α ty] : MkResult (PyIO α) ty where
+  mkResult x := x.bindC MkResult.mkResult
 
 public abbrev PyAttrInit := CPyIO PyObject
 
@@ -961,7 +963,7 @@ public opaque PyObject.getAttrByString
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
-public instance : MkAttr String "str" := ⟨(mkPyStr · |>.cast)⟩
+public instance : MkResult String "str" := ⟨(mkPyStr · |>.cast)⟩
 
 /--
 Computes a string representation of the object {lean}`self`.
