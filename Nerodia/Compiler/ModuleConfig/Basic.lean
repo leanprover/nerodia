@@ -38,7 +38,7 @@ deriving Nonempty, DecidableEq
 public structure CallConv where
   private mk ::
     -- Recursor is not public API.
-    -- More convetions may be added as Python evolves.
+    -- More conventions may be added as Python evolves.
     private raw : CallConv.Raw
     deriving Nonempty, DecidableEq
 
@@ -70,7 +70,7 @@ public def flags (self : CallConv) : MethodFlags :=
   | .noArgs => ⟨"METH_NOARGS"⟩
   | .o => ⟨"METH_O"⟩
 
-@[inline] public def CallConv.toString (self : CallConv) : String :=
+@[inline] public protected def toString (self : CallConv) : String :=
   self.flags.toString
 
 public instance : ToString CallConv := ⟨CallConv.toString⟩
@@ -83,7 +83,7 @@ returns the C function signature for this calling convention.
 public def cSig (self : CallConv) (sym : String) : String :=
   match self.raw with
   | .varArgsNoKeywords => s!"size_t {sym}(size_t self, size_t args)"
-  | .varArgsWithKeywords => s!"size_t {sym}(size_t self, size_t args, size_t, kwargs)"
+  | .varArgsWithKeywords => s!"size_t {sym}(size_t self, size_t args, size_t kwargs)"
   | .fastCallNoKeywords => s!"size_t {sym}(size_t self, size_t args, size_t nargs)"
   | .fastCallWithKeywords => s!"size_t {sym}(size_t self, size_t arg, size_t narg, size_t kwnames)"
   | .method => s!"size_t {sym}(size_t self, size_t defining_class, size_t arg, size_t narg, size_t kwnames)"
@@ -115,14 +115,14 @@ public structure MethodDef where
   cSym : String
   pySig : String := callConv.pySig
 
-/--  The C fucnction signature of the method's Lean defintion. -/
+/--  The C function signature of the method's Lean definition. -/
 @[inline] public def MethodDef.cSig (self : MethodDef) : String :=
   self.callConv.cSig self.cSym
 
 public def MethodDef.flags (self : MethodDef) : MethodFlags :=
   let flags := self.callConv.flags.toString
   if self.coexist then
-    ⟨s!"{flags} |  METH_COEXIST"⟩
+    ⟨s!"{flags} | METH_COEXIST"⟩
   else
     ⟨flags⟩
 

@@ -138,6 +138,7 @@ initialize
       let some moduleCfg := modCfgExt.getState env
         | throwAttrWithoutModuleConfig attrName
       let decl ← getConstInfo declName
+      -- TODO: Validate the name is a legal Python identifier
       let name := name?.elim declName.getString! (·.getString)
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
       let pySigD df :=  pySig?.elim df (·.getString)
@@ -174,7 +175,7 @@ initialize
         forallTelescope decl.type fun as rTy => do
           let args : Array Expr ← as.filterM fun a => do
             return (← getFVarLocalDecl a).binderInfo.isExplicit
-          let (rx, pyRet) ← mkResult rTy (mkAppN declConst as)
+          let (rx, pyRet) ← mkResult rTy (mkAppN declConst args)
           if args.size = 0 then
             let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) rx
             let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethNoArgs val
@@ -252,6 +253,7 @@ initialize
       let decl ← getConstInfo declName
       unless hasModuleConfig env do
         throwAttrWithoutModuleConfig attrName
+      -- TODO: Validate the name is a legal Python identifier
       let name := name?.elim declName.getString! (·.getString)
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
       MetaM.run' do
