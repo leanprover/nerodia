@@ -858,6 +858,8 @@ public def PyModuleInit :=
   let ctx ← getPyContext
   x (ctx.mkArgUnsafe mod)
 
+public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ _ => return⟩
+
 @[extern "nerodia_set_py_type_error"]
 opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
 

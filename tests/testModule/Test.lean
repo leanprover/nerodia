@@ -33,7 +33,7 @@ initialize userRef : IO.Ref String ← IO.mkRef "anonymous"
 
 /-- Sets the current user. -/
 @[py_module_fn]
-def setUser (s : String) : BaseIO Unit := do
+def setUser (s : String := "default") : BaseIO Unit := do
   userRef.set s
 
 /-- Returns a greeting for the current user. -/

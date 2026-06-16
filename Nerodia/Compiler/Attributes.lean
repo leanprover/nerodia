@@ -173,17 +173,19 @@ initialize
         MetaM.run' do
         let fn := mkStrLit s!"{moduleCfg.name}.{name}()"
         forallTelescope decl.type fun as rTy => do
-          let args : Array Expr ← as.filterM fun a => do
+          let allExplicit ← as.allM fun a => do
             return (← getFVarLocalDecl a).binderInfo.isExplicit
-          let (rx, pyRet) ← mkResult rTy (mkAppN declConst args)
-          if args.size = 0 then
+          unless allExplicit do
+            throwError "All parameters of a `@[py_module_fn]` definition must be explicit."
+          let (rx, pyRet) ← mkResult rTy (mkAppN declConst as)
+          if as.size = 0 then
             let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) rx
             let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethNoArgs val
             let pySig := pySigD s!"() -> {pyRet}"
             addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
-          else if h : args.size = 1 then
+          else if h : as.size = 1 then
             withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
-            let a := args[0]
+            let a := as[0]
             let ldecl ← getFVarLocalDecl a
             let (ma, pyTy) ← mkArg fn 0 ldecl.type arg
             let pyName := mkPyName ldecl.userName
@@ -196,14 +198,14 @@ initialize
             let val := mkApp (mkConst `Nerodia.PyMethO.ofPyIO') lam
             let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethO val
             addMethodDef {name, doc?, cSym, pySig, callConv := .o}
-          else if lt32 : args.size < UInt32.size then
+          else if lt32 : as.size < UInt32.size then
             withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun cargs => do
             withLocalDeclD `nargs (mkConst ``USize) fun nargs => do
             -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
             let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
             let init := (rx, s!"/) -> {pyRet}")
-            let (rx, pySig) ← args.size.foldRevM (init := init) fun i h (rx, pySig) => do
-              let a := args[i]
+            let (rx, pySig) ← as.size.foldRevM (init := init) fun i h (rx, pySig) => do
+              let a := as[i]
               let ldecl ← getFVarLocalDecl a
               let i := USize.ofNat32 i (Nat.lt_trans h lt32)
               let (ma, pyTy) ← mkCArg fn i ldecl.type cargs
@@ -213,7 +215,7 @@ initialize
               let pySig := s!"{pyName}: {pyTy}, {pySig}"
               return (rx, pySig)
             let pySig := pySigD s!"({pySig}"
-            let nx := toExpr args.usize
+            let nx := toExpr as.usize
             let mTy := mkApp (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyObject)
             let eqN := mkApp2 (mkApp (mkConst ``Eq [1]) (mkConst ``USize)) nargs nx
             let err := mkApp4 (mkConst `Nerodia.raiseArityNotEq [0]) (mkConst `Nerodia.PyObject) fn nx nargs
@@ -226,7 +228,7 @@ initialize
             addMethodDef {name, doc?, cSym, pySig, callConv := .fastCall}
           else
             throwError "Cannot generate Python function: \
-              {.ofConstName declName} has too many arguments ({args.size})"
+              {.ofConstName declName} has too many arguments ({as.size})"
   }
 
 syntax (name := py_module_attr) "py_module_attr" (ppSpace str)?
