@@ -101,14 +101,15 @@ def mkArgCore
     ty (mkConst `Nerodia.PyObject) ma lam
 
 def mkAuxSym
-  (kind : Name) (levelParams : List Name) (typeName : Name) (value : Expr)
+  (kind : Name) (isUnsafe : Bool) (levelParams : List Name)
+  (typeName : Name) (value : Expr)
 : CoreM String := do
   let name ← mkAuxDeclName kind
   addAndCompile <| .defnDecl {
     name, levelParams, value
     type := mkConst typeName
     hints := .opaque
-    safety := .safe
+    safety := if isUnsafe then .unsafe else .safe
   }
   getFnSymbol name
 
@@ -143,6 +144,7 @@ initialize
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
       let pySigD df :=  pySig?.elim df (·.getString)
       let declConst := mkConst decl.name (decl.levelParams.map .param)
+      let mkAuxSym := mkAuxSym `_pyFn  decl.isUnsafe decl.levelParams
       if let .const n .. := decl.type then
         match n with
         | `Nerodia.PyMethNoArgs => addMethodDef {
@@ -166,7 +168,7 @@ initialize
         | _ => MetaM.run' do
           let (val, pyTy) ← mkResult decl.type declConst
           let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) val
-          let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethNoArgs val
+          let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
           let pySig := pySigD s!"() -> {pyTy}"
           addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
       else
@@ -180,7 +182,7 @@ initialize
           let (rx, pyRet) ← mkResult rTy (mkAppN declConst as)
           if as.size = 0 then
             let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) rx
-            let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethNoArgs val
+            let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
             let pySig := pySigD s!"() -> {pyRet}"
             addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
           else if h : as.size = 1 then
@@ -196,7 +198,7 @@ initialize
             let rx := mkPyBind ldecl.type ma lam
             let lam ← mkLambdaFVars #[arg] rx
             let val := mkApp (mkConst `Nerodia.PyMethO.ofPyIO') lam
-            let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethO val
+            let cSym ← mkAuxSym `Nerodia.PyMethO val
             addMethodDef {name, doc?, cSym, pySig, callConv := .o}
           else if lt32 : as.size < UInt32.size then
             withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun cargs => do
@@ -224,7 +226,7 @@ initialize
             let rx := mkApp5 (mkConst ``ite [1]) mTy eqN deq rx err
             let lam ← mkLambdaFVars #[cargs, nargs] rx
             let val := mkApp (mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe) lam
-            let cSym ← mkAuxSym `_pyFn decl.levelParams `Nerodia.PyMethFastCall val
+            let cSym ← mkAuxSym `Nerodia.PyMethFastCall val
             addMethodDef {name, doc?, cSym, pySig, callConv := .fastCall}
           else
             throwError "Cannot generate Python function: \
@@ -261,7 +263,7 @@ initialize
       MetaM.run' do
       let us := decl.levelParams.map .param
       let (val, pyTy) ← mkResult decl.type (mkConst declName us)
-      let cSym ← mkAuxSym `_pyAttr decl.levelParams `Nerodia.PyAttrInit val
+      let cSym ← mkAuxSym `_pyAttr decl.isUnsafe decl.levelParams `Nerodia.PyAttrInit val
       let df : AttrDef := {
         name, doc?, cSym
         ty := ty?.elim pyTy (·.getString)
