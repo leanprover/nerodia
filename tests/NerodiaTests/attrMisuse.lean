@@ -7,7 +7,7 @@ import Nerodia
 
 /-! # Attribute Misuse
 
-Tests the errors raise on invalid uses of Nerodia attributes.
+Tests the errors raised on invalid uses of Nerodia attributes.
 -/
 
 open Nerodia

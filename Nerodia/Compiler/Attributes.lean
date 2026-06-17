@@ -114,7 +114,7 @@ def mkAuxSym
   getFnSymbol name
 
 @[inline] def mkPyName (name : Name) : String :=
-  name.getString! -- TODO: validate / managle Lean name for Python
+  name.getString! -- TODO: validate / mangle Lean name for Python
 
 @[inline] def addMethodDef [MonadEnv m] (df : MethodDef) : m PUnit :=
   modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
@@ -163,9 +163,9 @@ def mkArgChain
   return (body, s!"({pySig}")
 
 /--
-Constructs an conditional expression that ensures the number of arguments
+Constructs a conditional expression that ensures the number of arguments
 provided {lean}`nargs` matches {lean}`expected` before invoking {lean}`body`.
-Otherwise, the expression raises an expection.
+Otherwise, the expression raises an exception.
 
 The expression is of the form:
 {given -show}`fn : String, nargs : USize`

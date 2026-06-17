@@ -103,7 +103,7 @@ public def pySig (self : CallConv) : String :=
   | .fastCallWithKeywords => s!"(*args, **kwds)"
   | .method => s!"(*args, **kwds)"
   | .noArgs => "()"
-  | .o => "(_)"
+  | .o => "(_, /)"
 
 end CallConv
 
