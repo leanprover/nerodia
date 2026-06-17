@@ -25,7 +25,7 @@ namespace Nerodia
 @[inline] def throwInvalidExportName [Monad m] [MonadError m] (n : Name) : m α :=
   throwError s!"invalid export name '{n}'"
 
-@[inline] def getFnSymbol [Monad m] [MonadEnv m] [MonadError m] (declName : Name) : m String := do
+@[specialize] def getFnSymbol [Monad m] [MonadEnv m] [MonadError m] (declName : Name) : m String := do
   let env ← getEnv
   match getExportNameFor? env declName with
   | some (.str .anonymous s) => return s
@@ -95,7 +95,7 @@ def mkArgCore
 @[inline] def mkCArg (fn : Expr) (i : USize) (ty : Expr) (args : Expr) : MetaM (Expr × String) := do
   mkArgCore `Nerodia.Internal.ofPyArgUnsafe fn (toExpr i) ty args
 
-@[inline] def mkPyBind (ty ma lam : Expr) : Expr :=
+def mkPyBind (ty ma lam : Expr) : Expr :=
   mkApp6 (mkConst ``Bind.bind [0, 0])
     (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyIO.instBind)
     ty (mkConst `Nerodia.PyObject) ma lam
@@ -118,6 +118,14 @@ def mkAuxSym
 
 @[inline] def addMethodDef [MonadEnv m] (df : MethodDef) : m PUnit :=
   modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+
+@[inline_if_reduce]
+def CallConv.ofTypeName? (n : Name) : Option CallConv :=
+  match n with
+  | `Nerodia.PyMethNoArgs => some .noArgs
+  | `Nerodia.PyMethFastCall => some .fastCall
+  | `Nerodia.PyMethO => some .o
+  | _ => none
 
 initialize
   let attrName := `py_module_fn
@@ -142,30 +150,17 @@ initialize
       -- TODO: Validate the name is a legal Python identifier
       let name := name?.elim declName.getString! (·.getString)
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
-      let pySigD df :=  pySig?.elim df (·.getString)
+      let pySigD df := pySig?.elim df (·.getString)
       let declConst := mkConst decl.name (decl.levelParams.map .param)
       let mkAuxSym := mkAuxSym `_pyFn  decl.isUnsafe decl.levelParams
       if let .const n .. := decl.type then
-        match n with
-        | `Nerodia.PyMethNoArgs => addMethodDef {
-            name, doc?
-            callConv := .noArgs
+        if let some callConv := CallConv.ofTypeName? n then
+          addMethodDef {
+            name, doc?, callConv
             cSym := ← getFnSymbol declName
-            pySig := pySigD "()"
+            pySig := pySigD callConv.pySig
           }
-        | `Nerodia.PyMethFastCall => addMethodDef {
-            name, doc?
-            callConv := .fastCall
-            cSym := ← getFnSymbol declName
-            pySig := pySigD "(*_, /)"
-          }
-        | `Nerodia.PyMethO => addMethodDef {
-            name, doc?
-            callConv := .o
-            cSym := ← getFnSymbol declName
-            pySig := pySigD "(_, /)"
-          }
-        | _ => MetaM.run' do
+        else MetaM.run' do
           let (val, pyTy) ← mkResult decl.type declConst
           let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) val
           let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
