@@ -127,6 +127,65 @@ def CallConv.ofTypeName? (n : Name) : Option CallConv :=
   | `Nerodia.PyMethO => some .o
   | _ => none
 
+/--
+Constructs an expression which converts the Python arguments in {lean}`cargs`
+into Lean objects and passes them to {lean}`body` via a bind chain. Returns the
+expression paired with the inferred parameter list of the Python function.
+
+The expression is of the form:
+
+{given -show}`fn : String, n : USize`
+{given -show}`ofPyArgUnsafe : String → USize → Expr → Id Expr`
+{given -show}`body : Expr → Expr → Id Expr`
+```leanTerm
+do
+  let args₀ ← ofPyArgUnsafe fn 0 cargs
+  -- ...
+  let argsₙ ← ofPyArgUnsafe fn n cargs
+  body args₀ /- ... -/ argsₙ
+```
+-/
+def mkArgChain
+  (fn : Expr) (cargs : Expr) (args : Array Expr) (body : Expr)
+  (lt32 : args.size < UInt32.size)
+: MetaM (Expr × String) := do
+  let s := (body, s!"/)")
+  let (body, pySig) ← args.size.foldRevM (init := s) fun i h (body, pySig) => do
+    let a := args[i]
+    let ldecl ← getFVarLocalDecl a
+    let i := USize.ofNat32 i (Nat.lt_trans h lt32)
+    let (ma, pyTy) ← mkCArg fn i ldecl.type cargs
+    let lam ← mkLambdaFVars #[a] body
+    let body := mkPyBind ldecl.type ma lam
+    let pyName := mkPyName ldecl.userName
+    let pySig := s!"{pyName}: {pyTy}, {pySig}"
+    return (body, pySig)
+  return (body, s!"({pySig}")
+
+/--
+Constructs an conditional expression that ensures the number of arguments
+provided {lean}`nargs` matches {lean}`expected` before invoking {lean}`body`.
+Otherwise, the expression raises an expection.
+
+The expression is of the form:
+{given -show}`fn : String, nargs : USize`
+{given -show}`raiseArityNotEq : String → USize → USize → Expr`
+```leanTerm
+if nargs = expected then
+  body
+else
+  raiseArityNotEq fn expected nargs
+```
+-/
+def mkArityGuard (fn : Expr) (expected : USize) (nargs body : Expr) : Expr :=
+  let nx := toExpr expected
+  let mTy := mkApp (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyObject)
+  let eqN := mkApp2 (mkApp (mkConst ``Eq [1]) (mkConst ``USize)) nargs nx
+  let err := mkApp4 (mkConst `Nerodia.raiseArityNotEq [0]) (mkConst `Nerodia.PyObject) fn nx nargs
+  let err := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) err
+  let deq := mkApp2 (mkConst ``instDecidableEqUSize) nargs nx
+  mkApp5 (mkConst ``ite [1]) mTy eqN deq body err
+
 initialize
   let attrName := `py_module_fn
   registerBuiltinAttribute {
@@ -200,25 +259,9 @@ initialize
             withLocalDeclD `nargs (mkConst ``USize) fun nargs => do
             -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
             let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
-            let init := (rx, s!"/) -> {pyRet}")
-            let (rx, pySig) ← as.size.foldRevM (init := init) fun i h (rx, pySig) => do
-              let a := as[i]
-              let ldecl ← getFVarLocalDecl a
-              let i := USize.ofNat32 i (Nat.lt_trans h lt32)
-              let (ma, pyTy) ← mkCArg fn i ldecl.type cargs
-              let lam ← mkLambdaFVars #[a] rx
-              let rx := mkPyBind ldecl.type ma lam
-              let pyName := mkPyName ldecl.userName
-              let pySig := s!"{pyName}: {pyTy}, {pySig}"
-              return (rx, pySig)
-            let pySig := pySigD s!"({pySig}"
-            let nx := toExpr as.usize
-            let mTy := mkApp (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyObject)
-            let eqN := mkApp2 (mkApp (mkConst ``Eq [1]) (mkConst ``USize)) nargs nx
-            let err := mkApp4 (mkConst `Nerodia.raiseArityNotEq [0]) (mkConst `Nerodia.PyObject) fn nx nargs
-            let err := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) err
-            let deq := mkApp2 (mkConst ``instDecidableEqUSize) nargs nx
-            let rx := mkApp5 (mkConst ``ite [1]) mTy eqN deq rx err
+            let (rx, pySig) ← mkArgChain fn cargs as rx lt32
+            let pySig := pySigD s!"{pySig} -> {pyRet}"
+            let rx := mkArityGuard fn as.usize nargs rx
             let lam ← mkLambdaFVars #[cargs, nargs] rx
             let val := mkApp (mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe) lam
             let cSym ← mkAuxSym `Nerodia.PyMethFastCall val
