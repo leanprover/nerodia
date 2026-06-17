@@ -827,8 +827,8 @@ public def PyMethFastCall :=
 
 /-- **Do not use.** Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethFastCallUnsafe
-  (x : (args : CPyArgs) → (nargs : USize) → PyIO PyObject)
-: PyMethFastCall := fun _ args nargs =>  x args nargs |>.toCPyIO
+  (x : (args : CPyArgs) → (nargs : USize) → CPyIO PyObject)
+: PyMethFastCall := fun _ args nargs => x args nargs
 
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen

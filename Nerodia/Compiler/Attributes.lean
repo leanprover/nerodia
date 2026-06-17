@@ -179,10 +179,10 @@ else
 -/
 def mkArityGuard (fn : Expr) (expected : USize) (nargs body : Expr) : Expr :=
   let nx := toExpr expected
-  let mTy := mkApp (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyObject)
+  let mTy := mkApp (mkConst `Nerodia.CPyIO [0]) (mkConst `Nerodia.PyObject)
   let eqN := mkApp2 (mkApp (mkConst ``Eq [1]) (mkConst ``USize)) nargs nx
-  let err := mkApp4 (mkConst `Nerodia.raiseArityNotEq [0]) (mkConst `Nerodia.PyObject) fn nx nargs
-  let err := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) err
+  let err := mkApp4 (mkConst `Nerodia.raiseArityNotEq [0])
+    (mkConst `Nerodia.PyObject) fn nx nargs
   let deq := mkApp2 (mkConst ``instDecidableEqUSize) nargs nx
   mkApp5 (mkConst ``ite [1]) mTy eqN deq body err
 
@@ -260,6 +260,7 @@ initialize
             -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
             let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
             let (rx, pySig) ← mkArgChain fn cargs as rx lt32
+            let rx := mkApp (mkConst `Nerodia.PyIO.toCPyIO) rx
             let pySig := pySigD s!"{pySig} -> {pyRet}"
             let rx := mkArityGuard fn as.usize nargs rx
             let lam ← mkLambdaFVars #[cargs, nargs] rx
