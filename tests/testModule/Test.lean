@@ -10,13 +10,33 @@ open Nerodia
 /-- A Lean-to-Python test module. -/
 py_module "testmodule"
 
+/-- Return a standard greeting. -/
+@[py_module_fn]
+def greet : String :=
+  s!"Hello!"
+
 /-- Return a greeting. -/
-@[py_module_fn "greeting_for" (sig := "(s: str, /) -> str")]
-def greetingFor : PyMethO := .ofPyIO fun _ s => do
-  if h : s.isStrInstance then
-    mkPyStr s!"Hello, {PyStr.mk s h}!"
-  else raisePyTypeError "argument must be str"
+@[py_module_fn "greeting_for"]
+def greetingFor (s : String) : String :=
+  s!"Hello, {s}!"
+
+/-- Return a greeting for two entities. -/
+@[py_module_fn]
+def greet2 (a b : String) : String :=
+  s!"Hello, {a} and {b}!"
 
 /-- The standard greeting. -/
 @[py_module_attr]
 def greeting : String := "Hello!"
+
+initialize userRef : IO.Ref String ← IO.mkRef "anonymous"
+
+/-- Sets the current user. -/
+@[py_module_fn]
+unsafe def setUser (s : String := "default") : BaseIO Unit := do
+  userRef.set s
+
+/-- Returns a greeting for the current user. -/
+@[py_module_fn]
+def greetUser : BaseIO String := do
+  return s!"Hello, {← userRef.get}!"

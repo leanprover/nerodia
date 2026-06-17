@@ -306,16 +306,20 @@ that an exception is set on error.
 @[inline] public protected def pure (a : α) : PyIO α :=
   mk <| pure a
 
+public instance : Pure PyIO := ⟨PyIO.pure⟩
+
 @[inline] public protected def map (f : α → β) (x : PyIO α) : PyIO β :=
   mk <| Functor.map f x
+
+public instance : Functor PyIO where map := PyIO.map
 
 @[inline] public protected def bind (x : PyIO α) (f : α → PyIO β) : PyIO β :=
   mk <| bind x f
 
-public instance : Monad PyIO where
-  pure := PyIO.pure
-  map := PyIO.map
-  bind := PyIO.bind
+-- Internally used by `@[py_module_fn]`
+public instance : Bind PyIO := ⟨PyIO.bind⟩
+
+public instance : Monad PyIO := {}
 
 end PyIO
 
@@ -376,6 +380,28 @@ that an exception is set on error.
   unsafe unsafeCast x
 
 end CPyIO
+
+/--
+Runs a {lean}`PyIO` action producing a Python object in {lean}`CPyIO`.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyIO.toCPyIO (x : PyIO PyObject) : CPyIO PyObject := .mkUnsafe do
+  let ctx ← PyContext.init
+  match ( ← x.runUnsafe? ctx) with
+  | some obj => return obj.newRefUnsafe
+  | none => CPyIO.failureUnsafe
+
+/--
+Sequences a {lean}`CPyIO` action after a {lean}`PyIO` action.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyIO.bindC (x : PyIO α) (f : α → CPyIO β) : CPyIO β := .mkUnsafe do
+  let ctx ← PyContext.init
+  match (← x.runUnsafe? ctx) with
+  | some a => f a
+  | none => CPyIO.failureUnsafe
 
 /-- Clears the current exception and returns it. -/
 @[extern "nerodia_get_raised_exception"]
@@ -604,6 +630,17 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
 end CPyUnitIO
 
 /--
+Runs a {lean}`PyIO` action producing nothing in {lean}`CPyUnitIO`.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyIO.toCPyUnitIO (x : PyIO Unit) : CPyUnitIO := .mkUnsafe do
+  let ctx ← PyContext.init
+  match ( ← x.runUnsafe? ctx) with
+  | some _ => CPyUnitIO.ok
+  | none => CPyUnitIO.failureUnsafe
+
+/--
 Sets the currently raised exception to {lean}`e`.
 If {lean}`e.IsNull`, this just clears the exception.
 
@@ -731,35 +768,97 @@ If {name}`x` raises an exception, clears it and runs {lean}`f ()`.
 
 end PyIO
 
+/-- A raw C object pointer provided as a Python function argument. -/
+public structure TCPyArg (α : Type u) where
+  private mk ::
+    private ptr : CPtr α
+    private not_isNull_ptr : ¬ ptr.IsNull
+
+/-- A raw C object pointer provided as a Python function argument. -/
+public abbrev CPyArg := TCPyArg PyObject
+
+@[inline] def PyContext.mkArgUnsafe (ctx : PyContext) (arg : TCPyArg α) : α :=
+  ctx.mkObjectRef arg.ptr arg.not_isNull_ptr
+
+/-- The type of a Python method with no arguments. -/
+@[expose] -- for codegen
+public def PyMethNoArgs :=
+  (self : CPyArg) → (arg : CPtr PyObject) →
+  (h_arg : arg.IsNull) → CPyIO PyObject
+
+@[inline] public def PyMethNoArgs.ofPyIO
+  (x : (self : PyObject) → PyIO PyObject)
+: PyMethNoArgs := fun self _ _ => PyIO.toCPyIO do
+  let ctx ← getPyContext
+  let self := ctx.mkArgUnsafe self
+  x self
+
+@[inline] public def PyMethNoArgs.ofPyIO'
+  (x : PyIO PyObject)
+: PyMethNoArgs := ofPyIO fun _ => x
+
+@[inline] public def PyMethNoArgs.ofCPyIO
+  (x : CPyIO PyObject)
+: PyMethNoArgs := fun _ _ _ => x
+
+/-- A raw C array of Python function arguments. -/
+public structure CPyArgs where
+  private mk ::
+    private addr : USize
+
+@[extern "nerodia_py_context_mk_args"]
+opaque PyContext.mkArgsUnsafe (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyObject
+
+@[extern "nerodia_py_context_mk_nth_arg"]
+opaque PyContext.mkNthArgUnsafe (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyObject
+
+/-- The type of a Python method with a single positional argument. -/
+@[expose] -- for codegen
+public def PyMethFastCall :=
+  (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO PyObject
+
+@[inline] public def PyMethFastCall.ofPyIO
+  (x : (self : PyObject) → (args : Array PyObject) → PyIO PyObject)
+: PyMethFastCall := fun self args nargs => PyIO.toCPyIO do
+  let ctx ← getPyContext
+  let self := ctx.mkArgUnsafe self
+  let args := ctx.mkArgsUnsafe args nargs
+  x self args
+
+/-- **Do not use.** Internal function for {lit}`@[py_module_fn]`. -/
+@[inline] public def Internal.mkPyMethFastCallUnsafe
+  (x : (args : CPyArgs) → (nargs : USize) → CPyIO PyObject)
+: PyMethFastCall := fun _ args nargs => x args nargs
+
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
 public def PyMethO :=
-  (self : CPtr PyObject) → (arg : CPtr PyObject) →
-  (h_self : ¬ self.IsNull) → (h_arg : ¬ arg.IsNull) → CPyIO PyObject
+  (self : CPyArg) → (arg : CPyArg) → CPyIO PyObject
 
 @[inline] public def PyMethO.ofPyIO
   (x : (self : PyObject) → (arg : PyObject) → PyIO PyObject)
-: PyMethO := fun self arg h_self h_arg => CPyIO.mkUnsafe do
-  let ctx ← PyContext.init
-  let self := ctx.mkObjectRef self h_self
-  let arg := ctx.mkObjectRef arg h_arg
-  match (← x self arg |>.runUnsafe? ctx) with
-  | some res => return res.newRefUnsafe
-  | none => return .null
+: PyMethO := fun self arg => PyIO.toCPyIO do
+  let ctx ← getPyContext
+  let self := ctx.mkArgUnsafe self
+  let arg := ctx.mkArgUnsafe arg
+  x self arg
+
+@[inline] public def PyMethO.ofPyIO'
+  (x : (arg : PyObject) → PyIO PyObject)
+: PyMethO := ofPyIO fun _ => x
 
 /-- The type of a Python module initialization function. -/
 @[expose] -- for codegen
 public def PyModuleInit :=
-  (mod : CPtr PyModule) → ¬ mod.IsNull → CPyUnitIO
+  (mod : TCPyArg PyModule) → CPyUnitIO
 
 @[inline] public def PyModuleInit.ofPyIO
   (x : PyModule → PyIO Unit)
-: PyModuleInit := fun mod h => do
-  let ctx ← PyContext.init
-  let mod := ctx.mkObjectRef mod h
-  match (← x mod |>.runUnsafe? ctx) with
-  | some _ => CPyUnitIO.ok
-  | none => CPyUnitIO.failureUnsafe
+: PyModuleInit := fun mod => PyIO.toCPyUnitIO do
+  let ctx ← getPyContext
+  x (ctx.mkArgUnsafe mod)
+
+public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ _ => return⟩
 
 @[extern "nerodia_set_py_type_error"]
 opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
@@ -768,6 +867,10 @@ opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
 @[inline] public def raisePyTypeError (msg : String) : CPyIO α := .mkUnsafe do
   setPyTypeErrorUnsafe msg
   return .null
+
+/-- Raises a {lean}`PyTypeError` indicating {lit}`fn` was called with the wrong number of arguments. -/
+@[inline] public def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α := do
+  raisePyTypeError s!"{fn} takes exactly {expected} arguments ({given} given)"
 
 /-! ## PyType -/
 
@@ -817,11 +920,36 @@ public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyMo
 end PyModule
 
 /--
-Type class used to construct Python attributes from Lean objects.
-Used by {lit}`@[py_module_attr]`.
+Type class used to construct a Lean object from a Python function argument.
+
+Used by {lit}`@[py_module_fn]`.
 -/
-public class MkAttr (α : Type u) (ty : outParam String) where
-  mkAttr : α → CPyIO PyObject
+public class OfPyArg (α : Type) (ty : outParam String) where
+  ofPyArg (fn : String) (i : Nat) : PyObject → PyIO α
+
+/-- **Do not use.** Internal function for {lit}`@[py_module_fn]`.  -/
+@[inline] public def Internal.ofPyArgUnsafe
+  [OfPyArg α ty] (fn : String) (i : USize) (args : CPyArgs) : PyIO α
+:= do OfPyArg.ofPyArg fn (i.toNat+1) ((← getPyContext).mkNthArgUnsafe args i)
+
+/--
+Type class used to construct Python returns from Lean objects.
+
+Used by {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
+-/
+public class MkResult (α : Type u) (ty : outParam String) where
+  mkResult : α → CPyIO PyObject
+
+public instance : MkResult PUnit "None" where
+  mkResult _ := private .mkUnsafe <| return (← PyContext.init).none.newRefUnsafe
+
+public instance [MkResult α ty] : MkResult (BaseIO α) ty where
+  mkResult x := private .mkUnsafe do MkResult.mkResult (← x)
+
+public instance [MkResult α ty] : MkResult (PyIO α) ty where
+  mkResult x := x.bindC MkResult.mkResult
+
+public abbrev PyAttrInit := CPyIO PyObject
 
 /-! ## Objects -/
 
@@ -837,7 +965,7 @@ public opaque PyObject.getAttrByString
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
-public instance : MkAttr String "str" := ⟨(mkPyStr · |>.cast)⟩
+public instance : MkResult String "str" := ⟨(mkPyStr · |>.cast)⟩
 
 /--
 Computes a string representation of the object {lean}`self`.
@@ -861,6 +989,12 @@ public opaque PyObject.repr (self : @& PyObject) : CPyIO PyStr
 public opaque PyStr.toString (self : @& PyStr) : String
 
 public instance : ToString PyStr := ⟨PyStr.toString⟩
+
+public instance : OfPyArg String "str" where
+  ofPyArg fn i o :=
+    if h : o.isStrInstance then
+      return (PyStr.mk o h).toString
+    else raisePyTypeError s!"{fn} argument {i} must be str"
 
 /-- Returns the UTF8-encoded value of the Python string as Python bytes. -/
 @[extern "nerodia_py_str_utf8_encode"]

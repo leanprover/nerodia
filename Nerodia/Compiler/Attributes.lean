@@ -25,7 +25,7 @@ namespace Nerodia
 @[inline] def throwInvalidExportName [Monad m] [MonadError m] (n : Name) : m α :=
   throwError s!"invalid export name '{n}'"
 
-@[inline] def getFnSymbol [Monad m] [MonadEnv m] [MonadError m] (declName : Name) : m String := do
+@[specialize] def getFnSymbol [Monad m] [MonadEnv m] [MonadError m] (declName : Name) : m String := do
   let env ← getEnv
   match getExportNameFor? env declName with
   | some (.str .anonymous s) => return s
@@ -67,9 +67,127 @@ initialize
 syntax (name := py_module_fn) "py_module_fn" (ppSpace str)?
   (ppSpace atomic("(" &"sig") " := " str ")")? : attr
 
+def mkResult (ty : Expr) (x : Expr) : MetaM (Expr × String) := do
+  let u ← getDecLevel ty
+  let hintTy := mkConst ``String
+  let hintExpr ← mkFreshExprMVar (some hintTy)
+  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.MkResult [u]) ty hintExpr)
+  let hintExpr ← instantiateMVars hintExpr
+  let hint ← unsafe evalExpr String hintTy hintExpr
+  let x := mkApp4 (mkConst `Nerodia.MkResult.mkResult [u]) ty hintExpr inst x
+  return (x, hint)
+
+def mkArgCore
+  (fnName : Name)
+  (fn : Expr) (i : Expr) (ty : Expr) (arg : Expr)
+: MetaM (Expr × String) := do
+  let hintTy := mkConst ``String
+  let hintExpr ← mkFreshExprMVar (some hintTy)
+  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.OfPyArg) ty hintExpr)
+  let hintExpr ← instantiateMVars hintExpr
+  let hint ← unsafe evalExpr String hintTy hintExpr
+  let x := mkApp6 (mkConst fnName) ty hintExpr inst fn i arg
+  return (x, hint)
+
+@[inline] def mkArg (fn : Expr) (i : Nat) (ty : Expr) (arg : Expr) : MetaM (Expr × String) := do
+  mkArgCore `Nerodia.OfPyArg.ofPyArg fn (toExpr (i+1)) ty arg
+
+@[inline] def mkCArg (fn : Expr) (i : USize) (ty : Expr) (args : Expr) : MetaM (Expr × String) := do
+  mkArgCore `Nerodia.Internal.ofPyArgUnsafe fn (toExpr i) ty args
+
+def mkPyBind (ty ma lam : Expr) : Expr :=
+  mkApp6 (mkConst ``Bind.bind [0, 0])
+    (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyIO.instBind)
+    ty (mkConst `Nerodia.PyObject) ma lam
+
+def mkAuxSym
+  (kind : Name) (isUnsafe : Bool) (levelParams : List Name)
+  (typeName : Name) (value : Expr)
+: CoreM String := do
+  let name ← mkAuxDeclName kind
+  addAndCompile <| .defnDecl {
+    name, levelParams, value
+    type := mkConst typeName
+    hints := .opaque
+    safety := if isUnsafe then .unsafe else .safe
+  }
+  getFnSymbol name
+
+@[inline] def mkPyName (name : Name) : String :=
+  name.getString! -- TODO: validate / mangle Lean name for Python
+
+@[inline] def addMethodDef [MonadEnv m] (df : MethodDef) : m PUnit :=
+  modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+
+@[inline_if_reduce]
+def CallConv.ofTypeName? (n : Name) : Option CallConv :=
+  match n with
+  | `Nerodia.PyMethNoArgs => some .noArgs
+  | `Nerodia.PyMethFastCall => some .fastCall
+  | `Nerodia.PyMethO => some .o
+  | _ => none
+
+/--
+Constructs an expression which converts the Python arguments in {lean}`cargs`
+into Lean objects and passes them to {lean}`body` via a bind chain. Returns the
+expression paired with the inferred parameter list of the Python function.
+
+The expression is of the form:
+
+{given -show}`fn : String, n : USize`
+{given -show}`ofPyArgUnsafe : String → USize → Expr → Id Expr`
+{given -show}`body : Expr → Expr → Id Expr`
+```leanTerm
+do
+  let args₀ ← ofPyArgUnsafe fn 0 cargs
+  -- ...
+  let argsₙ ← ofPyArgUnsafe fn n cargs
+  body args₀ /- ... -/ argsₙ
+```
+-/
+def mkArgChain
+  (fn : Expr) (cargs : Expr) (args : Array Expr) (body : Expr)
+  (lt32 : args.size < UInt32.size)
+: MetaM (Expr × String) := do
+  let s := (body, s!"/)")
+  let (body, pySig) ← args.size.foldRevM (init := s) fun i h (body, pySig) => do
+    let a := args[i]
+    let ldecl ← getFVarLocalDecl a
+    let i := USize.ofNat32 i (Nat.lt_trans h lt32)
+    let (ma, pyTy) ← mkCArg fn i ldecl.type cargs
+    let lam ← mkLambdaFVars #[a] body
+    let body := mkPyBind ldecl.type ma lam
+    let pyName := mkPyName ldecl.userName
+    let pySig := s!"{pyName}: {pyTy}, {pySig}"
+    return (body, pySig)
+  return (body, s!"({pySig}")
+
+/--
+Constructs a conditional expression that ensures the number of arguments
+provided {lean}`nargs` matches {lean}`expected` before invoking {lean}`body`.
+Otherwise, the expression raises an exception.
+
+The expression is of the form:
+{given -show}`fn : String, nargs : USize`
+{given -show}`raiseArityNotEq : String → USize → USize → Expr`
+```leanTerm
+if nargs = expected then
+  body
+else
+  raiseArityNotEq fn expected nargs
+```
+-/
+def mkArityGuard (fn : Expr) (expected : USize) (nargs body : Expr) : Expr :=
+  let nx := toExpr expected
+  let mTy := mkApp (mkConst `Nerodia.CPyIO [0]) (mkConst `Nerodia.PyObject)
+  let eqN := mkApp2 (mkApp (mkConst ``Eq [1]) (mkConst ``USize)) nargs nx
+  let err := mkApp4 (mkConst `Nerodia.raiseArityNotEq [0])
+    (mkConst `Nerodia.PyObject) fn nx nargs
+  let deq := mkApp2 (mkConst ``instDecidableEqUSize) nargs nx
+  mkApp5 (mkConst ``ite [1]) mTy eqN deq body err
+
 initialize
   let attrName := `py_module_fn
-  let typeName := `Nerodia.PyMethO
   registerBuiltinAttribute {
     ref := decl_name%
     name := attrName
@@ -85,21 +203,73 @@ initialize
         throwAttrDeclInImportedModule attrName declName
       unless modCfgExt.toEnvExtension.asyncMayModify env declName do
         throwAttrNotInAsyncCtx attrName declName env.asyncPrefix?
+      let some moduleCfg := modCfgExt.getState env
+        | throwAttrWithoutModuleConfig attrName
       let decl ← getConstInfo declName
-      unless decl.type.isConstOf typeName do
-        throwAttrDeclNotOfExpectedType attrName declName decl.type (mkConst typeName)
-      unless hasModuleConfig env do
-        throwAttrWithoutModuleConfig attrName
-      let cSym ← getFnSymbol declName
-      let df : MethodDef := {
-        cSym
-        callConv := .o
-        doc? := (← findDocString? env declName).map (·.trimAscii.copy)
-        name := name?.elim declName.getString! (·.getString)
-        cSig := s!"size_t {cSym}(size_t self, size_t arg)"
-        pySig := pySig?.elim "(_, /)" (·.getString)
-      }
-      modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
+      -- TODO: Validate the name is a legal Python identifier
+      let name := name?.elim declName.getString! (·.getString)
+      let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
+      let pySigD df := pySig?.elim df (·.getString)
+      let declConst := mkConst decl.name (decl.levelParams.map .param)
+      let mkAuxSym := mkAuxSym `_pyFn  decl.isUnsafe decl.levelParams
+      if let .const n .. := decl.type then
+        if let some callConv := CallConv.ofTypeName? n then
+          addMethodDef {
+            name, doc?, callConv
+            cSym := ← getFnSymbol declName
+            pySig := pySigD callConv.pySig
+          }
+        else MetaM.run' do
+          let (val, pyTy) ← mkResult decl.type declConst
+          let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) val
+          let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
+          let pySig := pySigD s!"() -> {pyTy}"
+          addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
+      else
+        MetaM.run' do
+        let fn := mkStrLit s!"{moduleCfg.name}.{name}()"
+        forallTelescope decl.type fun as rTy => do
+          let allExplicit ← as.allM fun a => do
+            return (← getFVarLocalDecl a).binderInfo.isExplicit
+          unless allExplicit do
+            throwError "All parameters of a `@[py_module_fn]` definition must be explicit."
+          let (rx, pyRet) ← mkResult rTy (mkAppN declConst as)
+          if as.size = 0 then
+            let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) rx
+            let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
+            let pySig := pySigD s!"() -> {pyRet}"
+            addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
+          else if h : as.size = 1 then
+            withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
+            let a := as[0]
+            let ldecl ← getFVarLocalDecl a
+            let (ma, pyTy) ← mkArg fn 0 ldecl.type arg
+            let pyName := mkPyName ldecl.userName
+            let pySig := pySigD s!"({pyName}: {pyTy}, /) -> {pyRet}"
+            -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
+            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
+            let lam ← mkLambdaFVars #[a] rx
+            let rx := mkPyBind ldecl.type ma lam
+            let lam ← mkLambdaFVars #[arg] rx
+            let val := mkApp (mkConst `Nerodia.PyMethO.ofPyIO') lam
+            let cSym ← mkAuxSym `Nerodia.PyMethO val
+            addMethodDef {name, doc?, cSym, pySig, callConv := .o}
+          else if lt32 : as.size < UInt32.size then
+            withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun cargs => do
+            withLocalDeclD `nargs (mkConst ``USize) fun nargs => do
+            -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
+            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
+            let (rx, pySig) ← mkArgChain fn cargs as rx lt32
+            let rx := mkApp (mkConst `Nerodia.PyIO.toCPyIO) rx
+            let pySig := pySigD s!"{pySig} -> {pyRet}"
+            let rx := mkArityGuard fn as.usize nargs rx
+            let lam ← mkLambdaFVars #[cargs, nargs] rx
+            let val := mkApp (mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe) lam
+            let cSym ← mkAuxSym `Nerodia.PyMethFastCall val
+            addMethodDef {name, doc?, cSym, pySig, callConv := .fastCall}
+          else
+            throwError "Cannot generate Python function: \
+              {.ofConstName declName} has too many arguments ({as.size})"
   }
 
 syntax (name := py_module_attr) "py_module_attr" (ppSpace str)?
@@ -126,29 +296,15 @@ initialize
       let decl ← getConstInfo declName
       unless hasModuleConfig env do
         throwAttrWithoutModuleConfig attrName
+      -- TODO: Validate the name is a legal Python identifier
       let name := name?.elim declName.getString! (·.getString)
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
       MetaM.run' do
-      let u ← getDecLevel decl.type
-      let tyTy := (mkConst ``String)
-      let ty ← mkFreshExprMVar (some tyTy)
-      let inst ← synthInstance (mkApp2 (mkConst `Nerodia.MkAttr [u]) decl.type ty)
-      let ty ← instantiateMVars ty
-      let pyTy ← unsafe evalExpr String tyTy ty
-      let attrDeclName ← mkAuxDeclName `_pyAttr
       let us := decl.levelParams.map .param
-      addAndCompile <| .defnDecl {
-        name := attrDeclName
-        levelParams := decl.levelParams
-        type := mkApp (mkConst `Nerodia.CPyIO [.zero]) (mkConst `Nerodia.PyObject)
-        value := mkApp4 (mkConst `Nerodia.MkAttr.mkAttr [u])
-          decl.type ty inst (mkConst declName us)
-        hints := .opaque
-        safety := .safe
-      }
+      let (val, pyTy) ← mkResult decl.type (mkConst declName us)
+      let cSym ← mkAuxSym `_pyAttr decl.isUnsafe decl.levelParams `Nerodia.PyAttrInit val
       let df : AttrDef := {
-        name, doc?
-        cSym := ← getFnSymbol attrDeclName
+        name, doc?, cSym
         ty := ty?.elim pyTy (·.getString)
       }
       modifyModuleConfig fun cfg => {cfg with attrs := cfg.attrs.push df}
