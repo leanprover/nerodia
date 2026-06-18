@@ -270,6 +270,70 @@ lean_exe testExe where
     if System.Platform.isWindows || System.Platform.isOSX then #[]
     else #["-Wl,--allow-shlib-undefined"]
 
+/--
+Creates an virtual enviroment in `venvDir` that has the test Python package
+named `pkg` located in `modDir` installed. Also ensures the `setuptools-lean`
+dependency is installed from the appropriate source.
+-/
+def installPyPkg
+  (pkg : String)
+  (nerodiaDir modDir  : FilePath)
+  (venvDir : FilePath := modDir / ".venv")
+  (localSetuptoolsLean := true) (editable : Bool)
+: JobM Unit := do
+  proc {
+      cmd := "uv",
+      args := #["-q", "venv", "--clear", venvDir.toString]
+      cwd := modDir
+    }
+  if localSetuptoolsLean then
+    proc {
+      cmd := "uv",
+      args := #[
+        "-q", "pip", "install", "--python", venvDir.toString,
+        "-e", (nerodiaDir / "setuptools-lean").toString
+      ]
+      cwd := modDir
+    }
+    proc {
+      cmd := "uv",
+      args :=
+        if editable then #[
+          "-q", "sync", "--python", venvDir.toString,
+          "--no-build-isolation-package", pkg,
+          "--reinstall-package", pkg
+        ] else #[
+          "-q", "pip", "install", "--python", venvDir.toString,
+          "--no-build-isolation", "."
+        ]
+      cwd := modDir
+      -- ensures Python can find Lean's shared libraries
+      env := ← getAugmentedEnv
+    }
+  else
+    proc {
+      cmd := "uv",
+      args :=
+        if editable then #[
+          "-q", "sync", "--python", venvDir.toString,
+          "--default-index", "https://pypi.org/simple/",
+          "--index", "https://test.pypi.org/simple/",
+          "--index-strategy", "unsafe-first-match",
+          "--reinstall-package", "setuptools-lean",
+          "--reinstall-package", pkg
+        ] else #[
+          "-q", "pip", "install", "--python", venvDir.toString,
+          "--default-index", "https://pypi.org/simple/",
+          "--index", "https://test.pypi.org/simple/",
+          "--index-strategy", "unsafe-first-match",
+          "--reinstall-package", "setuptools-lean",
+           ".",
+        ]
+      cwd := modDir
+      -- ensures Python can find Lean's shared libraries
+      env := ← getAugmentedEnv
+    }
+
 @[test_driver]
 script test do
   let pkgDir := __dir__
@@ -285,57 +349,23 @@ script test do
       exeJob.mapM fun exeFile => do
         let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
         validateOutput py.version out
+    let localSetuptoolsLean :=
+      (← IO.getEnv "LOCAL_SETUPTOOLS_LEAN").bind envToBool? |>.getD true
+    let editableVEnv := testModuleDir / ".venv"
+    let nonEditableVEnv := testModuleDir / ".lake" / "dist-venv"
     let editableJob ← withRegisterJob "testModule editable install" do
       libJob.bindM (sync := true) fun _ =>
       nerodiacJob.mapM fun _ => do
-        proc {
-          cmd := "uv",
-          args := #["-q", "venv", "--clear"]
-          cwd := testModuleDir
-        }
-        proc {
-          cmd := "uv",
-          args := #["-q", "pip", "install", "-e", (pkgDir / "setuptools-lean").toString]
-          cwd := testModuleDir
-        }
-        let pyPkg := "test"
-        proc {
-          cmd := "uv",
-          args := #["-q", "sync", "--no-build-isolation-package", pyPkg, "--reinstall-package", pyPkg]
-          cwd := testModuleDir
-          -- ensures Python can find Lean's shared libraries
-          env := ← getAugmentedEnv
-        }
-    let venvDir := testModuleDir / ".lake" / "dist-venv"
+        installPyPkg "test" pkgDir testModuleDir editableVEnv
+          (editable := true) localSetuptoolsLean
     let nonEditableJob ← withRegisterJob "testModule non-editable install" do
       libJob.bindM (sync := true) fun _ =>
       nerodiacJob.mapM fun _ => do
-        proc {
-          cmd := "uv",
-          args := #["-q", "venv", "--clear", venvDir.toString]
-          cwd := testModuleDir
-        }
-        proc {
-          cmd := "uv",
-          args := #[
-            "-q", "pip", "install", "--python", venvDir.toString,
-            "-e", (pkgDir / "setuptools-lean").toString
-          ]
-          cwd := testModuleDir
-        }
-        proc {
-          cmd := "uv",
-          args := #[
-            "-q", "pip", "install", "--python", venvDir.toString,
-            "--no-build-isolation", "."
-          ]
-          cwd := testModuleDir
-          -- ensures Python can find Lean's shared libraries
-          env := ← getAugmentedEnv
-        }
+        installPyPkg "test" pkgDir testModuleDir nonEditableVEnv
+          (editable := false) localSetuptoolsLean
     discard <| withRegisterJob "testModule test" <| editableJob.mapM fun _ => do proc {
       cmd := "uv",
-      args := #["-q", "run", "--no-sync", "test.py"]
+      args := #["-q", "run", "--python", editableVEnv.toString, "--no-sync", "test.py"]
       cwd := testModuleDir
       -- ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
@@ -343,7 +373,7 @@ script test do
     discard <| withRegisterJob "testModule test (non-editable)" <| nonEditableJob.mapM fun _ => do proc {
       cmd := "uv",
       args := #[
-        "-q", "run", "--python", venvDir.toString, "--no-sync",
+        "-q", "run", "--python", nonEditableVEnv.toString, "--no-sync",
         -- run from a different CWD with `-P` to ensure that Python is using the installed test module
         "python", "-P", testModuleDir / "test.py" |>.toString
       ]
