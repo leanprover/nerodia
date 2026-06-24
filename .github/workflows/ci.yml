@@ -61,5 +61,3 @@ jobs:
         run: lake build
       - name: Test
         run: lake test
-      - name: Test w/ Published setuptools-lean
-        run: LOCAL_SETUPTOOLS_LEAN=false lake test

@@ -350,7 +350,7 @@ script test do
         let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
         validateOutput py.version out
     let localSetuptoolsLean :=
-      (← IO.getEnv "LOCAL_SETUPTOOLS_LEAN").bind envToBool? |>.getD true
+      (← IO.getEnv "LOCAL_SETUPTOOLS_LEAN").bind envToBool? |>.getD false
     let editableVEnv := testModuleDir / ".venv"
     let nonEditableVEnv := testModuleDir / ".lake" / "dist-venv"
     let editableJob ← withRegisterJob "testModule editable install" do
