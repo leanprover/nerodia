@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 from setuptools.dist import Distribution
 from setuptools.command.build_ext import build_ext, get_abi3_suffix
+from setuptools.command.install import install
 from setuptools._distutils.core import Command
 from importlib.resources import files, as_file
 from typing import TypedDict, cast
@@ -96,17 +97,26 @@ class build_lean(Command):
       generated = not os.path.isdir(mod_pkg)
 
       # Determine target directory for the package.
-      # For generated packages in editable mode, install directly to site-packages
-      # since setuptools' editable mechanism won't find generated packages.
-      # This relies on the build running with the target venv's Python, which
-      # is the case for editable installs (even with build isolation).
-      # Note: An editable install with build isolation was manually tested,
-      # but is not currently (06/06/2026) in the test suite.
-      if generated and build_ext_cmd.inplace:
-        pkg_dir = os.path.join(sysconfig.get_path('purelib'), mod_pkg)
+      editable = getattr(build_ext_cmd, 'editable_mode', False)
+      if generated and editable:
+        # Editable install: write into the editable wheel's staging root.
+        # A generated package has no source tree, so setuptools' usual
+        # editable machinery cannot deliver it. Thus, we place its files
+        # directly into the wheel to ship them to the target environment.
+        # Assumes `install.install_lib` is the wheel root for editable builds,
+        # which it is by default. Could fail if a setuptools-lean is used in
+        # combination with `extra_path` and/or `--root`.
+        install_cmd = cast(install, self.get_finalized_command('install'))
+        pkg_dir = os.path.join(install_cmd.install_lib, mod_pkg)
       elif not build_ext_cmd.inplace:
+        # Regular wheel build: stage into `build_lib` for `bdist_wheel` to pack.
         pkg_dir = os.path.join(build_ext_cmd.build_lib, mod_pkg)
+      elif generated:
+        # Generated + inplace + non-editable, legacy `build_ext --inplace`.
+        # Write to the active interpreter's site-packages.
+        pkg_dir = os.path.join(sysconfig.get_path('purelib'), mod_pkg)
       else:
+        # User-provided source package, inplace: write alongside the source.
         pkg_dir = mod_pkg
       os.makedirs(pkg_dir, exist_ok=True)
 
@@ -123,6 +133,8 @@ class build_lean(Command):
       # Copy the extension's shared library
       abi3_suffix = get_abi3_suffix()
       if generated and build_ext_cmd.inplace:
+        # `get_ext_fullpath` returns a path inside the package's real source,
+        # not the generated code, so we must instead name the extension directly.
         ext_suffix = abi3_suffix or sysconfig.get_config_var('EXT_SUFFIX')
         assert isinstance(ext_suffix, str)
         ext_path = os.path.join(pkg_dir, f"_lean{ext_suffix}")
