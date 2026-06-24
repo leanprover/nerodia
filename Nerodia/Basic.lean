@@ -898,8 +898,9 @@ Returns the type of the object {lean}`self`.
 
 This is equivalent to {lit}`type(self)` in Python.
 -/
-@[extern "nerodia_py_object_type"]
-public opaque PyObject.type (self : @& PyObject) : PyType
+-- TODO: Return should really be `CPyBaseIO`
+@[extern "nerodia_py_object_get_type"]
+public opaque PyObject.getType (self : @& PyObject) : PyBaseIO PyType
 
 /-! ## Module -/
 
@@ -1044,7 +1045,7 @@ where
     -- https://github.com/python/cpython/blob/v3.14.5/Python/pythonrun.c#L965
     -- TODO: include traceback & module name
     let ename ← id do
-      let some n ← e.type.getQualName.run?
+      let some n ← (← e.getType).getQualName.run?
         | return "<unknown>"
       return n.toString
     let estr ← id do

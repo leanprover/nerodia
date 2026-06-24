@@ -322,10 +322,10 @@ LEAN_EXPORT size_t nerodia_py_object_get_attr_by_string(b_lean_obj_arg self, b_l
 
 /* ### Types */
 
-LEAN_EXPORT lean_obj_res nerodia_py_object_type(b_lean_obj_arg self) {
-  atomic_fetch_add(&g_py_holders, 1); // self implies `g_py_main` exists
-  // `PyObject_Type` cannot fail as Nerodia guarantees the pointer in `self` is non-NULL
-  return nerodia_of_object_core(PyObject_Type(nerodia_to_object(self)));
+/** getType : @& PyObject -> PyBaseIO PyType  */
+LEAN_EXPORT lean_obj_res nerodia_py_object_get_type(b_lean_obj_arg self, b_lean_obj_arg ctx) {
+  PyObject* ty = Py_NewRef((PyObject*)Py_TYPE(nerodia_to_object(self)));
+  return nerodia_of_object(ty, ctx);
 }
 
 LEAN_EXPORT uint8_t nerodia_py_object_is_type_instance(b_lean_obj_arg self) {
@@ -346,7 +346,8 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_str_type(b_lean_obj_arg ctx) {
 
 /* ### Type Objects */
 
-LEAN_EXPORT size_t nerodia_py_type_get_qual_name(b_lean_obj_arg self, b_lean_obj_arg ctx) {
+/** getQualName : @& PyType -> CPyIO PyStr */
+LEAN_EXPORT size_t nerodia_py_type_get_qual_name(b_lean_obj_arg self) {
   return (size_t)PyType_GetQualName(nerodia_to_type_object(self));
 }
 
