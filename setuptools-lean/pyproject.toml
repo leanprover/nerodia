@@ -1,6 +1,6 @@
 [project]
 name = "setuptools-lean"
-version = "0.1.1.dev2"
+version = "0.1.1"
 description = "Setuptools plugin for Lean/Nerodia Python extensions"
 readme = "README.md"
 license = "Apache-2.0"
