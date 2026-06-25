@@ -144,10 +144,6 @@ ensure that this reference is eventually consumed.
 def newRefUnsafe (self : @& PyObject) : CPtr PyObject :=
   ⟨self.addr, fun _ => ⟨self⟩⟩
 
-/-- Returns a reference to the Python environment this object is within. -/
-@[extern "nerodia_py_object_ctx"]
-public opaque ctx (self : @& PyObject) : PyContext
-
 /-!
 ### Builtin Type Checking
 
