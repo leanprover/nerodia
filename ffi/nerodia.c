@@ -50,13 +50,11 @@ static py_environment g_py_env = {
 };
 
 typedef struct {
-  bool is_held;
-  atomic_int holders;
+  int holders;
   PyGILState_STATE gil;
 } py_context;
 
 static _Thread_local py_context g_py_ctx = {
-  .is_held = false,
   .holders = 0,
 };
 
@@ -64,15 +62,18 @@ static lean_external_class* g_py_context_external_class = NULL;
 static lean_external_class* g_py_object_external_class = NULL;
 
 static inline void py_finalize(PyGILState_STATE gil) {
+  py_mutex_lock();
   // `g_py_env.holders > 0` implies we raced with the environment initializer,
   // they acquired the lock first, and they want the environment alive.
   if (atomic_load(&g_py_env.holders) == 0) {
     g_py_env.is_held = false;
     if (g_py_env.is_initializer) {
       Py_Finalize();
+      py_mutex_unlock();
       return;
     }
   }
+  py_mutex_unlock();
   PyGILState_Release(gil);
 }
 
@@ -83,19 +84,12 @@ static void py_context_foreach(void* p, b_lean_obj_arg f) {
 }
 
 static void py_context_finalize(void* p) {
-  if (atomic_fetch_sub(&g_py_ctx.holders, 1) == 1) {
-    py_mutex_lock();
-    // `g_py_ctx.holders > 0` implies we raced with the context initializer,
-    // they acquired the lock first, and they want the context alive.
-    if (atomic_load(&g_py_ctx.holders) == 0) {
-      g_py_ctx.is_held = false;
-      if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
-        py_finalize(g_py_ctx.gil);
-      } else {
-        PyGILState_Release(g_py_ctx.gil);
-      }
+  if (--g_py_ctx.holders == 0) {
+    if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
+      py_finalize(g_py_ctx.gil);
+    } else {
+      PyGILState_Release(g_py_ctx.gil);
     }
-    py_mutex_unlock();
   }
 }
 
@@ -105,21 +99,14 @@ static void py_object_finalize(void* p) {
   PyGILState_Release(gil);
   if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
     // no env holders implies no context holders either
-    py_mutex_lock();
     py_finalize(PyGILState_Ensure());
-    py_mutex_unlock();
   }
 }
 
 static inline void nerodia_ctx_of_env(void) {
-  if (atomic_fetch_add(&g_py_ctx.holders, 1) == 0) {
-    // `g_py_ctx.is_held = true` implies we raced with the context finalizer,
-    // we acquired the lock first, and thus we can simply reuse the context.
-    if (!g_py_ctx.is_held) {
-      g_py_ctx.is_held = true;
-      g_py_ctx.gil = PyGILState_Ensure();
-      atomic_fetch_add(&g_py_env.holders, 1);
-    }
+  if (++g_py_ctx.holders == 1) {
+    g_py_ctx.gil = PyGILState_Ensure();
+    atomic_fetch_add(&g_py_env.holders, 1);
   }
 }
 
@@ -127,8 +114,8 @@ static inline void nerodia_ctx_of_env(void) {
 LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
   py_mutex_lock();
   if (g_py_env.is_held) {
-    nerodia_ctx_of_env();
     py_mutex_unlock();
+    nerodia_ctx_of_env();
     return lean_alloc_external(g_py_context_external_class, NULL);
   }
   if (!g_py_context_external_class) {
@@ -152,10 +139,9 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
   }
   g_py_env.is_held = true;
   atomic_store(&g_py_env.holders, 1);
-  g_py_ctx.is_held = true;
-  atomic_store(&g_py_ctx.holders, 1);
-  g_py_ctx.gil = PyGILState_Ensure();
   py_mutex_unlock();
+  g_py_ctx.holders = 1;
+  g_py_ctx.gil = PyGILState_Ensure();
   return lean_alloc_external(g_py_context_external_class, NULL);
 }
 
@@ -253,10 +239,7 @@ LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
 }
 
 LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
-  py_mutex_lock();
-  // self implies `g_py_env` exists
-  nerodia_ctx_of_env();
-  py_mutex_unlock();
+  nerodia_ctx_of_env(); // self implies `g_py_env` exists
   return lean_alloc_external(g_py_context_external_class, NULL);
 }
 
