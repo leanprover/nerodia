@@ -76,6 +76,12 @@ static inline void py_finalize(PyGILState_STATE gil) {
   PyGILState_Release(gil);
 }
 
+static void py_context_foreach(void* p, b_lean_obj_arg f) {
+  lean_internal_panic(
+    "`PyContext` marked persistent or multi-threaded. "
+    "This is forbidden as `PyContext` holds the Python GIL.");
+}
+
 static void py_context_finalize(void* p) {
   if (atomic_fetch_sub(&g_py_ctx.holders, 1) == 1) {
     py_mutex_lock();
@@ -127,7 +133,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
   }
   if (!g_py_context_external_class) {
     g_py_context_external_class = lean_register_external_class(
-      py_context_finalize, nop_foreach);
+      py_context_finalize, py_context_foreach);
   }
   if (!g_py_object_external_class) {
     g_py_object_external_class = lean_register_external_class(
