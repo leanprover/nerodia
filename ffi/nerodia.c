@@ -130,11 +130,12 @@ static void py_object_finalize(void* p) {
   }
 }
 
-static inline void nerodia_ctx_of_env(void) {
+static inline lean_obj_res nerodia_ctx_of_env(void) {
   if (++g_py_ctx.holders == 1) {
     g_py_ctx.gil = PyGILState_Ensure();
     atomic_fetch_add(&g_py_env.holders, 1);
   }
+  return lean_alloc_external(g_py_context_external_class, NULL);
 }
 
 /* init :  BaseIO PyContext */
@@ -142,8 +143,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
   py_mutex_lock();
   if (g_py_env.is_held) {
     py_mutex_unlock();
-    nerodia_ctx_of_env();
-    return lean_alloc_external(g_py_context_external_class, NULL);
+    return nerodia_ctx_of_env();
   }
   if (!g_py_context_external_class) {
     g_py_context_external_class = lean_register_external_class(
@@ -266,8 +266,7 @@ LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
 }
 
 LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
-  nerodia_ctx_of_env(); // self implies `g_py_env` exists
-  return lean_alloc_external(g_py_context_external_class, NULL);
+  return nerodia_ctx_of_env(); // self implies `g_py_env` exists
 }
 
 /* mkObject : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
@@ -302,7 +301,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(b_lean_obj_arg ctx) {
 }
 
 /* getRaisedException : CPyIO PyBaseException */
-LEAN_EXPORT size_t nerodia_get_raised_exception() {
+LEAN_EXPORT size_t nerodia_get_raised_exception(void) {
   return (size_t)PyErr_GetRaisedException();
 }
 
@@ -318,7 +317,7 @@ LEAN_EXPORT lean_obj_res nerodia_set_py_type_error(b_lean_obj_arg msg) {
   return lean_box(0);
 }
 
-LEAN_NORETURN void nerodia_exception_panic() {
+LEAN_NORETURN void nerodia_exception_panic(void) {
   if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
     lean_internal_panic_out_of_memory();
   } else {
