@@ -65,12 +65,16 @@ end CPtr
 private opaque PyContext.nonemptyType : NonemptyType.{0}
 
 /--
-Reference holder for the Python environment.
-When this object is freed, Python will be uninitialized.
+Reference holder for the Python environment and the global interpreter lock (GIL).
 
-Python objects created by Nerodia implicitly hold a reference to the context,
-so the context will not be freed until all Python objects managed by Lean
-are freed.
+Python objects created by Nerodia implicitly hold a reference to the Python
+environment. Thus, the Python environment will not be finalized until all Python
+objects managed by Lean are freed.
+
+**Not thread safe.** As a {name}`PyContext` object holds a lock (the GIL),
+it must not be marked persistent or multi-threaded. Any attempt to do so
+will emit a fatal panic. Nerodia ensures this within its API, and users are
+not expected to manage {name}`PyContext` objects manually.
 -/
 public def PyContext := PyContext.nonemptyType.type
 
