@@ -134,10 +134,14 @@ static void py_object_finalize(void* p) {
 LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
   py_mutex_lock();
   if (g_py_env.is_held) {
-    py_mutex_unlock();
-    if (++g_py_ctx.holders == 1) {
-      g_py_ctx.gil = PyGILState_Ensure();
+    bool new_ctx = (++g_py_ctx.holders == 1);
+    if (new_ctx) {
       atomic_fetch_add(&g_py_env.holders, 1);
+    }
+    py_mutex_unlock();
+    if (new_ctx) {
+      // must not lock the GIL under mutex to avoid deadlock with finalize
+      g_py_ctx.gil = PyGILState_Ensure();
     }
     return lean_alloc_external(g_py_context_external_class, NULL);
   }
