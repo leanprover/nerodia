@@ -99,6 +99,22 @@ static inline void py_finalize(void) {
   PyGILState_Release(g_py_ctx.gil);
 }
 
+// Must be paired with `py_gil_release`.
+// Never increments the environment reference counter.
+static inline void py_gil_ensure(void) {
+  if (++g_py_ctx.holders == 1) {
+    g_py_ctx.gil = PyGILState_Ensure();
+  }
+}
+
+// Must be paired with `py_gil_emsure`.
+// Never decrements the environment reference counter.
+static inline void py_gil_release(void) {
+  if (--g_py_ctx.holders == 0) {
+    PyGILState_Release(g_py_ctx.gil);
+  }
+}
+
 static void py_context_foreach(void* p, b_lean_obj_arg f) {
   lean_internal_panic(
     "`PyContext` marked persistent or multi-threaded. "
@@ -119,14 +135,12 @@ static void py_context_finalize(void* p) {
 }
 
 static void py_object_finalize(void* p) {
-  if (++g_py_ctx.holders == 1) {
-    g_py_ctx.gil = PyGILState_Ensure();
-  }
+  py_gil_ensure();
   Py_DECREF(p);
   if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
     py_finalize();
-  } else if (--g_py_ctx.holders == 0) {
-    PyGILState_Release(g_py_ctx.gil);
+  } else {
+    py_gil_release();
   }
 }
 
@@ -322,14 +336,16 @@ LEAN_NORETURN void nerodia_exception_panic(void) {
   }
 }
 
-/* @& String -> @& PyContext -> PySystemError */
+/* systemError : @& String -> @& PyContext -> PySystemError */
 LEAN_EXPORT lean_obj_res nerodia_py_context_system_error(b_lean_obj_arg msg, b_lean_obj_arg ctx) {
+  py_gil_ensure();
   PyObject* msg_obj = PyUnicode_FromString(lean_string_cstr(msg));
-  if (LEAN_LIKELY(msg != NULL)) {
+  if (LEAN_LIKELY(msg_obj != NULL)) {
     PyObject* ex = PyObject_CallFunctionObjArgs(
       PyExc_SystemError, msg_obj, NULL);
     Py_DECREF(msg_obj);
     if (LEAN_LIKELY(ex != NULL)) {
+      py_gil_release();
       return nerodia_of_object(ex, ctx);
     }
   }
@@ -421,13 +437,16 @@ LEAN_EXPORT size_t nerodia_py_object_repr(b_lean_obj_arg o) {
 
 /* toString : @& PyStr -> String */
 LEAN_EXPORT lean_obj_res nerodia_py_str_to_string(b_lean_obj_arg o) {
+  py_gil_ensure();
   Py_ssize_t size;
   const char * cs = PyUnicode_AsUTF8AndSize(nerodia_to_object(o), &size);
   if (LEAN_LIKELY(cs != NULL)) {
+    py_gil_release();
     // Both Lean and `AsUTF8AndSize` have a null terminator,
     // but neither include it in `size`
     return lean_mk_string_from_bytes_unchecked(cs, size);
   }
+  // TODO: Ensure no invalid unicode (lone surrogates).
   // It should be impossible for the encode to fail
   // except in the case of memory errors
   nerodia_exception_panic();
@@ -440,8 +459,11 @@ LEAN_EXPORT size_t nerodia_py_str_utf8_encode(b_lean_obj_arg o) {
 
 /* toByteArray : @& PyBytes -> ByteArray */
 LEAN_EXPORT lean_obj_res nerodia_py_bytes_to_byte_array(b_lean_obj_arg self) {
+  // Note: Context not needed as operations are immutable pointer accesses.
   PyObject* o = nerodia_to_object(self);
-  size_t sz = PyBytes_Size(o);
+  // `self` must be a proper Python bytes object to avoid raising an error.
+  assert(PyBytes_Check(o));
+  Py_ssize_t sz = PyBytes_Size(o);
   lean_object* r = lean_alloc_sarray(1, sz, sz);
   memcpy(lean_sarray_cptr(r), PyBytes_AsString(o), sz);
   return r;
