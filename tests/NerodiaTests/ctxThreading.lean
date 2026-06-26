@@ -18,22 +18,16 @@ concurrent initialization/finalization races across threads.
 /-!
 ## Multiple contexts on one thread
 
-Contexts must be arbitrarily nestable and freeable in any order on the
-same thread without releasing the GIL early.
+Contexts must be arbitrarily nestable and freeable in any order without
+releasing the GIL early (unlike Python's GIL state).
 -/
 
-/-- info: "nested" -/
 #guard_msgs in
-#eval PyIO.toIO do
-  -- `toIO` already holds one context on this thread
-  let c2 ← PyContext.init  -- should reuse the GIL state
-  let c3 ← PyContext.init
-  let s ← mkPyStr "nested"
-  -- Keep the extra contexts alive and release them in acquire order.
-  -- Unlike the GIL state, context management should not need to be LIFO.
-  Runtime.hold c2
-  Runtime.hold c3
-  return s.toString
+#eval show IO Unit from do
+  let c1 ← PyContext.init -- should take the GIL
+  let c2 ← PyContext.init -- should reuse the GIL state
+  Runtime.hold c1 -- release c1 here (should NOT release the GIL)
+  Runtime.hold c2 -- release c2 here (fatal if GIL already released)
 
 /-!
 ## Object outlives its creating context
@@ -45,8 +39,8 @@ after that context is finalized and remain usable.
 /-- info: "outlives" -/
 #guard_msgs in
 #eval show IO String from do
-  let obj : PyStr ← PyIO.toIO do
-    return (← mkPyStr "outlives")
+  let obj ← PyIO.toIO do
+    mkPyStr "outlives"
   -- The creating context was dropped when `toIO` returned.
   -- Verify `obj` is still alive.
   return obj.toString
@@ -55,7 +49,7 @@ after that context is finalized and remain usable.
 ## Cross-thread object finalization
 
 Python objects should be freeable on a separate thread from where they were
-created and even in one thread without a Python context. This means acquiring
+created and even in a thread without a Python context. This means acquiring
 and releasing the GIL on a separate thread during object finalization.
 -/
 
