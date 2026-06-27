@@ -27,8 +27,17 @@ static BOOL CALLBACK py_init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
                            EnterCriticalSection(&g_py_mutex))
 #define py_mutex_unlock() LeaveCriticalSection(&g_py_mutex)
 #else
-static pthread_mutex_t g_py_mutex = PTHREAD_MUTEX_INITIALIZER;
-#define py_mutex_lock()   pthread_mutex_lock(&g_py_mutex)
+static pthread_mutex_t g_py_mutex;
+static pthread_once_t g_py_mutex_once = PTHREAD_ONCE_INIT;
+static void py_init_mutex(void) {
+  pthread_mutexattr_t attr;
+  pthread_mutexattr_init(&attr);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init(&g_py_mutex, &attr);
+  pthread_mutexattr_destroy(&attr);
+}
+#define py_mutex_lock()   (pthread_once(&g_py_mutex_once, py_init_mutex), \
+                           pthread_mutex_lock(&g_py_mutex))
 #define py_mutex_unlock() pthread_mutex_unlock(&g_py_mutex)
 #endif
 
@@ -39,87 +48,142 @@ static void nop_foreach(void* p, b_lean_obj_arg f) {
 }
 
 typedef struct {
+  bool is_held;
+  atomic_int holders;
   bool is_initializer;
-} py_main;
+  bool is_finalizing;
+} py_environment;
+
+static py_environment g_py_env = {
+  .is_finalizing = false,
+  .is_held = false,
+  .holders = 0,
+};
 
 typedef struct {
+  int holders;
   PyGILState_STATE gil;
 } py_context;
 
-static py_main g_py_main;
-static bool g_py_initialized = false;
-static atomic_int g_py_holders = 0;
+static _Thread_local py_context g_py_ctx = {
+  .holders = 0,
+};
 
 static lean_external_class* g_py_context_external_class = NULL;
 static lean_external_class* g_py_object_external_class = NULL;
 
-static void py_finalize_holder() {
+static inline void py_finalize(void) {
+  if (g_py_env.is_finalizing) {
+    // mutex is already locked and the GIL is still held by the finalizer
+    --g_py_ctx.holders;
+    return;
+  }
   py_mutex_lock();
-  if (atomic_load(&g_py_holders) == 0) {
-    if (g_py_main.is_initializer) {
-      PyGILState_Ensure();
+  // `g_py_env.holders > 0` implies we raced with the environment initializer,
+  // they acquired the lock first, and they want the environment alive.
+  if (atomic_load(&g_py_env.holders) == 0) {
+    if (g_py_env.is_initializer) {
+      // `Py_Finalize` may reenter Nerodia
+      g_py_env.is_finalizing = true;
       Py_Finalize();
+      g_py_ctx.holders = 0;
+      g_py_env.is_finalizing = false;
+      g_py_env.is_held = false;
+      py_mutex_unlock();
+      return;
     }
-    g_py_initialized = false;
+    g_py_env.is_held = false;
   }
   py_mutex_unlock();
+  g_py_ctx.holders = 0;
+  PyGILState_Release(g_py_ctx.gil);
+}
+
+// Must be paired with `py_gil_release`.
+// Never increments the environment reference counter.
+static inline void py_gil_ensure(void) {
+  if (++g_py_ctx.holders == 1) {
+    g_py_ctx.gil = PyGILState_Ensure();
+  }
+}
+
+// Must be paired with `py_gil_emsure`.
+// Never decrements the environment reference counter.
+static inline void py_gil_release(void) {
+  if (--g_py_ctx.holders == 0) {
+    PyGILState_Release(g_py_ctx.gil);
+  }
+}
+
+static void py_context_foreach(void* p, b_lean_obj_arg f) {
+  lean_internal_panic(
+    "`PyContext` marked persistent or multi-threaded. "
+    "This is forbidden as `PyContext` holds the Python GIL.");
 }
 
 static void py_context_finalize(void* p) {
-  py_context* pctx = (py_context*)p;
-  PyGILState_Release(pctx->gil);
-  free(pctx);
-  if (atomic_fetch_sub(&g_py_holders, 1) == 1) {
-    py_finalize_holder();
+  if (g_py_ctx.holders == 1) {
+    if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
+      py_finalize();
+    } else {
+      g_py_ctx.holders = 0;
+      PyGILState_Release(g_py_ctx.gil);
+    }
+  } else {
+    --g_py_ctx.holders;
   }
 }
 
 static void py_object_finalize(void* p) {
-  PyGILState_STATE gil = PyGILState_Ensure();
+  py_gil_ensure();
   Py_DECREF(p);
-  PyGILState_Release(gil);
-  if (atomic_fetch_sub(&g_py_holders, 1) == 1) {
-    py_finalize_holder();
+  if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
+    py_finalize();
+  } else {
+    py_gil_release();
   }
 }
 
 /* init :  BaseIO PyContext */
-LEAN_EXPORT lean_obj_res nerodia_py_context_init() {
-  py_context* pctx = malloc(sizeof(py_context));
-  if (LEAN_UNLIKELY(!pctx)) {
-    lean_internal_panic_out_of_memory();
-  }
+LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
   py_mutex_lock();
-  if (g_py_initialized) {
-    atomic_fetch_add(&g_py_holders, 1);
+  if (g_py_env.is_held) {
+    bool new_ctx = (++g_py_ctx.holders == 1);
+    if (new_ctx) {
+      atomic_fetch_add(&g_py_env.holders, 1);
+    }
     py_mutex_unlock();
-    pctx->gil = PyGILState_Ensure();
-    return lean_alloc_external(g_py_context_external_class, pctx);
+    if (new_ctx) {
+      // must not lock the GIL under mutex to avoid deadlock with finalize
+      g_py_ctx.gil = PyGILState_Ensure();
+    }
+    return lean_alloc_external(g_py_context_external_class, NULL);
   }
   if (!g_py_context_external_class) {
     g_py_context_external_class = lean_register_external_class(
-      py_context_finalize, nop_foreach);
+      py_context_finalize, py_context_foreach);
   }
   if (!g_py_object_external_class) {
     g_py_object_external_class = lean_register_external_class(
       py_object_finalize, nop_foreach);
   }
   if (Py_IsInitialized()) {
-    g_py_main.is_initializer = false;
+    g_py_env.is_initializer = false;
   } else {
-    g_py_main.is_initializer = true;
+    g_py_env.is_initializer = true;
     Py_Initialize();
     // Release the initial GIL and discard the main thread state.
     // Note: Ideally, we could save the main thread state and restore it in
-    // `py_finalize_holder`. However, there is no clear way to ensure both
-    // happen in the same thread, so we take this approach instead.
+    // `py_finalize`. However, there is no clear way to ensure both happen in
+    // the same thread, so we take this approach instead.
     PyEval_SaveThread();
   }
-  g_py_initialized = true;
-  atomic_store(&g_py_holders, 1);
+  g_py_env.is_held = true;
+  atomic_store(&g_py_env.holders, 1);
   py_mutex_unlock();
-  pctx->gil = PyGILState_Ensure();
-  return lean_alloc_external(g_py_context_external_class, pctx);
+  g_py_ctx.holders = 1;
+  g_py_ctx.gil = PyGILState_Ensure();
+  return lean_alloc_external(g_py_context_external_class, NULL);
 }
 
 lean_obj_res nerodia_of_object_core(PyObject* o) {
@@ -128,7 +192,7 @@ lean_obj_res nerodia_of_object_core(PyObject* o) {
 
 static inline lean_obj_res nerodia_of_object(PyObject* o, b_lean_obj_arg ctx) {
   // convert reference to `ctx` to a global reference to the Python environment
-  atomic_fetch_add(&g_py_holders, 1);
+  atomic_fetch_add(&g_py_env.holders, 1);
   return nerodia_of_object_core(o);
 }
 
@@ -215,17 +279,6 @@ LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
   return (size_t)Py_NewRef(nerodia_to_object(self));
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_object_ctx(b_lean_obj_arg self) {
-  py_context* pctx = malloc(sizeof(py_context));
-  if (LEAN_UNLIKELY(!pctx)) {
-    lean_internal_panic_out_of_memory();
-  }
-  // self implies `g_py_main` exists
-  atomic_fetch_add(&g_py_holders, 1);
-  pctx->gil = PyGILState_Ensure();
-  return lean_alloc_external(g_py_context_external_class, pctx);
-}
-
 /* mkObject : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
 LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object(b_lean_obj_arg ctx, size_t ptr) {
   return nerodia_of_object((PyObject*)ptr, ctx);
@@ -258,7 +311,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(b_lean_obj_arg ctx) {
 }
 
 /* getRaisedException : CPyIO PyBaseException */
-LEAN_EXPORT size_t nerodia_get_raised_exception() {
+LEAN_EXPORT size_t nerodia_get_raised_exception(void) {
   return (size_t)PyErr_GetRaisedException();
 }
 
@@ -274,7 +327,7 @@ LEAN_EXPORT lean_obj_res nerodia_set_py_type_error(b_lean_obj_arg msg) {
   return lean_box(0);
 }
 
-LEAN_NORETURN void nerodia_exception_panic() {
+LEAN_NORETURN void nerodia_exception_panic(void) {
   if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
     lean_internal_panic_out_of_memory();
   } else {
@@ -283,14 +336,16 @@ LEAN_NORETURN void nerodia_exception_panic() {
   }
 }
 
-/* @& String -> @& PyContext -> PySystemError */
+/* systemError : @& String -> @& PyContext -> PySystemError */
 LEAN_EXPORT lean_obj_res nerodia_py_context_system_error(b_lean_obj_arg msg, b_lean_obj_arg ctx) {
+  py_gil_ensure();
   PyObject* msg_obj = PyUnicode_FromString(lean_string_cstr(msg));
-  if (LEAN_LIKELY(msg != NULL)) {
+  if (LEAN_LIKELY(msg_obj != NULL)) {
     PyObject* ex = PyObject_CallFunctionObjArgs(
       PyExc_SystemError, msg_obj, NULL);
     Py_DECREF(msg_obj);
     if (LEAN_LIKELY(ex != NULL)) {
+      py_gil_release();
       return nerodia_of_object(ex, ctx);
     }
   }
@@ -382,13 +437,16 @@ LEAN_EXPORT size_t nerodia_py_object_repr(b_lean_obj_arg o) {
 
 /* toString : @& PyStr -> String */
 LEAN_EXPORT lean_obj_res nerodia_py_str_to_string(b_lean_obj_arg o) {
+  py_gil_ensure();
   Py_ssize_t size;
   const char * cs = PyUnicode_AsUTF8AndSize(nerodia_to_object(o), &size);
   if (LEAN_LIKELY(cs != NULL)) {
+    py_gil_release();
     // Both Lean and `AsUTF8AndSize` have a null terminator,
     // but neither include it in `size`
     return lean_mk_string_from_bytes_unchecked(cs, size);
   }
+  // TODO: Ensure no invalid unicode (lone surrogates).
   // It should be impossible for the encode to fail
   // except in the case of memory errors
   nerodia_exception_panic();
@@ -401,8 +459,11 @@ LEAN_EXPORT size_t nerodia_py_str_utf8_encode(b_lean_obj_arg o) {
 
 /* toByteArray : @& PyBytes -> ByteArray */
 LEAN_EXPORT lean_obj_res nerodia_py_bytes_to_byte_array(b_lean_obj_arg self) {
+  // Note: Context not needed as operations are immutable pointer accesses.
   PyObject* o = nerodia_to_object(self);
-  size_t sz = PyBytes_Size(o);
+  // `self` must be a proper Python bytes object to avoid raising an error.
+  assert(PyBytes_Check(o));
+  Py_ssize_t sz = PyBytes_Size(o);
   lean_object* r = lean_alloc_sarray(1, sz, sz);
   memcpy(lean_sarray_cptr(r), PyBytes_AsString(o), sz);
   return r;

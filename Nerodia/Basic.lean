@@ -65,12 +65,16 @@ end CPtr
 private opaque PyContext.nonemptyType : NonemptyType.{0}
 
 /--
-Reference holder for the Python environment.
-When this object is freed, Python will be uninitialized.
+Reference holder for the Python environment and the global interpreter lock (GIL).
 
-Python objects created by Nerodia implicitly hold a reference to the context,
-so the context will not be freed until all Python objects managed by Lean
-are freed.
+Python objects created by Nerodia implicitly hold a reference to the Python
+environment. Thus, the Python environment will not be finalized until all Python
+objects managed by Lean are freed.
+
+**Not thread safe.** As a {name}`PyContext` object holds a lock (the GIL),
+it must not be marked persistent or multi-threaded. Any attempt to do so
+will emit a fatal panic. Nerodia ensures this within its API, and users are
+not expected to manage {name}`PyContext` objects manually.
 -/
 public def PyContext := PyContext.nonemptyType.type
 
@@ -87,12 +91,12 @@ Otherwise, this function acquires the Python global interpreter lock (GIL).
 @[extern "nerodia_py_context_init"]
 public opaque init : BaseIO PyContext
 
-/-- Wraps a strong Python object refernce into a memory-managed Lean object. -/
+/-- Wraps a strong Python object reference into a memory-managed Lean object. -/
 @[extern "nerodia_py_context_mk_object"]
 public opaque mkObject {α} (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
   @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
 
-/-- Wraps a borrowed Python object referemce into a memory-managed Lean object. -/
+/-- Wraps a borrowed Python object reference into a memory-managed Lean object. -/
 @[extern "nerodia_py_context_mk_object_ref"]
 public opaque mkObjectRef {α} (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
   @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
@@ -139,10 +143,6 @@ ensure that this reference is eventually consumed.
 @[extern "nerodia_py_object_new_ref"]
 def newRefUnsafe (self : @& PyObject) : CPtr PyObject :=
   ⟨self.addr, fun _ => ⟨self⟩⟩
-
-/-- Returns a reference to the Python environment this object is within. -/
-@[extern "nerodia_py_object_ctx"]
-public opaque ctx (self : @& PyObject) : PyContext
 
 /-!
 ### Builtin Type Checking
