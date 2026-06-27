@@ -111,7 +111,7 @@ structure CompilerOutput where
   name : String
   deriving ToJson, FromJson
 
-def Lake.LeanInstall.sharedDynlibs (lean : LeanInstall) : Array Dynlib :=
+def leanSharedDynlibs (lean : LeanInstall) : Array Dynlib :=
   -- libLake_shared links against the split libs on all platforms,
   -- so they must be included in the bundle even when they are empty stubs.
   if System.Platform.isWindows then
@@ -129,6 +129,40 @@ def Lake.LeanInstall.sharedDynlibs (lean : LeanInstall) : Array Dynlib :=
     let lean := {name := "leanshared", path := lean.sharedLib}
     #[lean, lean2, lean1, init]
 
+-- Copied from `LeaneExe.recBuildExe`
+def modLinks
+  (mod : Module) (shouldExport : Bool)
+: JobM (Array (Job FilePath) × Array (Job Dynlib)) := do
+  /-
+  Remark: We must build the root before we fetch the transitive imports
+  so that errors in the import block of transitive imports will not kill this
+  job before the root is built.
+  -/
+  let mut objJobs := #[]
+  let mut libJobs := #[]
+  for facet in mod.nativeFacets shouldExport do
+    objJobs := objJobs.push <| ← facet.fetch mod
+  let .ok imports _ ← (← mod.transImports.fetch).wait
+    | error s!"bad imports (see the '{mod.name.toString}' job for details)"
+  for mod in imports do
+    for facet in mod.nativeFacets shouldExport do
+      objJobs := objJobs.push <| ← facet.fetch mod
+  for link in mod.lib.moreLinkObjs do
+    objJobs := objJobs.push <| ← link.fetchIn mod.pkg
+  let libs := imports.foldl (·.insert ·.lib) OrdHashSet.empty |>.toArray
+  for lib in libs do
+    for link in lib.moreLinkObjs do
+      objJobs := objJobs.push <| ← link.fetchIn lib.pkg
+    for link in lib.moreLinkLibs do
+      libJobs := libJobs.push <| ← link.fetchIn lib.pkg
+  for link in mod.lib.moreLinkLibs do
+    libJobs := libJobs.push <| ← link.fetchIn mod.pkg
+  let deps := (← (← mod.pkg.transDeps.fetch).await).push mod.pkg
+  for dep in deps do
+    for lib in dep.externLibs do
+      objJobs := objJobs.push <| ← lib.static.fetch
+  return (objJobs, libJobs)
+
 module_facet nerodia (mod) : NerodiaConfig := do
   let cc := (← IO.getEnv "CC").getD "cc"
   let cFile := mod.irPath "nerodia.c"
@@ -142,9 +176,7 @@ module_facet nerodia (mod) : NerodiaConfig := do
   let modJob ← mod.leanArts.fetch
   let nerodiacJob ← nerodiac.fetch
   let libPyJob ← libpython3.fetch
-  -- TODO: include all imported libraries
-  let libJob ← mod.lib.static.fetch
-  let nerodiaJob ← (← Nerodia.get).static.fetch
+  let (objJobs, libJobs) ← modLinks mod (shouldExport := true)
   -- Generate and compile extension
   let outJob ←
   modJob.bindM (sync := true) fun _ =>
@@ -201,17 +233,27 @@ module_facet nerodia (mod) : NerodiaConfig := do
   outJob.bindM (sync := true) fun out => do
     let lean ← getLeanInstall
     let lake ← getLakeInstall
-    let dynlibs := lean.sharedDynlibs
-    let objs := #[Job.pure out.o, libJob, nerodiaJob]
-    -- On Windows, all symbols must be resolved at link time.
-    -- On Unix, Python symbols are provided by the interpreter at load time.
-    let libs := dynlibs.map Job.pure
-    let libs := if System.Platform.isWindows then libs.push libPyJob else libs
+    let dynlibs := leanSharedDynlibs lean
+    let objs := #[Job.pure out.o] ++ objJobs
+    let libs := libJobs ++ dynlibs.map Job.pure
+    /-
+    On Windows, all symbols must be resolved at link time.
+    On Unix, Python symbols are provided by the interpreter at load time.
+    Thus, on Unix, we need to exclude Python from the dependencies.
+
+    TODO: Address trnasitive dependence on Python. As `libs` already flattens
+    Lean libraries and their extra link dependencies, this can only happen if
+    a extra link dependency itself depends on Python (via `Dynlib.deps`).
+    -/
+    let libs := if System.Platform.isWindows then libs else libs.filter fun job =>
+      -- `ptrEq` works because Lake jobs are memoized
+      ! unsafe ptrEq job libPyJob
     let libJob ← buildSharedLib out.name libFile
       objs libs lean.ccLinkSharedFlags traceArgs lean.cc.toString
       (linkDeps := true) -- extension should load deps when loaded in Python
       (extraDepTrace := getLeanTrace)
-    return libJob.map (sync := true) fun libFile => {
+    libJob.bindM (sync := true) fun libFile =>
+    return (Job.collectArray libs).map (sync := true) fun libs => {
       name := out.name
       c := out.c
       o := out.o
@@ -219,7 +261,7 @@ module_facet nerodia (mod) : NerodiaConfig := do
       lib := libFile
       -- Lake is linked implicitly on an "as-needed" basis.
       -- Thus, it should be available in the bundle.
-      libs := dynlibs.map (·.path) |>.push lake.sharedLib
+      libs := (libs ++ dynlibs).map (·.path) |>.push lake.sharedLib
     }
 
 /--
