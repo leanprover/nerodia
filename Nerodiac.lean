@@ -5,8 +5,6 @@ Authors: Mac Malone
 -/
 module
 import Nerodia.Compiler.Main
--- Needed due to how Lake links executables (TODO: fix)
-import Nerodia.InitFlag
 
 public def main (args : List String) : IO UInt32 := do
   Nerodia.Compiler.main args

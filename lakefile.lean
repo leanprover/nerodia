@@ -73,9 +73,13 @@ target nerodia.o pkg : FilePath := do
 
 @[default_target]
 lean_lib Nerodia where
-  defaultFacets := #[LeanLib.staticFacet, LeanLib.sharedFacet]
+  defaultFacets := #[LeanLib.staticFacet]
   moreLinkObjs := #[nerodia.o]
   moreLinkLibs := #[libpython3]
+
+@[default_target]
+lean_lib Nerodia.Compiler where
+  defaultFacets := #[LeanLib.staticFacet]
 
 /-! ## Nerodiac -/
 
