@@ -179,57 +179,59 @@ but that is not guaranteed by the Limited API.
 
 See https://docs.python.org/3/c-api/type.html#c.PyTypeObject
 -/
-public structure PyType extends toObject : PyObject where
+public structure PyType extends PyObject where
   private innerMk ::
     deriving Nonempty
 
+public instance : Coe PyType PyObject := ⟨PyType.toPyObject⟩
+
 /-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
-public structure PyBaseException extends toObject : PyObject where
+public structure PyBaseException extends PyObject where
   private innerMk ::
     deriving Nonempty
 
 /-- A Python exception object. That is, an instance of {lit}`Exception`. -/
-public structure PyException extends toBaseException : PyBaseException where
+public structure PyException extends PyBaseException where
   private innerMk ::
     deriving Nonempty
 
 public instance : Coe PyException PyBaseException :=
-  ⟨PyException.toBaseException⟩
+  ⟨PyException.toPyBaseException⟩
 
 /-- A Python system error object. That is, an instance of {lit}`SystemError`. -/
-public structure PySystemError extends toException : PyException where
+public structure PySystemError extends PyException where
   private innerMk ::
     deriving Nonempty
 
 public instance : Coe PySystemError PyException :=
-  ⟨PySystemError.toException⟩
+  ⟨PySystemError.toPyException⟩
 
 /-- A Python type error object. That is, an instance of {lit}`TypeError`. -/
-public structure PyTypeError extends toException : PyException where
+public structure PyTypeError extends PyException where
   private innerMk ::
     deriving Nonempty
 
 public instance : Coe PyTypeError PyException :=
-  ⟨PyTypeError.toException⟩
+  ⟨PyTypeError.toPyException⟩
 
 /-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
-public structure PyModule extends toObject : PyObject where
+public structure PyModule extends PyObject where
   private innerMk ::
     deriving Nonempty
 
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
-public structure PyStr extends toObject : PyObject where
+public structure PyStr extends PyObject where
   private innerMk ::
     deriving Nonempty
 
-public instance : Coe PyStr PyObject := ⟨PyStr.toObject⟩
+public instance : Coe PyStr PyObject := ⟨PyStr.toPyObject⟩
 
 set_option linter.unusedVariables.funArgs false in
 @[inline] public def PyStr.mk (o : PyObject) (h : o.isStrInstance) : PyStr :=
   ⟨o⟩
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
-public structure PyBytes extends toObject : PyObject where
+public structure PyBytes extends PyObject where
   private innerMk ::
     deriving Nonempty
 
@@ -881,9 +883,6 @@ public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ _ => return⟩
 
 namespace PyType
 
-
-public instance : Coe PyType PyObject := ⟨toObject⟩
-
 /-- Returns the qualified name of the type. -/
 @[extern "nerodia_py_type_get_qual_name"]
 public opaque getQualName (self : @& PyType) : CPyIO PyStr
@@ -1178,7 +1177,7 @@ public theorem size_eq : size bs = bs.toByteArray.size := by rfl
 @[inline] public def decode
   (self : @& PyBytes)
   (encoding : @& Codec) (errors : @& CodecErrors := .strict)
-: CPyIO PyStr := self.toObject.decode encoding errors
+: CPyIO PyStr := self.toPyObject.decode encoding errors
 
 /--
 Decodes bytes as a UTF-8-encoded string.
@@ -1186,7 +1185,7 @@ Decodes bytes as a UTF-8-encoded string.
 This is equivalent to {lean}`self.decode .utf8 .strict`.
 -/
 public abbrev decodeUTF8 (self : @& PyBytes) : CPyIO PyStr :=
-  self.toObject.decode .utf8 .strict
+  self.decode .utf8 .strict
 
 end PyBytes
 
