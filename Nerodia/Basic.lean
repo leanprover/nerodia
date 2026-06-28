@@ -973,6 +973,121 @@ public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
 public instance : MkResult String "str" := ⟨(mkPyStr · |>.cast)⟩
 
+/-- Identifier of a registered Python encoding. -/
+public structure Codec where
+  ofString ::
+    protected toString : String
+
+namespace Codec
+
+public instance : ToString Codec := ⟨Codec.toString⟩
+
+/-!
+### Standard Python Encodings
+
+The Lean names of these Python identifiers follow Lean naming conventions
+(i.e., lower camel case).
+
+See the [Python documentation][1] for a for a full list of codecs and
+what languages they support.
+
+[1]: https://docs.python.org/3/library/codecs.html#standard-encodings
+-/
+
+public abbrev ascii : Codec := ⟨"ascii"⟩
+public abbrev latin1 : Codec := ⟨"latin_1"⟩
+public abbrev utf8 : Codec := ⟨"utf-8"⟩
+public abbrev utf16 : Codec := ⟨"utf-16"⟩
+public abbrev utf16LE : Codec := ⟨"utf-16-le"⟩
+public abbrev utf16BE : Codec := ⟨"utf-16-be"⟩
+public abbrev utf32 : Codec := ⟨"utf-32"⟩
+public abbrev utf32LE : Codec := ⟨"utf-32-le"⟩
+public abbrev utf32BE : Codec := ⟨"utf-32-be"⟩
+
+end Codec
+
+/-- Identifier of a registed Python error handler for codecs. -/
+public structure CodecErrors where
+  ofString ::
+    protected toString : String
+
+namespace CodecErrors
+
+public instance : ToString CodecErrors := ⟨CodecErrors.toString⟩
+
+/-!
+### Standard Python Error Handlers
+
+The Lean names of these Python identifiers follow Lean naming conventions
+(i.e., lower camel case).
+-/
+
+/-- Raise {lit}`UnicodeError` (or a subclass). -/
+public abbrev strict : CodecErrors := ⟨"strict"⟩
+
+/-- Ignore the malformed data and continue without further notice. -/
+public abbrev ignore : CodecErrors := ⟨"ignore"⟩
+
+/--
+Replace unspported characters with a replacement marker. On encoding,
+use `?` (the ASCII character). On decoding, use `�` (U+FFFD, the official
+Unicode replacement character).
+-/
+public abbrev replace : CodecErrors := ⟨"replace"⟩
+
+/--
+Replace unspported characters with backslashed escape sequences.
+On encoding,  use hexadecimal form of Unicode code point with formats
+{lit}`\xhh`, {lit}`\uxxxx`, {lit}`\Uxxxxxxxx`. On decoding, use hexadecimal
+form of byte value with format {lit}`\xhh`.
+-/
+public abbrev backslashReplace : CodecErrors := ⟨"backslashreplace"⟩
+
+/--
+On decoding, replace surrogates with their individual surrogate escape
+code ranging from {lit}`U+DC80` to {lit}`U+DCFF`. This code will then be turned
+back into the surrogate when the {name}`surrogateEscape` error handler is
+used when encoding the data.
+-/
+public abbrev surrogateEscape : CodecErrors := ⟨"surrogateescape"⟩
+
+/--
+For Unicode codecs, allow encoding and decoding a surrogate code point
+({lit}`U+D800` - {lit}`U+DFFF`) as normal code point. Otherwise, these codecs
+treat the presence of a lone surrogate as an error.
+-/
+public abbrev surrogatePass : CodecErrors := ⟨"surrogatepass"⟩
+
+/--
+When encoding text, replace unspported characters with XML/HTML numeric
+character reference, which is a decimal form of Unicode code point with
+format `&#num;`.
+-/
+public abbrev xmlCharRefReplace : CodecErrors := ⟨"xmlcharrefreplace"⟩
+
+/--
+When encoding text, replace unspported characters with {lit}`\N{...}`
+escape sequences. What appears in the braces is the {lit}`Name` property
+from the Unicode Character Database.
+-/
+public abbrev nameReplace : CodecErrors := ⟨"namereplace"⟩
+
+end CodecErrors
+
+/-- Decodes a Lean {name}`ByteArray` into a Python string. -/
+@[extern "nerodia_decode"]
+public opaque decode (bytes : @& ByteArray)
+  (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyStr
+
+/--
+Decodes a bytes-like object into a string. All other objects raise a {lit}`TypeError`.
+
+This is equivalent to the Python {lit}`str(self, encoding, errors)`.
+-/
+@[extern "nerodia_py_object_decode"]
+public opaque PyObject.decode (self : @& PyObject)
+  (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyStr
+
 /--
 Computes a string representation of the object {lean}`self`.
 
@@ -989,7 +1104,13 @@ This is equivalent to the Python expression {lit}`repr(self)`.
 @[extern "nerodia_py_object_repr"]
 public opaque PyObject.repr (self : @& PyObject) : CPyIO PyStr
 
-/-- Returns the UTF8-encoded value of {lean}`self` as a Lean {lean}`String`. -/
+/--
+Returns the UTF8-encoded value of {lean}`self` as a Lean {lean}`String`.
+
+If the string contains lone surrogates (and is thus not valid UTF-8),
+they will be replaced with `�` (U+FFFD, the official Unicode replacement
+character), following Lean's standard lossy encoding.
+-/
 -- This function is pure because the string data of instances of `str` is immutable.
 @[extern "nerodia_py_str_to_string"]
 public opaque PyStr.toString (self : @& PyStr) : String
@@ -1002,14 +1123,72 @@ public instance : OfPyArg String "str" where
       return (PyStr.mk o h).toString
     else raisePyTypeError s!"{fn} argument {i} must be str"
 
-/-- Returns the UTF8-encoded value of the Python string as Python bytes. -/
-@[extern "nerodia_py_str_utf8_encode"]
-public opaque PyStr.utf8Encode (self : @& PyStr) : CPyIO PyBytes
+/--
+Returns the string encoded as bytes.
+
+This is equivalent to the Python {lit}`str.encode(self, encoding, errors)`.
+-/
+@[extern "nerodia_py_str_encode"]
+public opaque PyStr.encode (self : @& PyStr)
+  (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyBytes
+
+/--
+Returns the UTF-8-encoded value of the string as bytes.
+
+This is equivalent to {lean}`self.encode .utf8 .strict` but more efficient.
+-/
+@[extern "nerodia_py_str_encode_utf8"]
+public abbrev PyStr.encodeUTF8 (self : @& PyStr) : CPyIO PyBytes :=
+  self.encode .utf8 .strict
+
+/-- Creates a Python {lit}`bytes` object from a Lean {name}`ByteArray`. -/
+@[extern "nerodia_mk_py_bytes"]
+public opaque mkPyBytes (s : @& ByteArray) : CPyIO PyBytes
+
+public instance : MkResult ByteArray "bytes" := ⟨(mkPyBytes · |>.cast)⟩
+
+namespace PyBytes
 
 /-- Returns the bytes of {lean}`self` as a Lean {lean}`ByteArray`. -/
 -- This function is pure because the bytes data of instances of `bytes` is immutable.
 @[extern "nerodia_py_bytes_to_byte_array"]
-public opaque PyBytes.toByteArray (self : @& PyBytes) : ByteArray
+public opaque toByteArray (self : @& PyBytes) : ByteArray
+
+/-- Returns the number of bytes in {lean}`self` as a Lean {name}`USize`. -/
+-- This function is pure because the bytes data of instances of `bytes` is immutable.
+@[extern "nerodia_py_bytes_usize"]
+public def usize (self : @& PyBytes) : USize :=
+  self.toByteArray.usize
+
+@[simp, grind =]
+public theorem usize_eq : usize bs = bs.toByteArray.usize := by rfl
+
+@[inline] public def sizeImpl (self : @& PyBytes) : Nat :=
+  self.usize.toNat
+
+/-- Returns the number of bytes in {lean}`self` as a Lean {name}`Nat`. -/
+@[implemented_by sizeImpl]
+public def size (self : @& PyBytes) : Nat :=
+  self.toByteArray.size
+
+@[simp, grind =]
+public theorem size_eq : size bs = bs.toByteArray.size := by rfl
+
+/-- Decodes bytes as a string. -/
+@[inline] public def decode
+  (self : @& PyBytes)
+  (encoding : @& Codec) (errors : @& CodecErrors := .strict)
+: CPyIO PyStr := self.toObject.decode encoding errors
+
+/--
+Decodes bytes as a UTF-8-encoded string.
+
+This is equivalent to {lean}`self.decode .utf8 .strict`.
+-/
+public abbrev decodeUTF8 (self : @& PyBytes) : CPyIO PyStr :=
+  self.toObject.decode .utf8 .strict
+
+end PyBytes
 
 /-! ## Exception Handling -/
 

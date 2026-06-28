@@ -436,25 +436,77 @@ LEAN_EXPORT size_t nerodia_py_object_repr(b_lean_obj_arg o) {
 }
 
 /* toString : @& PyStr -> String */
-LEAN_EXPORT lean_obj_res nerodia_py_str_to_string(b_lean_obj_arg o) {
+LEAN_EXPORT lean_obj_res nerodia_py_str_to_string(b_lean_obj_arg self) {
   py_gil_ensure();
   Py_ssize_t size;
-  const char * cs = PyUnicode_AsUTF8AndSize(nerodia_to_object(o), &size);
+  PyObject * o = nerodia_to_object(self);
+  const char * cs = PyUnicode_AsUTF8AndSize(o, &size);
   if (LEAN_LIKELY(cs != NULL)) {
     py_gil_release();
     // Both Lean and `AsUTF8AndSize` have a null terminator,
     // but neither include it in `size`
     return lean_mk_string_from_bytes_unchecked(cs, size);
+  } else if (PyErr_ExceptionMatches(PyExc_UnicodeEncodeError)) {
+    PyErr_Clear();
+    PyObject* b = PyUnicode_AsEncodedString(o, "utf-8", "surrogatepass");
+    if (LEAN_LIKELY(b != NULL)) {
+      lean_obj_res r = lean_mk_string_from_bytes(
+        PyBytes_AsString(b), PyBytes_Size(b));
+      Py_DECREF(b);
+      py_gil_release();
+      return r;
+    }
   }
-  // TODO: Ensure no invalid unicode (lone surrogates).
   // It should be impossible for the encode to fail
   // except in the case of memory errors
   nerodia_exception_panic();
 }
 
+/* encode : @& PySTr -> @& String -> @& String -> BaseIO PyBytes */
+LEAN_EXPORT size_t nerodia_py_str_encode(
+  b_lean_obj_arg self, b_lean_obj_arg encoding, b_lean_obj_arg errors
+) {
+  return (size_t)PyUnicode_AsEncodedString(nerodia_to_object(self),
+    lean_string_cstr(encoding), lean_string_cstr(errors));
+}
+
 /* utf8Encode : @& PyStr -> BaseIO (CPtr PyBytes) */
-LEAN_EXPORT size_t nerodia_py_str_utf8_encode(b_lean_obj_arg o) {
+LEAN_EXPORT size_t nerodia_py_str_encode_utf8(b_lean_obj_arg o) {
   return (size_t)PyUnicode_AsUTF8String(nerodia_to_object(o));
+}
+
+/* decode : @& ByteArray -> @& String -> @& String -> BaseIO PyStr */
+LEAN_EXPORT size_t nerodia_decode(
+  b_lean_obj_arg bytes, b_lean_obj_arg encoding, b_lean_obj_arg errors
+) {
+  return (size_t)PyUnicode_Decode(
+    (const char *)lean_sarray_cptr(bytes), lean_sarray_size(bytes),
+    lean_string_cstr(encoding), lean_string_cstr(errors));
+}
+
+/* decode : @& PyObject -> @& String -> @& String -> BaseIO PyStr */
+LEAN_EXPORT size_t nerodia_py_object_decode(
+  b_lean_obj_arg self, b_lean_obj_arg encoding, b_lean_obj_arg errors
+) {
+  return (size_t)PyUnicode_FromEncodedObject(nerodia_to_object(self),
+    lean_string_cstr(encoding), lean_string_cstr(errors));
+}
+
+/** ### Bytes */
+
+/* mkPyBytes : @& ByteArray -> BaseIO (CPtr PyBytes) */
+LEAN_EXPORT size_t nerodia_mk_py_bytes(b_lean_obj_arg self) {
+  return (size_t)PyBytes_FromStringAndSize(
+    (const char *)lean_sarray_cptr(self), lean_sarray_size(self));
+}
+
+/* usize : @& PyBytes -> USize */
+LEAN_EXPORT size_t nerodia_py_bytes_usize(b_lean_obj_arg self) {
+  // Note: Context not needed as operations are immutable pointer accesses
+  PyObject* o = nerodia_to_object(self);
+  // `self` must be a proper Python bytes object to avoid raising an error.
+  assert(PyBytes_Check(o));
+  return PyBytes_Size(o);
 }
 
 /* toByteArray : @& PyBytes -> ByteArray */
