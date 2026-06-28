@@ -162,30 +162,6 @@ def mkArgChain
     return (body, pySig)
   return (body, s!"({pySig}")
 
-/--
-Constructs a conditional expression that ensures the number of arguments
-provided {lean}`nargs` matches {lean}`expected` before invoking {lean}`body`.
-Otherwise, the expression raises an exception.
-
-The expression is of the form:
-{given -show}`fn : String, nargs : USize`
-{given -show}`raiseArityNotEq : String → USize → USize → Expr`
-```leanTerm
-if nargs = expected then
-  body
-else
-  raiseArityNotEq fn expected nargs
-```
--/
-def mkArityGuard (fn : Expr) (expected : USize) (nargs body : Expr) : Expr :=
-  let nx := toExpr expected
-  let mTy := mkApp (mkConst `Nerodia.CPyIO [0]) (mkConst `Nerodia.PyObject)
-  let eqN := mkApp2 (mkApp (mkConst ``Eq [1]) (mkConst ``USize)) nargs nx
-  let err := mkApp4 (mkConst `Nerodia.raiseArityNotEq [0])
-    (mkConst `Nerodia.PyObject) fn nx nargs
-  let deq := mkApp2 (mkConst ``instDecidableEqUSize) nargs nx
-  mkApp5 (mkConst ``ite [1]) mTy eqN deq body err
-
 initialize
   let attrName := `py_module_fn
   registerBuiltinAttribute {
@@ -256,15 +232,14 @@ initialize
             addMethodDef {name, doc?, cSym, pySig, callConv := .o}
           else if lt32 : as.size < UInt32.size then
             withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun cargs => do
-            withLocalDeclD `nargs (mkConst ``USize) fun nargs => do
             -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
             let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
             let (rx, pySig) ← mkArgChain fn cargs as rx lt32
             let rx := mkApp (mkConst `Nerodia.PyIO.toCPyIO) rx
             let pySig := pySigD s!"{pySig} -> {pyRet}"
-            let rx := mkArityGuard fn as.usize nargs rx
-            let lam ← mkLambdaFVars #[cargs, nargs] rx
-            let val := mkApp (mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe) lam
+            let lam ← mkLambdaFVars #[cargs] rx
+            let val := mkApp3 (mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe)
+              fn (toExpr as.usize) lam
             let cSym ← mkAuxSym `Nerodia.PyMethFastCall val
             addMethodDef {name, doc?, cSym, pySig, callConv := .fastCall}
           else

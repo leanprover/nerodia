@@ -768,6 +768,18 @@ If {name}`x` raises an exception, clears it and runs {lean}`f ()`.
 
 end PyIO
 
+@[extern "nerodia_set_py_type_error"]
+opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
+
+/-- Raises a {lean}`PyTypeError` with the given message {lean}`msg`. -/
+@[inline] public def raisePyTypeError (msg : String) : CPyIO α := .mkUnsafe do
+  setPyTypeErrorUnsafe msg
+  return .null
+
+/-- Raises a {lean}`PyTypeError` indicating {lit}`fn` was called with the wrong number of arguments. -/
+@[inline] def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α := do
+  raisePyTypeError s!"{fn} takes exactly {expected} arguments ({given} given)"
+
 /-- A raw C object pointer provided as a Python function argument. -/
 public structure TCPyArg (α : Type u) where
   private mk ::
@@ -827,8 +839,13 @@ public def PyMethFastCall :=
 
 /-- **Do not use.** Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethFastCallUnsafe
-  (x : (args : CPyArgs) → (nargs : USize) → CPyIO PyObject)
-: PyMethFastCall := fun _ args nargs => x args nargs
+  (fn : String) (arity : USize)
+  (x : (args : CPyArgs) → CPyIO PyObject)
+: PyMethFastCall := fun _ args nargs =>
+  if nargs = arity then
+    x args
+  else
+    raiseArityNotEq fn arity nargs
 
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
@@ -859,18 +876,6 @@ public def PyModuleInit :=
   x (ctx.mkArgUnsafe mod)
 
 public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ _ => return⟩
-
-@[extern "nerodia_set_py_type_error"]
-opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
-
-/-- Raises a {lean}`PyTypeError` with the given message {lean}`msg`. -/
-@[inline] public def raisePyTypeError (msg : String) : CPyIO α := .mkUnsafe do
-  setPyTypeErrorUnsafe msg
-  return .null
-
-/-- Raises a {lean}`PyTypeError` indicating {lit}`fn` was called with the wrong number of arguments. -/
-@[inline] public def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α := do
-  raisePyTypeError s!"{fn} takes exactly {expected} arguments ({given} given)"
 
 /-! ## PyType -/
 
