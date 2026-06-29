@@ -51,10 +51,9 @@ wow
   -- Test that `toString` handles lone surrogates
   return str.toString
 
-/-- info: "None" -/
+/-- info: None -/
 #guard_msgs in
-#eval PyIO.toIO do
-  return (← (← getPyContext).none.repr).toString
+#eval PyIO.toIO do (← getPyNone).repr
 
 /-- error: SystemError: no exception was set -/
 #guard_msgs in

@@ -271,6 +271,10 @@ public instance [MonadLift m n] [MonadPy m] :MonadPy n where
 public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
   getPyContext >>= (·.clearError)
 
+/-- Returns the {lit}`None` constant of the Python enviroment. -/
+@[inline] public def getPyNone [Functor m] [MonadPy m] : m PyObject :=
+  (·.none) <$> getPyContext
+
 /-- A monad transformer to equip a monad with a Python environment. -/
 public abbrev PyT := ReaderT PyContext
 
