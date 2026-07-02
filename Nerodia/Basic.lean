@@ -783,7 +783,7 @@ opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
   return .null
 
 /-- Raises a {lean}`PyTypeError` indicating {lit}`fn` was called with the wrong number of arguments. -/
-@[inline] def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α := do
+@[inline] def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α :=
   raisePyTypeError s!"{fn} takes exactly {expected} arguments ({given} given)"
 
 /-- A raw C object pointer provided as a Python function argument. -/
