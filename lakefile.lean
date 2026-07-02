@@ -429,6 +429,7 @@ script test do
         ("UV_PYTHON_INSTALL_DIR", ← IO.getEnv "UV_PYTHON_INSTALL_DIR"),
         ("UV_CACHE_DIR", ← IO.getEnv "UV_CACHE_DIR"),
       ]
+      inheritEnv := false
     }
     discard <| withRegisterJob "testModule ty" <| editableJob.mapM fun _ => do proc {
       cmd := "uvx",
