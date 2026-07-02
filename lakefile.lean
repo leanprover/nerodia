@@ -197,13 +197,7 @@ module_facet nerodia (mod) : NerodiaConfig := do
       proc {
         cmd := nerodiac.toString
         args := #[inFile.toString, outFile.toString]
-        env := #[
-          ("LEAN_PATH", some (← getAugmentedLeanPath).toString),
-          -- ensures `nerodiac` can find Python's shared libraries
-          -- TODO: make `nerodiac` not depend on Python
-          let libPath : SearchPath := py.libDir :: (← getAugmentedSharedLibPath)
-          (sharedLibPathEnvVar, some libPath.toString),
-        ]
+        env := #[("LEAN_PATH", some (← getAugmentedLeanPath).toString)]
       }
     let out ←
       match Json.parse (← IO.FS.readFile outFile) >>= fromJson? with
@@ -332,17 +326,24 @@ def installPyPkg
       args := #["-q", "venv", "--clear", venvDir.toString]
       cwd := modDir
     }
+  -- Ensures Python can find Lean's shared libraries
+  -- Cannot include system libraries that will conflict with `cc`
+  let libPath : SearchPath :=
+    (← getLeanLibDir) :: (← getLakeEnv).initSharedLibPath
+  let buildEnv := #[(sharedLibPathEnvVar, some libPath.toString)]
   if localSetuptoolsLean then
     proc {
-      cmd := "uv",
+      cmd := "uv"
+      cwd := modDir
       args := #[
         "-q", "pip", "install", "--python", venvDir.toString,
         "-e", (nerodiaDir / "setuptools-lean").toString
       ]
-      cwd := modDir
     }
     proc {
-      cmd := "uv",
+      cmd := "uv"
+      cwd := modDir
+      env := buildEnv
       args :=
         if editable then #[
           "-q", "sync", "--python", venvDir.toString,
@@ -352,13 +353,13 @@ def installPyPkg
           "-q", "pip", "install", "--python", venvDir.toString,
           "--no-build-isolation", "."
         ]
-      cwd := modDir
-      -- ensures Python can find Lean's shared libraries
-      env := ← getAugmentedEnv
+
     }
   else
     proc {
-      cmd := "uv",
+      cmd := "uv"
+      cwd := modDir
+      env := buildEnv
       args :=
         if editable then #[
           "-q", "sync", "--python", venvDir.toString,
@@ -375,9 +376,6 @@ def installPyPkg
           "--reinstall-package", "setuptools-lean",
            ".",
         ]
-      cwd := modDir
-      -- ensures Python can find Lean's shared libraries
-      env := ← getAugmentedEnv
     }
 
 @[test_driver]
@@ -413,14 +411,14 @@ script test do
       cmd := "uv",
       args := #["-q", "run", "--python", editableVEnv.toString, "--no-sync", "test.py"]
       cwd := testModuleDir
-      -- ensures Python can find Lean's shared libraries
+      -- Ensures Python can find Lean's shared libraries
       env := ← getAugmentedEnv
     }
     discard <| withRegisterJob "testModule test (non-editable)" <| nonEditableJob.mapM fun _ => do proc {
       cmd := "uv",
       args := #[
         "-q", "run", "--python", nonEditableVEnv.toString, "--no-sync",
-        -- run from a different CWD with `-P` to ensure that Python is using the installed test module
+        -- Run from a different CWD with `-P` to ensure that Python is using the installed test module
         "python", "-P", testModuleDir / "test.py" |>.toString
       ]
       -- Non-editable installs bundle libraries, so it should run in a minimal environment.
@@ -467,13 +465,13 @@ where
         \ngot\
         \n  {actual}"
   getPyEnv py := do
-    -- ensures the executable can find Python's shared libraries
+    -- Ensures the executable can find Lean and Python's shared libraries
     let libPath ← getAugmentedSharedLibPath
     let libPath : SearchPath := py.libDir :: libPath
     return #[
       (sharedLibPathEnvVar, some libPath.toString),
-      -- activate the venv for embedded Python if necessary
-      -- normalized for Windows: CPython's getpath only splits on backslashes,
+      -- Activate the venv for embedded Python if necessary
+      -- Normalized for Windows: CPython's `getpath` only splits on backslashes,
       -- so a forward-slash path breaks venv detection (fatal as of 3.14)
       ("__PYVENV_LAUNCHER__", some py.exe.normalize.toString),
     ]
