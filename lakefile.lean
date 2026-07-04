@@ -115,7 +115,7 @@ structure CompilerOutput where
   name : String
   deriving ToJson, FromJson
 
-def leanSharedDynlibs (lean : LeanInstall) : Array Dynlib :=
+def ForLake.leanSharedDynlibs (lean : LeanInstall) : Array Dynlib :=
   -- libLake_shared links against the split libs on all platforms,
   -- so they must be included in the bundle even when they are empty stubs.
   if System.Platform.isWindows then
@@ -229,11 +229,10 @@ module_facet nerodia (mod) : NerodiaConfig := do
     else if System.Platform.isOSX then traceArgs.push "-Wl,-rpath,@loader_path/.libs"
     else traceArgs.push "-Wl,-rpath,$ORIGIN/.libs"
   outJob.bindM (sync := true) fun out => do
-    let lean ← getLeanInstall
-    let lake ← getLakeInstall
-    let dynlibs := leanSharedDynlibs lean
     let objs := #[Job.pure out.o] ++ objJobs
-    let libs := libJobs ++ dynlibs.map Job.pure
+    let lakeDynlib := (← getLakeInstall).sharedDynlib
+    let leanDynlibs := ForLake.leanSharedDynlibs (← getLeanInstall)
+    let libs := libJobs ++ leanDynlibs.map Job.pure
     /-
     On Windows, all symbols must be resolved at link time.
     On Unix, Python symbols are provided by the interpreter at load time.
@@ -246,10 +245,8 @@ module_facet nerodia (mod) : NerodiaConfig := do
     let libs := if System.Platform.isWindows then libs else libs.filter fun job =>
       -- `ptrEq` works because Lake jobs are memoized
       ! unsafe ptrEq job libPyJob
-    let libJob ← buildSharedLib out.name libFile
-      objs libs lean.ccLinkSharedFlags traceArgs lean.cc.toString
+    let libJob ← buildLeanSharedLib out.name libFile objs libs #[] traceArgs
       (linkDeps := true) -- extension should load deps when loaded in Python
-      (extraDepTrace := getLeanTrace)
     libJob.bindM (sync := true) fun libFile =>
     return (Job.collectArray libs).map (sync := true) fun libs => {
       name := out.name
@@ -259,7 +256,7 @@ module_facet nerodia (mod) : NerodiaConfig := do
       lib := libFile
       -- Lake is linked implicitly on an "as-needed" basis.
       -- Thus, it should be available in the bundle.
-      libs := (libs ++ dynlibs).map (·.path) |>.push lake.sharedLib
+      libs := (libs ++ leanDynlibs |>.push lakeDynlib).map (·.path)
     }
 
 /--
