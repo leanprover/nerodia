@@ -59,16 +59,21 @@ namespace CallConv
 @[inline] public def o : CallConv :=
   ⟨.o⟩
 
-@[inline_if_reduce]
-public def flags (self : CallConv) : MethodFlags :=
-  match self.raw with
-  | .varArgsNoKeywords => ⟨"METH_VARARGS"⟩
-  | .varArgsWithKeywords => ⟨"METH_VARARGS | METH_KEYWORDS"⟩
-  | .fastCallNoKeywords => ⟨"METH_FASTCALL"⟩
-  | .fastCallWithKeywords => ⟨"METH_FASTCALL | METH_KEYWORDS"⟩
-  | .method => ⟨"METH_METHOD | METH_FASTCALL | METH_KEYWORDS"⟩
-  | .noArgs => ⟨"METH_NOARGS"⟩
-  | .o => ⟨"METH_O"⟩
+theorem raw_ctorIdx_lt : (raw self).ctorIdx < 7 := by
+  cases self.raw <;> decide
+
+@[inline] public def flags (self : CallConv) : MethodFlags :=
+  ⟨strs[inline self.raw.ctorIdx]'raw_ctorIdx_lt⟩
+where
+  strs : Vector String 7 := .mk #[
+    "METH_VARARGS", -- varArgsNoKeywords
+    "METH_VARARGS | METH_KEYWORDS", -- varArgsWithKeywords
+    "METH_FASTCALL", -- fastCallNoKeywords
+    "METH_FASTCALL | METH_KEYWORDS", -- fastCallWithKeywords
+    "METH_METHOD | METH_FASTCALL | METH_KEYWORDS", -- method
+    "METH_NOARGS", -- noArgs
+    "METH_O" -- o
+  ] rfl
 
 @[inline] public protected def toString (self : CallConv) : String :=
   self.flags.toString
@@ -76,34 +81,39 @@ public def flags (self : CallConv) : MethodFlags :=
 public instance : ToString CallConv := ⟨CallConv.toString⟩
 
 /--
-Given Lean function with the C symbol name {lean}`sym`,
-returns the C function signature for this calling convention.
+Returns the C parentheical parameter list for this calling convention.
+
+**Example:** {assert}`cParams .o = "(size_t self, size_t arg)"`
 -/
-@[inline_if_reduce]
-public def cSig (self : CallConv) (sym : String) : String :=
-  match self.raw with
-  | .varArgsNoKeywords => s!"size_t {sym}(size_t self, size_t args)"
-  | .varArgsWithKeywords => s!"size_t {sym}(size_t self, size_t args, size_t kwargs)"
-  | .fastCallNoKeywords => s!"size_t {sym}(size_t self, size_t args, size_t nargs)"
-  | .fastCallWithKeywords => s!"size_t {sym}(size_t self, size_t arg, size_t narg, size_t kwnames)"
-  | .method => s!"size_t {sym}(size_t self, size_t defining_class, size_t arg, size_t narg, size_t kwnames)"
-  | .noArgs => s!"size_t {sym}(size_t self, size_t arg)"
-  | .o => s!"size_t {sym}(size_t self, size_t arg)"
+@[inline] public def cParams (self : CallConv) : String :=
+  strs[self.raw.ctorIdx]'raw_ctorIdx_lt
+where
+  strs : Vector String 7 := .mk #[
+    "(size_t self, size_t args)", -- varArgsNoKeywords
+    "(size_t self, size_t args, size_t kwargs)", -- varArgsWithKeywords
+    "(size_t self, size_t args, size_t nargs)", -- fastCallNoKeywords
+    "(size_t self, size_t arg, size_t narg, size_t kwnames)", -- fastCallWithKeywords
+    "(size_t self, size_t defining_class, size_t arg, size_t narg, size_t kwnames)", -- method
+    "(size_t self, size_t arg)", -- noArgs
+    "(size_t self, size_t arg)", -- o
+  ] rfl
 
 /--
 Returns the default, untyped Python signature for a Python
 module function using this calling convention.
 -/
-@[inline_if_reduce]
-public def pySig (self : CallConv) : String :=
-  match self.raw with
-  | .varArgsNoKeywords => s!"(*args)"
-  | .varArgsWithKeywords => s!"(*args, **kwds)"
-  | .fastCallNoKeywords => s!"(*args)"
-  | .fastCallWithKeywords => s!"(*args, **kwds)"
-  | .method => s!"(*args, **kwds)"
-  | .noArgs => "()"
-  | .o => "(_, /)"
+@[inline] public def pySig (self : CallConv) : String :=
+  strs[self.raw.ctorIdx]'raw_ctorIdx_lt
+where
+  @[inline] strs : Vector String 7 := .mk #[
+    "(*args)", -- varArgsNoKeywords
+    "(*args, **kwds)", -- varArgsWithKeywords
+    "(*args)", -- fastCallNoKeywords
+    "(*args, **kwds)", -- fastCallWithKeywords
+    "(*args, **kwds)", -- method
+    "()", -- noArgs
+    "(_, /)", -- o
+  ] rfl
 
 end CallConv
 
@@ -114,10 +124,6 @@ public structure MethodDef where
   coexist : Bool := false
   cSym : String
   pySig : String := callConv.pySig
-
-/--  The C function signature of the method's Lean definition. -/
-@[inline] public def MethodDef.cSig (self : MethodDef) : String :=
-  self.callConv.cSig self.cSym
 
 public def MethodDef.flags (self : MethodDef) : MethodFlags :=
   let flags := self.callConv.flags.toString

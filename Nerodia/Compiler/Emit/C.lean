@@ -51,7 +51,9 @@ public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   -- Module methods
   for m in mod.methods do
     c.putStr "\n"
-    c.putStr m.cSig
+    c.putStr "size_t "
+    c.putStr m.cSym
+    c.putStr m.callConv.cParams
     c.putStr ";"
   c.putStr "\n\nstatic PyMethodDef module_methods[] = {"
   for m in mod.methods do
