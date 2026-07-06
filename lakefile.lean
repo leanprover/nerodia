@@ -73,13 +73,14 @@ target nerodia.o pkg : FilePath := do
 
 @[default_target]
 lean_lib Nerodia where
-  defaultFacets := #[LeanLib.staticFacet]
+  -- Static for Python extensions and shared for precompilation
+  defaultFacets := #[LeanLib.staticFacet, LeanLib.sharedFacet]
   moreLinkObjs := #[nerodia.o]
   moreLinkLibs := #[libpython3]
 
 @[default_target]
 lean_lib Nerodia.Compiler where
-  defaultFacets := #[LeanLib.staticFacet]
+  defaultFacets := #[LeanLib.staticFacet, LeanLib.sharedFacet]
 
 /-! ## Nerodiac -/
 
@@ -90,9 +91,8 @@ lean_exe nerodiac where
 
 structure NerodiacOutput where
   name : String
-  c : FilePath
-  o : FilePath
-  pyi : FilePath
+  c : Artifact
+  pyi : Artifact
 
 structure NerodiaConfig where
   name : String
@@ -167,25 +167,16 @@ def modLinks
       objJobs := objJobs.push <| ← lib.static.fetch
   return (objJobs, libJobs)
 
-module_facet nerodia (mod) : NerodiaConfig := do
-  let cc := (← IO.getEnv "CC").getD "cc"
+module_facet nerodiacOut (mod) : NerodiacOutput := do
   let cFile := mod.irPath "nerodia.c"
-  let oFile := mod.irPath "nerodia.o"
-  let libFile := mod.irPath s!"nerodia.{sharedLibExt}"
   let pyiFile := mod.irPath "nerodia.pyi"
   let inFile := mod.irPath "nerodia.in.json"
   let outFile := mod.irPath "nerodia.out.json"
   let traceFile := mod.irPath "nerodia.trace"
-  let pyJob ← pyconfig.fetch
   let modJob ← mod.leanArts.fetch
   let nerodiacJob ← nerodiac.fetch
-  let libPyJob ← libpython3.fetch
-  let (objJobs, libJobs) ← modLinks mod (shouldExport := true)
-  -- Generate and compile extension
-  let outJob ←
   modJob.bindM (sync := true) fun _ =>
-  nerodiacJob.bindM (sync := true) fun nerodiac =>
-  pyJob.mapM fun py => do
+  nerodiacJob.mapM fun nerodiac => do
     addLeanTrace
     -- TODO: Build all outputs as artifacts
     buildUnlessUpToDate outFile (← getTrace) traceFile do
@@ -203,6 +194,25 @@ module_facet nerodia (mod) : NerodiaConfig := do
       match Json.parse (← IO.FS.readFile outFile) >>= fromJson? with
       | .ok (out : CompilerOutput) => pure out
       | .error e => error s!"nerodiac produced invalid output: {e}"
+    newTrace s!"{mod.name}:nerodiac"
+    addPureTrace out.name "name"
+    let c ← computeArtifact cFile "c" (text := true)
+    addTrace c.trace
+    let pyi ← computeArtifact pyiFile "pyi" (text := true)
+    addTrace pyi.trace
+    return {
+      c, pyi
+      name := out.name
+      : NerodiacOutput
+    }
+
+module_facet nerodia.o (mod) : FilePath := do
+  let pyJob ← pyconfig.fetch
+  let nerodiac ← mod.facet `nerodiacOut |>.fetch
+  nerodiac.bindM (sync := true) fun out =>
+  pyJob.mapM fun py => do
+    let cc := (← IO.getEnv "CC").getD "cc"
+    let oFile := mod.irPath "nerodia.o"
     -- `Py_LIMITED_API` must always be defined for abi3-tagged wheels
     let args := #[s!"-DPy_LIMITED_API={minHexVersion}", "-fPIC", "-std=c17"]
     addPureTrace args "traceArgs"
@@ -210,14 +220,15 @@ module_facet nerodia (mod) : NerodiaConfig := do
     let art ← buildArtifactUnlessUpToDate oFile (ext := "o") do
       let args := args.push "-I" |>.push (← getLeanIncludeDir).toString
       let args := py.includeDirs.foldl (·.push "-I" |>.push ·.toString) args
-      compileO oFile cFile args cc
-    return {
-      name := out.name
-      c := cFile
-      o := art.path
-      pyi := pyiFile
-      : NerodiacOutput
-    }
+      compileO oFile out.c.path args cc
+    return art.path
+
+module_facet nerodia (mod) : NerodiaConfig := do
+  let libFile := mod.irPath s!"nerodia.{sharedLibExt}"
+  let oJob ← mod.facet `nerodia.o |>.fetch
+  let outJob ← mod.facet `nerodiacOut |>.fetch
+  let libPyJob ← libpython3.fetch
+  let (objJobs, libJobs) ← modLinks mod (shouldExport := true)
   -- Link extension
   let traceArgs :=
     -- macOS requires `-undefined dynamic_lookup` so that Python C API symbols
@@ -229,7 +240,7 @@ module_facet nerodia (mod) : NerodiaConfig := do
     else if System.Platform.isOSX then traceArgs.push "-Wl,-rpath,@loader_path/.libs"
     else traceArgs.push "-Wl,-rpath,$ORIGIN/.libs"
   outJob.bindM (sync := true) fun out => do
-    let objs := #[Job.pure out.o] ++ objJobs
+    let objs := #[oJob] ++ objJobs
     let lakeDynlib := (← getLakeInstall).sharedDynlib
     let leanDynlibs := ForLake.leanSharedDynlibs (← getLeanInstall)
     let libs := libJobs ++ leanDynlibs.map Job.pure
@@ -247,12 +258,13 @@ module_facet nerodia (mod) : NerodiaConfig := do
       ! unsafe ptrEq job libPyJob
     let libJob ← buildLeanSharedLib out.name libFile objs libs #[] traceArgs
       (linkDeps := true) -- extension should load deps when loaded in Python
+    oJob.bindM (sync := true) fun oFile =>
     libJob.bindM (sync := true) fun libFile =>
     return (Job.collectArray libs).map (sync := true) fun libs => {
       name := out.name
-      c := out.c
-      o := out.o
-      pyi := out.pyi
+      c := out.c.path
+      o := oFile
+      pyi := out.pyi.path
       lib := libFile
       -- Lake is linked implicitly on an "as-needed" basis.
       -- Thus, it should be available in the bundle.
@@ -313,10 +325,10 @@ named `pkg` located in `modDir` installed. Also ensures the `setuptools-lean`
 dependency is installed from the appropriate source.
 -/
 def installPyPkg
-  (pkg : String)
-  (nerodiaDir modDir  : FilePath)
+  (pkg : String) (modDir  : FilePath)
   (venvDir : FilePath := modDir / ".venv")
-  (localSetuptoolsLean := true) (editable : Bool)
+  (localSetuptoolsLean? : Option FilePath := none)
+  (editable : Bool)
 : JobM Unit := do
   proc {
       cmd := "uv",
@@ -328,13 +340,13 @@ def installPyPkg
   let libPath : SearchPath :=
     (← getLeanLibDir) :: (← getLakeEnv).initSharedLibPath
   let buildEnv := #[(sharedLibPathEnvVar, some libPath.toString)]
-  if localSetuptoolsLean then
+  if let some pluginDir := localSetuptoolsLean? then
     proc {
       cmd := "uv"
       cwd := modDir
       args := #[
         "-q", "pip", "install", "--python", venvDir.toString,
-        "-e", (nerodiaDir / "setuptools-lean").toString
+        "-e", pluginDir.toString
       ]
     }
     proc {
@@ -375,93 +387,16 @@ def installPyPkg
         ]
     }
 
-@[test_driver]
-script test do
-  let pkgDir := __dir__
-  let testModuleDir := pkgDir / "tests" / "testModule"
-  runBuild do
-    let pyJob ← pyconfig.fetch
-    let libJob ← Nerodia.fetch
-    let nerodiacJob ← nerodiac.fetch
-    discard <| NerodiaTests.fetch
-    let exeJob ← testExe.fetch
-    discard <| withRegisterJob "testExe test" do
-      pyJob.bindM (sync := true) fun py =>
-      exeJob.mapM fun exeFile => do
-        let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
-        validateOutput py.version out
-    let localSetuptoolsLean :=
-      (← IO.getEnv "LOCAL_SETUPTOOLS_LEAN").bind envToBool? |>.getD false
-    let editableVEnv := testModuleDir / ".venv"
-    let nonEditableVEnv := testModuleDir / ".lake" / "dist-venv"
-    let editableJob ← withRegisterJob "testModule editable install" do
-      libJob.bindM (sync := true) fun _ =>
-      nerodiacJob.mapM fun _ => do
-        installPyPkg "test" pkgDir testModuleDir editableVEnv
-          (editable := true) localSetuptoolsLean
-    let nonEditableJob ← withRegisterJob "testModule non-editable install" do
-      libJob.bindM (sync := true) fun _ =>
-      nerodiacJob.mapM fun _ => do
-        installPyPkg "test" pkgDir testModuleDir nonEditableVEnv
-          (editable := false) localSetuptoolsLean
-    discard <| withRegisterJob "testModule test" <| editableJob.mapM fun _ => do proc {
-      cmd := "uv",
-      args := #["-q", "run", "--python", editableVEnv.toString, "--no-sync", "test.py"]
-      cwd := testModuleDir
-      -- Ensures Python can find Lean's shared libraries
-      env := ← getAugmentedEnv
-    }
-    discard <| withRegisterJob "testModule test (non-editable)" <| nonEditableJob.mapM fun _ => do proc {
-      cmd := "uv",
-      args := #[
-        "-q", "run", "--python", nonEditableVEnv.toString, "--no-sync",
-        -- Run from a different CWD with `-P` to ensure that Python is using the installed test module
-        "python", "-P", testModuleDir / "test.py" |>.toString
-      ]
-      -- Non-editable installs bundle libraries, so it should run in a minimal environment.
-      env := #[
-        ("PATH", ← IO.getEnv "PATH"),
-        ("HOME", ← IO.getEnv "HOME"),
-        ("TMPDIR", ← IO.getEnv "TMPDIR"),
-        ("UV_PYTHON_INSTALL_DIR", ← IO.getEnv "UV_PYTHON_INSTALL_DIR"),
-        ("UV_CACHE_DIR", ← IO.getEnv "UV_CACHE_DIR"),
-      ]
-    }
-    discard <| withRegisterJob "testModule ty" <| editableJob.mapM fun _ => do proc {
-      cmd := "uvx",
-      args := #["-q", "ty", "check", "-q", "test.py"]
-      cwd := testModuleDir
-    }
-    withRegisterJob "testModule lpl" <| editableJob.mapM fun _ => do
-      let out ← captureProc {
-        cmd := "uv",
-        args := #["run", "--no-sync", (← getLake).toString, "query", "--json", "lpl", "pyconfig"]
-        cwd := testModuleDir
-        env := ← getAugmentedEnv
-      }
-      let [lpl, pyconfig] := out.lines.toStringList
-        | error s!"unexpected lake output: {out}"
-      let lpl ← match Json.parse lpl >>= fromJson? with
-        | .ok a => pure a
-        | .error e => error s!"invalid executable path; {e}:\n{out}"
-      let pyconfig ← match Json.parse pyconfig >>= fromJson? with
-        | .ok a => pure a
-        | .error e => error s!"invalid python configuration; {e}:\n{out}"
-      let out ← captureProc {
-        cmd := lpl,
-        cwd := testModuleDir
-        env := ← getPyEnv pyconfig
-      }
-      validateOutput "Hello!" out
-  return 0
-where
-  @[inline] validateOutput (expected actual : String) := do
-    unless actual == expected do
-      error s!"incorrect output: expected\
-        \n  {expected}\
-        \ngot\
-        \n  {actual}"
-  getPyEnv py := do
+@[inline] def validateOutput
+  [Monad m] [MonadError m] (expected actual : String)
+ : m PUnit := do
+  unless actual == expected do
+    error s!"incorrect output: expected\
+      \n  {expected}\
+      \ngot\
+      \n  {actual}"
+
+def getPyEnv (py : PyConfig) : JobM (Array (String × Option String)) := do
     -- Ensures the executable can find Lean and Python's shared libraries
     let libPath ← getAugmentedSharedLibPath
     let libPath : SearchPath := py.libDir :: libPath
@@ -472,3 +407,120 @@ where
       -- so a forward-slash path breaks venv detection (fatal as of 3.14)
       ("__PYVENV_LAUNCHER__", some py.exe.normalize.toString),
     ]
+
+def testEditable
+  (venvDir modDir : FilePath) (relTest : FilePath := "test.py")
+: JobM Unit := do proc {
+  cmd := "uv"
+  cwd := modDir
+  args := #["-q", "run", "--python", venvDir.toString, "--no-sync", relTest.toString]
+  -- Ensures Python can find Lean's shared libraries
+  env := ← getAugmentedEnv
+}
+
+def testNonEditable
+  (venvDir modDir : FilePath) (relTest : FilePath := "test.py")
+: JobM Unit := do proc {
+  cmd := "uv"
+  args := #[
+    "-q", "run", "--python", venvDir.toString, "--no-sync",
+    -- Run from a different CWD with `-P` to ensure that Python is using the installed test module
+    "python", "-P", (modDir / relTest).toString
+  ]
+  -- Non-editable installs bundle libraries, so it should run in a minimal environment.
+  env := #[
+    ("PATH", ← IO.getEnv "PATH"),
+    ("HOME", ← IO.getEnv "HOME"),
+    ("TMPDIR", ← IO.getEnv "TMPDIR"),
+    ("UV_PYTHON_INSTALL_DIR", ← IO.getEnv "UV_PYTHON_INSTALL_DIR"),
+    ("UV_CACHE_DIR", ← IO.getEnv "UV_CACHE_DIR"),
+  ]
+}
+
+def testTypeCheck
+  (venvDir modDir : FilePath) (relTest : FilePath := "test.py")
+: JobM Unit := do proc {
+  cmd := "uvx"
+  args := #[
+    "-q", "ty", "check", "-q",
+    "--python", venvDir.toString, (modDir / relTest).toString
+  ]
+}
+
+def testLPL (venvDir modDir : FilePath) : JobM Unit := do
+  let out ← captureProc {
+    cmd := "uv"
+    cwd := modDir
+    args := #[
+      "run", "--python", venvDir.toString, "--no-sync",
+      (← getLake).toString, "query", "--json", "lpl", "pyconfig"
+    ]
+    -- Ensures Python can find Lean's shared libraries
+    env := ← getAugmentedEnv
+  }
+  let [lpl, pyconfig] := out.lines.toStringList
+    | error s!"unexpected lake output: {out}"
+  let lpl ← match Json.parse lpl >>= fromJson? with
+    | .ok a => pure a
+    | .error e => error s!"invalid executable path; {e}:\n{out}"
+  let pyconfig ← match Json.parse pyconfig >>= fromJson? with
+    | .ok a => pure a
+    | .error e => error s!"invalid python configuration; {e}:\n{out}"
+  let out ← captureProc {
+    cmd := lpl,
+    cwd := modDir
+    env := ← getPyEnv pyconfig
+  }
+  validateOutput "Hello!" out
+
+def testModule
+  (modDir : FilePath) (localSetuptoolsLean? : Option FilePath)
+: FetchM Unit := do
+  let editableVEnv := modDir / ".venv"
+  let nonEditableVEnv := modDir / ".lake" / "dist-venv"
+  -- The editable and non-editable installs cannot be run in parallel.
+  -- Neither uv or setuptools ensure thread safe access to `*.egg-info`.
+  let editableJob ← withRegisterJob "testModule editable install" <| Job.async do
+    installPyPkg "test" modDir editableVEnv
+      (editable := true) localSetuptoolsLean?
+  let nonEditableJob ← withRegisterJob "testModule non-editable install" do
+    editableJob.mapM fun _ =>
+      installPyPkg "test" modDir nonEditableVEnv
+        (editable := false) localSetuptoolsLean?
+  discard <| withRegisterJob "testModule test (editable)" do
+    editableJob.mapM fun _ =>
+      testEditable editableVEnv modDir
+  discard <| withRegisterJob "testModule test (non-editable)" do
+    nonEditableJob.mapM fun _ => do
+      testNonEditable nonEditableVEnv modDir
+  discard <| withRegisterJob "testModule ty" do
+    editableJob.mapM fun _ =>
+      testTypeCheck editableVEnv modDir
+  discard <| withRegisterJob "testModule lpl" do
+    editableJob.mapM fun _ =>
+      testLPL editableVEnv modDir
+
+@[test_driver]
+script test do
+  runBuild do
+    let pyJob ← pyconfig.fetch
+    let libJob ← Nerodia.fetch
+    let nerodiacJob ← nerodiac.fetch
+    -- Lean tests
+    discard <| NerodiaTests.fetch
+    discard <| withRegisterJob "testExe test" do
+      let exeJob ← testExe.fetch
+      pyJob.bindM (sync := true) fun py =>
+      exeJob.mapM fun exeFile => do
+        let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
+        validateOutput py.version out
+    -- Python extension module tests
+    let localSetuptoolsLean? :=
+      match (← IO.getEnv "LOCAL_SETUPTOOLS_LEAN").bind envToBool? with
+      | some true => some <| __dir__ / "setuptools-lean"
+      | _ => none
+    libJob.bindM (sync := true) fun _ =>
+    nerodiacJob.mapM fun _ => do
+      let testModuleDir := __dir__ / "tests" / "testModule"
+      testModule testModuleDir localSetuptoolsLean?
+  return 0
