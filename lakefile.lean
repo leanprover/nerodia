@@ -82,6 +82,11 @@ lean_lib Nerodia where
 lean_lib Nerodia.Compiler where
   defaultFacets := #[LeanLib.staticFacet, LeanLib.sharedFacet]
 
+-- Deliberately orphaned.
+-- Its initializer creates a persistent Python environment.
+lean_lib Nerodia.Test.Pure where
+  defaultFacets := #[LeanLib.staticFacet, LeanLib.sharedFacet]
+
 /-! ## Nerodiac -/
 
 @[default_target]
