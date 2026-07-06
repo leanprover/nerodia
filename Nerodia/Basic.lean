@@ -60,50 +60,83 @@ memory layout. It is the user's responsibility to ensure this.
 
 end CPtr
 
-/-! ## PyContext -/
-
-private opaque PyContext.nonemptyType : NonemptyType.{0}
+/-! ## PyEnvironment -/
 
 /--
-Reference holder for the Python environment and the global interpreter lock (GIL).
+Reference holder for the Python environment.
 
 Python objects created by Nerodia implicitly hold a reference to the Python
 environment. Thus, the Python environment will not be finalized until all Python
 objects managed by Lean are freed.
+-/
+public structure PyEnvironment where
+  private mk ::
+    private data : Dynamic
+    deriving Nonempty
+
+namespace PyEnvironment
+
+/--
+Returns a reference to the Python environment.
+
+If no Python environment exists yet, it will be initialized.
+-/
+@[extern "nerodia_py_environment_get_or_init"]
+public opaque getOrInit : BaseIO PyEnvironment
+
+end PyEnvironment
+
+
+/-! ## PyContext -/
+
+structure PyContext.Model where
+  mk ::
+    env : PyEnvironment
+    data : Dynamic
+    deriving Nonempty
+
+
+/--
+Reference holder for the Python environment ({name}`PyEnvironment`)
+and the global interpreter lock (GIL).
 
 **Not thread safe.** As a {name}`PyContext` object holds a lock (the GIL),
 it must not be marked persistent or multi-threaded. Any attempt to do so
 will emit a fatal panic. Nerodia ensures this within its API, and users are
 not expected to manage {name}`PyContext` objects manually.
 -/
-public def PyContext := PyContext.nonemptyType.type
+public structure PyContext where
+  private ofModel ::
+    private toModel : PyContext.Model
+    deriving Nonempty
+
 
 namespace PyContext
 
-public instance : Nonempty PyContext := PyContext.nonemptyType.property
+noncomputable opaque mkOpaque (env : PyEnvironment) : BaseIO PyContext
 
 /--
-Returns a reference to the Python environment.
+Constructs a Python context from a Python environment,
+ensuring this thread has the global interpreter lock (GIL).
+-/
+@[extern "nerodia_py_context_mk"]
+public def mk (env : @& PyEnvironment) : BaseIO PyContext :=
+  (ofModel {·.toModel with env}) <$> mkOpaque env
+
+/--
+Returns a reference to this thread's Python context,
+ensuring the thread has the global interpreter lock (GIL).
 
 If no Python environment exists yet, it will be initialized.
-Otherwise, this function acquires the Python global interpreter lock (GIL).
 -/
 @[extern "nerodia_py_context_init"]
-public opaque init : BaseIO PyContext
+public def init : BaseIO PyContext := do
+  mk (← PyEnvironment.getOrInit)
 
-/-- Wraps a strong Python object reference into a memory-managed Lean object. -/
-@[extern "nerodia_py_context_mk_object"]
-public opaque mkObject {α} (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
-  @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
-
-/-- Wraps a borrowed Python object reference into a memory-managed Lean object. -/
-@[extern "nerodia_py_context_mk_object_ref"]
-public opaque mkObjectRef {α} (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull) : α :=
-  @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
-
-/-- Clears the current exception. Does nothing if there is none. -/
-@[extern "nerodia_py_context_clear_error"]
-public opaque clearError (ctx : @& PyContext) : BaseIO Unit
+/-- Returns a reference to the Python environment. -/
+@[extern "nerodia_py_context_env"]
+public def env (ctx : @& PyContext) : PyEnvironment :=
+  ctx.toModel.env
 
 end PyContext
 
@@ -118,6 +151,25 @@ public structure PyObject where
   private mk ::
     private impl : NonScalar
     deriving Nonempty
+
+/-- Wraps a strong Python object reference into a memory-managed Lean object. -/
+@[extern "nerodia_mk_object"]
+public opaque PyEnvironment.mkObjectUnsafe
+  (env : @& PyEnvironment) (ptr : CPtr α) (h : ¬ ptr.IsNull)
+: α := @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
+
+/-- Wraps a strong Python object reference into a memory-managed Lean object. -/
+@[extern "nerodia_mk_object"]
+public abbrev PyContext.mkObjectUnsafe
+  (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull)
+: α := ctx.env.mkObjectUnsafe ptr h
+
+/-- Wraps a borrowed Python object reference into a memory-managed Lean object. -/
+@[extern "nerodia_py_context_mk_object_ref"]
+public opaque PyContext.mkObjectRef
+  (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull)
+: α := @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
+
 
 namespace PyObject
 
@@ -235,30 +287,46 @@ public structure PyBytes extends PyObject where
   private innerMk ::
     deriving Nonempty
 
-/-! ## Builtin Objects -/
+/-! ## Builtin Constants -/
 
-namespace PyContext
+/-- Returns a reference to the {lit}`None` constant. -/
+@[extern "nerodia_none"]
+public opaque PyEnvironment.none (env : @& PyEnvironment) : PyObject
 
-/-! ### Constants -/
+@[extern "nerodia_none", inherit_doc PyEnvironment.none]
+public abbrev PyContext.none (ctx : @& PyContext) : PyObject :=
+  ctx.env.none
 
-@[extern "nerodia_py_context_none"]
-public opaque none (ctx : @& PyContext) : PyObject
-
-/-! ### Type Objects -/
+/-! ## Builtin Type Objects -/
 
 /-- Returns a reference to the type of types (i.e., {lit}`type` in Python). -/
-@[extern "nerodia_py_context_type_type"]
-public opaque typeType (ctx : @& PyContext) : PyType
+@[extern "nerodia_type_type"]
+public opaque PyEnvironment.typeType (env : @& PyEnvironment) : PyType
+
+@[extern "nerodia_type_type", inherit_doc PyEnvironment.typeType]
+public abbrev PyContext.typeType (ctx : @& PyContext) : PyType :=
+  ctx.env.typeType
 
 /-- Returns a reference to the unicode string type (i.e., {lit}`str` in Python). -/
-@[extern "nerodia_py_context_str_type"]
-public opaque strType (ctx : @& PyContext) : PyType
+@[extern "nerodia_str_type"]
+public opaque PyEnvironment.strType (env : @& PyEnvironment) : PyType
 
-end PyContext
+@[extern "nerodia_str_type", inherit_doc PyEnvironment.strType]
+public abbrev PyContext.strType (ctx : @& PyContext) : PyType :=
+  ctx.env.strType
 
 /-! ## Monad -/
 
 /-- Type class of monads equipped with a Python environment. -/
+public class MonadPyEnv (m : Type → Type u) where
+  getPyEnvironment : m PyEnvironment
+
+export MonadPyEnv (getPyEnvironment)
+
+public instance [MonadLift m n] [MonadPyEnv m] : MonadPyEnv n where
+  getPyEnvironment := liftM (m := m) getPyEnvironment
+
+/-- Type class of monads equipped with a Python context. -/
 public class MonadPy (m : Type → Type u) where
   getPyContext : m PyContext
 
@@ -267,13 +335,20 @@ export MonadPy (getPyContext)
 public instance [MonadLift m n] [MonadPy m] :MonadPy n where
   getPyContext := liftM (m := m) getPyContext
 
+public instance [Functor m] [MonadPy m] : MonadPyEnv m where
+  getPyEnvironment := (·.env) <$> getPyContext
+
+/-- Clears the current exception. Does nothing if there is none. -/
+@[extern "nerodia_py_context_clear_error"]
+public opaque PyContext.clearError (ctx : @& PyContext) : BaseIO Unit
+
 @[inline, inherit_doc PyContext.clearError]
 public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
   getPyContext >>= (·.clearError)
 
 /-- Returns the {lit}`None` constant of the Python enviroment. -/
-@[inline] public def getPyNone [Functor m] [MonadPy m] : m PyObject :=
-  (·.none) <$> getPyContext
+@[inline] public def getPyNone [Functor m] [MonadPyEnv m] : m PyObject :=
+  (·.none) <$> getPyEnvironment
 
 /-- A monad transformer to equip a monad with a Python environment. -/
 public abbrev PyT := ReaderT PyContext
@@ -432,7 +507,7 @@ opaque PyContext.systemError! (msg : @& String) (ctx : @& PyContext) : PySystemE
   if h : eptr.IsNull then
     return ctx.unsetException
   else
-    return ctx.mkObject eptr h
+    return ctx.mkObjectUnsafe eptr h
 
 /--
 Runs the {lean}`PyIO` function in {lean}`EIO`.
@@ -464,7 +539,7 @@ If a Python error occurs, it is raised via {name}`throw`.
   if h : ptr.IsNull then
     throw (← ctx.getRaisedException)
   else
-    return ctx.mkObject ptr h
+    return ctx.mkObjectUnsafe ptr h
 
 /--
 Runs the {lean}`CPyIO` function in a supporting monad
@@ -481,7 +556,7 @@ public abbrev toExceptT
   if h : ptr.IsNull then
     .failureUnsafe
   else
-    return ctx.mkObject ptr h
+    return ctx.mkObjectUnsafe ptr h
 
 public instance : MonadLift CPyIO PyIO := ⟨toPyIO⟩
 
@@ -511,7 +586,7 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
     ctx.clearError
     failure
   else
-    return ctx.mkObject ptr h
+    return ctx.mkObjectUnsafe ptr h
 
 /--
 Runs the {lean}`CPyIO` function in a supporting monad
@@ -702,7 +777,7 @@ public instance : MonadRaise CPyIO := ⟨CPyIO.raise⟩
   if h : ptr.IsNull then
     f (← ctx.getRaisedException)
   else
-    return ctx.mkObject ptr h
+    return ctx.mkObjectUnsafe ptr h
 
 end CPyIO
 
@@ -942,7 +1017,7 @@ public class OfPyArg (α : Type) (ty : outParam String) where
 := do OfPyArg.ofPyArg fn (i.toNat+1) ((← getPyContext).mkNthArgUnsafe args i)
 
 /--
-Type class used to construct Python returns from Lean objects.
+Type class used to construct Python return values from Lean objects.
 
 Used by {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
 -/

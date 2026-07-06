@@ -69,6 +69,7 @@ static _Thread_local py_context g_py_ctx = {
   .holders = 0,
 };
 
+static lean_external_class* g_py_environment_external_class = NULL;
 static lean_external_class* g_py_context_external_class = NULL;
 static lean_external_class* g_py_object_external_class = NULL;
 
@@ -99,19 +100,34 @@ static inline void py_finalize(void) {
   PyGILState_Release(g_py_ctx.gil);
 }
 
+static inline void py_ctx_init(void) {
+  g_py_ctx.gil = PyGILState_Ensure();
+}
+
+// Increments the context reference counter.
+// Returns whether the context is new and should be initialized.
+static inline bool py_ctx_acquire(void) {
+  return ++g_py_ctx.holders == 1;
+}
+
 // Must be paired with `py_gil_release`.
 // Never increments the environment reference counter.
 static inline void py_gil_ensure(void) {
-  if (++g_py_ctx.holders == 1) {
-    g_py_ctx.gil = PyGILState_Ensure();
-  }
+  if (py_ctx_acquire()) py_ctx_init();
 }
 
-// Must be paired with `py_gil_emsure`.
+// Must be paired with `py_gil_ensure`.
 // Never decrements the environment reference counter.
 static inline void py_gil_release(void) {
   if (--g_py_ctx.holders == 0) {
     PyGILState_Release(g_py_ctx.gil);
+  }
+}
+
+static void py_environment_finalize(void* p) {
+  if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
+    py_gil_ensure();
+    py_finalize();
   }
 }
 
@@ -144,62 +160,81 @@ static void py_object_finalize(void* p) {
   }
 }
 
-/* init :  BaseIO PyContext */
-LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
+static void py_env_ensure(void) {
   py_mutex_lock();
   if (g_py_env.is_held) {
-    bool new_ctx = (++g_py_ctx.holders == 1);
-    if (new_ctx) {
-      atomic_fetch_add(&g_py_env.holders, 1);
-    }
-    py_mutex_unlock();
-    if (new_ctx) {
-      // must not lock the GIL under mutex to avoid deadlock with finalize
-      g_py_ctx.gil = PyGILState_Ensure();
-    }
-    return lean_alloc_external(g_py_context_external_class, NULL);
-  }
-  if (!g_py_context_external_class) {
-    g_py_context_external_class = lean_register_external_class(
-      py_context_finalize, py_context_foreach);
-  }
-  if (!g_py_object_external_class) {
-    g_py_object_external_class = lean_register_external_class(
-      py_object_finalize, nop_foreach);
-  }
-  if (Py_IsInitialized()) {
-    g_py_env.is_initializer = false;
+    atomic_fetch_add(&g_py_env.holders, 1);
   } else {
-    g_py_env.is_initializer = true;
-    Py_Initialize();
-    // Release the initial GIL and discard the main thread state.
-    // Note: Ideally, we could save the main thread state and restore it in
-    // `py_finalize`. However, there is no clear way to ensure both happen in
-    // the same thread, so we take this approach instead.
-    PyEval_SaveThread();
+    if (!g_py_environment_external_class) {
+      g_py_environment_external_class = lean_register_external_class(
+        py_environment_finalize, nop_foreach);
+    }
+    if (!g_py_context_external_class) {
+      g_py_context_external_class = lean_register_external_class(
+        py_context_finalize, py_context_foreach);
+    }
+    if (!g_py_object_external_class) {
+      g_py_object_external_class = lean_register_external_class(
+        py_object_finalize, nop_foreach);
+    }
+    if (Py_IsInitialized()) {
+      g_py_env.is_initializer = false;
+    } else {
+      g_py_env.is_initializer = true;
+      Py_Initialize();
+      // Release the initial GIL and discard the main thread state.
+      // Note: Ideally, we could save the main thread state and restore it in
+      // `py_finalize`. However, there is no clear way to ensure both happen in
+      // the same thread, so we take this approach instead.
+      PyEval_SaveThread();
+    }
+    g_py_env.is_held = true;
+    atomic_store(&g_py_env.holders, 1);
   }
-  g_py_env.is_held = true;
-  atomic_store(&g_py_env.holders, 1);
   py_mutex_unlock();
-  g_py_ctx.holders = 1;
-  g_py_ctx.gil = PyGILState_Ensure();
+}
+
+/* init :  BaseIO PyEnvironment */
+LEAN_EXPORT lean_obj_res nerodia_py_environment_get_or_init(void) {
+  py_env_ensure();
+  return lean_alloc_external(g_py_environment_external_class, NULL);
+}
+
+/* init :  BaseIO PyContext */
+LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
+  if (py_ctx_acquire()) {
+    py_env_ensure();
+    py_ctx_init();
+  }
   return lean_alloc_external(g_py_context_external_class, NULL);
 }
 
-lean_obj_res nerodia_of_object_core(PyObject* o) {
+/* mk : @& PyEnvironment -> BaseIO PyContext */
+LEAN_EXPORT lean_obj_res nerodia_py_context_mk(b_lean_obj_arg env) {
+  if (py_ctx_acquire()) {
+    atomic_fetch_add(&g_py_env.holders, 1);
+    py_ctx_init();
+  }
+  return lean_alloc_external(g_py_context_external_class, NULL);
+}
+
+/* env :  @& PyContext -> PyEnvironment */
+LEAN_EXPORT lean_obj_res nerodia_py_context_env(b_lean_obj_arg ctx) {
+  atomic_fetch_add(&g_py_env.holders, 1);
+  // Remark: Consider caching this object if performance becomes an issue.
+  return lean_alloc_external(g_py_environment_external_class, NULL);
+}
+
+static inline lean_obj_res nerodia_of_object(PyObject* o, b_lean_obj_arg env_or_ctx) {
+  // convert reference to `env_or_ctx` to a global reference to the Python environment
+  atomic_fetch_add(&g_py_env.holders, 1);
   return lean_alloc_external(g_py_object_external_class, o);
 }
 
-static inline lean_obj_res nerodia_of_object(PyObject* o, b_lean_obj_arg ctx) {
-  // convert reference to `ctx` to a global reference to the Python environment
-  atomic_fetch_add(&g_py_env.holders, 1);
-  return nerodia_of_object_core(o);
-}
-
-static inline lean_obj_res nerodia_of_immortal_object(PyObject* o, b_lean_obj_arg ctx) {
+static inline lean_obj_res nerodia_of_immortal_object(PyObject* o, b_lean_obj_arg env_or_ctx) {
   // Note: Python 3.13+ allows references to immortal objects (e.g., types)
   // to be decremented without an increment, so we can avoid one here.
-  return nerodia_of_object(o, ctx);
+  return nerodia_of_object(o, env_or_ctx);
 }
 
 static inline PyObject* nerodia_to_object(b_lean_obj_arg o) {
@@ -279,9 +314,9 @@ LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
   return (size_t)Py_NewRef(nerodia_to_object(self));
 }
 
-/* mkObject : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
-LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object(b_lean_obj_arg ctx, size_t ptr) {
-  return nerodia_of_object((PyObject*)ptr, ctx);
+/* mkObject : @& PyEnvironment|PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
+LEAN_EXPORT lean_obj_res nerodia_mk_object(b_lean_obj_arg env_or_ctx, size_t ptr) {
+  return nerodia_of_object((PyObject*)ptr, env_or_ctx);
 }
 
 /* mkObjectRef : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
@@ -352,9 +387,9 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_system_error(b_lean_obj_arg msg, b_l
   nerodia_exception_panic();
 }
 
-
-LEAN_EXPORT lean_obj_res nerodia_py_context_none(b_lean_obj_arg ctx) {
-  return nerodia_of_immortal_object(Py_None, ctx);
+/* none : @& PyEnvironment|PyContext -> PyObject */
+LEAN_EXPORT lean_obj_res nerodia_none(b_lean_obj_arg env_or_ctx) {
+  return nerodia_of_immortal_object(Py_None, env_or_ctx);
 }
 
 /* import : @& String -> BaseIO (CPtr PyObject) */
@@ -383,20 +418,24 @@ LEAN_EXPORT lean_obj_res nerodia_py_object_get_type(b_lean_obj_arg self, b_lean_
   return nerodia_of_object(ty, ctx);
 }
 
+/* isTypeInstance : @& PyObject -> Bool */
 LEAN_EXPORT uint8_t nerodia_py_object_is_type_instance(b_lean_obj_arg self) {
   return PyType_Check(nerodia_to_object(self)) != 0;
 }
 
+/* isStrInstance : @& PyObject -> Bool */
 LEAN_EXPORT uint8_t nerodia_py_object_is_str_instance(b_lean_obj_arg self) {
   return PyUnicode_Check(nerodia_to_object(self)) != 0;
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_type_type(b_lean_obj_arg ctx) {
-  return nerodia_of_immortal_object((PyObject*)&PyType_Type, ctx);
+/* typeType : @& PyEnvironment|PyContext -> PyType */
+LEAN_EXPORT lean_obj_res nerodia_type_type(b_lean_obj_arg env_or_ctx) {
+  return nerodia_of_immortal_object((PyObject*)&PyType_Type, env_or_ctx);
 }
 
-LEAN_EXPORT lean_obj_res nerodia_py_context_str_type(b_lean_obj_arg ctx) {
-  return nerodia_of_immortal_object((PyObject*)&PyUnicode_Type, ctx);
+/* strType : @& PyEnvironment|PyContext -> PyType */
+LEAN_EXPORT lean_obj_res nerodia_str_type(b_lean_obj_arg env_or_ctx) {
+  return nerodia_of_immortal_object((PyObject*)&PyUnicode_Type, env_or_ctx);
 }
 
 /* ### Type Objects */
