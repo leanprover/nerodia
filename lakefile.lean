@@ -63,6 +63,7 @@ target nerodia.o pkg : FilePath := do
     let weakArgs := py.includeDirs.map (s!"-I{·}")
       |>.push s!"-I{← getLeanIncludeDir}"
     let traceArgs := pkg.buildType.leancArgs ++ #[
+      "-DLEAN_EXPORTING",
       s!"-DPy_LIMITED_API={minHexVersion}",
       "-fPIC", "-std=c17", "-Wall"
     ]
