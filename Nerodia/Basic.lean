@@ -86,7 +86,6 @@ public opaque getOrInit : BaseIO PyEnvironment
 
 end PyEnvironment
 
-
 /-! ## PyContext -/
 
 structure PyContext.Model where
@@ -94,7 +93,6 @@ structure PyContext.Model where
     env : PyEnvironment
     data : Dynamic
     deriving Nonempty
-
 
 /--
 Reference holder for the Python environment ({name}`PyEnvironment`)
@@ -109,7 +107,6 @@ public structure PyContext where
   private ofModel ::
     private toModel : PyContext.Model
     deriving Nonempty
-
 
 namespace PyContext
 
@@ -129,8 +126,8 @@ ensuring the thread has the global interpreter lock (GIL).
 
 If no Python environment exists yet, it will be initialized.
 -/
-@[extern "nerodia_py_context_init"]
-public def init : BaseIO PyContext := do
+@[extern "nerodia_py_context_get_or_init"]
+public def getOrInit : BaseIO PyContext := do
   mk (← PyEnvironment.getOrInit)
 
 /-- Returns a reference to the Python environment. -/
@@ -464,7 +461,7 @@ Runs the action within the given Python context.
 public instance : MonadLift PyBaseIO PyIO := ⟨toPyIO⟩
 
 @[inline] public nonrec def toBaseIO (x : PyBaseIO α) : BaseIO α := do
-  x.runUnsafe (← PyContext.init)
+  x.runUnsafe (← PyContext.getOrInit)
 
 public instance : MonadEval PyBaseIO BaseIO := ⟨PyBaseIO.toBaseIO⟩
 
@@ -542,7 +539,7 @@ Runs a {lean}`PyIO` action producing a Python object in {lean}`CPyIO`.
 This creates a new temporary Python context for the call.
 -/
 @[inline] public def PyIO.toCPyIO (x : PyIO PyObject) : CPyIO PyObject := .mkUnsafe do
-  let ctx ← PyContext.init
+  let ctx ← PyContext.getOrInit
   match ( ← x.runUnsafe? ctx) with
   | some obj => return obj.newRefUnsafe
   | none => CPyIO.failureUnsafe
@@ -553,7 +550,7 @@ Sequences a {lean}`CPyIO` action after a {lean}`PyIO` action.
 This creates a new temporary Python context for the call.
 -/
 @[inline] public def PyIO.bindCPyIO (x : PyIO α) (f : α → CPyIO β) : CPyIO β := .mkUnsafe do
-  let ctx ← PyContext.init
+  let ctx ← PyContext.getOrInit
   match (← x.runUnsafe? ctx) with
   | some a => f a
   | none => CPyIO.failureUnsafe
@@ -607,7 +604,7 @@ Runs a {lean}`PyIO` action producing nothing in {lean}`CPyUnitIO`.
 This creates a new temporary Python context for the call.
 -/
 @[inline] public def PyIO.toCPyUnitIO (x : PyIO Unit) : CPyUnitIO := .mkUnsafe do
-  let ctx ← PyContext.init
+  let ctx ← PyContext.getOrInit
   match ( ← x.runUnsafe? ctx) with
   | some _ => CPyUnitIO.ok
   | none => CPyUnitIO.failureUnsafe
@@ -686,7 +683,7 @@ As such, it should only be used when another Python context is not available.
 Otherwise, lift {lean}`x` into a supporting monad.
 -/
 @[inline] public def toEIO (x : PyIO α) : EIO PyBaseException α := do
-  let ctx ← PyContext.init
+  let ctx ← PyContext.getOrInit
   (← x.runUnsafe? ctx).getDM do
     throw (← ctx.getRaisedException)
 
@@ -1106,7 +1103,7 @@ public class MkResult (α : Type u) (ty : outParam String) where
   mkResult : α → CPyIO PyObject
 
 public instance : MkResult PUnit "None" where
-  mkResult _ := private .mkUnsafe <| return (← PyContext.init).none.newRefUnsafe
+  mkResult _ := private .mkUnsafe <| return (← PyContext.getOrInit).none.newRefUnsafe
 
 public instance [MkResult α ty] : MkResult (BaseIO α) ty where
   mkResult x := private .mkUnsafe do MkResult.mkResult (← x)
@@ -1393,7 +1390,7 @@ def main : IO Unit := do
 ```
 -/
 @[inline] public def toIO (x : PyIO α) : IO α := do
-  let ctx ← PyContext.init
+  let ctx ← PyContext.getOrInit
   (← x.runUnsafe? ctx).getDM do
     let e ← ctx.getRaisedException
     let e ← e.sprint.runUnsafe ctx

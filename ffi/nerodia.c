@@ -201,7 +201,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_environment_get_or_init(void) {
 }
 
 /* init :  BaseIO PyContext */
-LEAN_EXPORT lean_obj_res nerodia_py_context_init(void) {
+LEAN_EXPORT lean_obj_res nerodia_py_context_get_or_init(void) {
   if (py_ctx_acquire()) {
     py_env_ensure();
     py_ctx_init();

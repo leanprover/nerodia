@@ -24,8 +24,8 @@ releasing the GIL early (unlike Python's GIL state).
 
 #guard_msgs in
 #eval show IO Unit from do
-  let c1 ← PyContext.init -- should take the GIL
-  let c2 ← PyContext.init -- should reuse the GIL state
+  let c1 ← PyContext.getOrInit -- should take the GIL
+  let c2 ← PyContext.getOrInit -- should reuse the GIL state
   Runtime.hold c1 -- release c1 here (should NOT release the GIL)
   Runtime.hold c2 -- release c2 here (fatal if GIL already released)
 
@@ -88,16 +88,16 @@ A fully deterministic test of the race is impossible from Lean.
     let go : IO.Promise Unit ← IO.Promise.new
     let b ← IO.asTask (prio := .dedicated) do
       -- Acquire the context and signal readiness
-      let ctx ← PyContext.init
+      let ctx ← PyContext.getOrInit
       ready.resolve ()
       IO.wait go.result!
       -- On notification, drop it (which triggers finalize).
       Runtime.hold ctx
     -- Once the task holds the only context, release it and initialize here at
-    -- the same time, racing this thread's `init` against the task's finalize.
+    -- the same time, racing this thread's `getOrInit` against the task's finalize.
     IO.wait ready.result!
     go.resolve ()
-    let _ ← PyContext.init
+    let _ ← PyContext.getOrInit
     match b.get with
     | .ok _ => pure ()
     | .error e =>
