@@ -4,61 +4,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
+public import Nerodia.Data.CPtr
 
 /-! # Nerodia -/
 
 namespace Nerodia
-
-/-! ## CPtr -/
-
-/--
-A raw pointer to a Python object.
-
-This pointer is not managed by Lean and must instead be managed by the user.
--/
-public structure CPtr (α : Type u) : Type where
-  private innerMk ::
-    addr : USize
-    private nonempty_of_addr_ne_zero : addr ≠ 0 → Nonempty α
-
-namespace CPtr
-
-public theorem addr_inj : addr a = addr b ↔ a = b := by
-  cases a; cases b; simp
-
-@[inline] public def decEq (a b : CPtr α) : Decidable (a = b) :=
-  let ⟨a, _⟩ := a
-  let ⟨b, _⟩ := b
-  if h : a = b then
-    isTrue (addr_inj.mp h)
-  else
-    isFalse (addr_inj.subst h)
-
-@[inline] instance : DecidableEq (CPtr α) := decEq
-
-@[inline] public def null : CPtr α :=
-  ⟨0, by simp⟩ -- `NULL = 0` on Lean-supported platforms
-
-instance : Inhabited (CPtr α) := ⟨null⟩
-
-public abbrev IsNull (self : CPtr α) : Prop :=
-  self = null
-
-public theorem nonempty_of_not_isNull
-  {p : CPtr α} (h : ¬ IsNull p) : Nonempty α
-:= p.nonempty_of_addr_ne_zero <| by simpa [← addr_inj, null] using h
-
-/--
-Casts a pointer of type {lean}`α` to a pointer of type {lean}`β`.
-
-**This function is not memeory-safe.** While {lean}`f` demonstrates that
-{lean}`α` can be converted into {lean}`β`, it does not prove they have same
-memory layout. It is the user's responsibility to ensure this.
--/
-@[inline] public def castUnsafe  (f : α → β) (p : CPtr α) : CPtr β :=
-  ⟨p.addr, fun h => p.nonempty_of_addr_ne_zero h |>.elim fun a => .intro <| f a⟩
-
-end CPtr
 
 /-! ## PyEnvironment -/
 
@@ -149,47 +99,11 @@ public structure PyObject where
     private impl : NonScalar
     deriving Nonempty
 
-/-- Wraps a strong Python object reference into a memory-managed Lean object. -/
-@[extern "nerodia_mk_object"]
-public opaque PyEnvironment.mkObjectUnsafe
-  (env : @& PyEnvironment) (ptr : CPtr α) (h : ¬ ptr.IsNull)
-: α := @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
-
-/-- Wraps a strong Python object reference into a memory-managed Lean object. -/
-@[extern "nerodia_mk_object"]
-public abbrev PyContext.mkObjectUnsafe
-  (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull)
-: α := ctx.env.mkObjectUnsafe ptr h
-
-/-- Wraps a borrowed Python object reference into a memory-managed Lean object. -/
-@[extern "nerodia_py_context_mk_object_ref"]
-public opaque PyContext.mkObjectRef
-  (ctx : @& PyContext) (ptr : CPtr α) (h : ¬ ptr.IsNull)
-: α := @Classical.ofNonempty (α := α) (ptr.nonempty_of_not_isNull h)
-
-
 namespace PyObject
 
 /-- Returns the address of the Python object (not the Lean wrapper). -/
 @[extern "nerodia_py_object_addr"]
-public opaque addr (self : @& PyObject) : USize
-
-/--
-Returns a borrowed reference to Python object's raw unmanaged C pointer.
-
-**Memoery Safety:** Users must ensure the pointer does not outlive {lean}`self`.
--/
-@[inline] def borrowRefUnsafe (self : @& PyObject) : CPtr PyObject :=
-  ⟨self.addr, fun _ => ⟨self⟩⟩
-
-/--
-Returns a new strong reference to Python object's raw unmanaged C pointer.
-
-**Memory Safety:** Users must ensure the reference is eventually consumed.
--/
-@[extern "nerodia_py_object_new_ref"]
-def newRefUnsafe (self : @& PyObject) : CPtr PyObject :=
-  ⟨self.addr, fun _ => ⟨self⟩⟩
+public opaque addr (self : @& PyObject) : Addr
 
 /-!
 ### Builtin Type Checking
@@ -309,6 +223,133 @@ public opaque PyEnvironment.strType (env : @& PyEnvironment) : PyType
 @[extern "nerodia_str_type", inherit_doc PyEnvironment.strType]
 public abbrev PyContext.strType (ctx : @& PyContext) : PyType :=
   ctx.env.strType
+
+/-! ## CPyResult -/
+
+/--
+A raw strong reference to a Python object.
+
+**Not memory safe.** The reference's lifetime must be manually managed.
+It is not managed by Lean. Nerodia handles this within its API, and users are
+not expected to manage {name}`CPy` objects manually.
+-/
+public structure CPy (α : Type u) extends toCPtrUnsafe : CPtr α where
+  /--
+  Constructs a {name}`CPy` from a raw Python object pointer,
+  with both sharing the strong reference.
+
+  **Memory Safety:** Users must ensure the pointer is a strong reference
+  and manually manage the reference's lifetime.
+  -/
+  private ofCPtrUnsafe ::
+    deriving Nonempty, DecidableEq
+
+
+/--
+Converts the {name}`CPy` to a raw Pyton object pointer,
+with both sharing the strong reference.
+
+**Memory Safety:** Users must manually manage the reference's lifetime.
+-/
+add_decl_doc CPy.toCPtrUnsafe
+
+/-! ## CPyResult -/
+
+/--
+The result of a Python C API function returning a Python object.
+
+Implementation-wise, this is either {lit}`NULL` or a raw strong reference
+to a Python object. {lit}`NULL` indicates an exception has been raised.
+
+**Not memory safe.** The result's lifetime must be manually managed.
+It is not managed by Lean. Nerodia handles this within its API, and users are
+not expected to manage {name}`CPyResult` objects manually.
+-/
+public structure CPyResult (α : Type u) extends toNullableCPtrUnsafe : NullableCPtr α where
+  /--
+  Constructs a result from a raw Python object pointer
+  (or {name}`null`), with both sharing the strong reference.
+
+  **Safety**
+  * **Correctness:** Users should ensure that an exception is set if {name}`null`.
+  * **Memory:** Users must ensure the pointer is a strong reference
+  and manually manage the reference's lifetime.
+  -/
+  private ofNullableCPtrUnsafe ::
+    deriving DecidableEq
+
+/--
+Wraps a strong Python object reference into a memory-managed Lean object,
+stealing the reference.
+
+**Memory Safety:** {lean}`o` is now borrowed, so its reference must not be
+consumed and uses must not outlive the returned Lean object.
+-/
+@[extern "nerodia_mk_object"]
+public opaque PyEnvironment.mkObjectUnsafe (env : @& PyEnvironment) (o : CPy α) : α :=
+  Classical.choice o.nonempty
+
+@[extern "nerodia_mk_object", inherit_doc PyEnvironment.mkObjectUnsafe]
+public abbrev PyContext.mkObjectUnsafe (ctx : @& PyContext) (o : CPy α) : α :=
+  ctx.env.mkObjectUnsafe o
+
+/--
+Returns a new strong reference to Python object's raw unmanaged C pointer.
+
+**Memory Safety:** Users must ensure the reference is eventually consumed.
+-/
+@[extern "nerodia_py_object_new_ref"]
+def PyObject.newRefUnsafe (self : @& PyObject) : CPy PyObject :=
+  .ofCPtrUnsafe (.ofAddrNoncomputable self.addr)
+
+namespace CPyResult
+
+/--
+Returns the result's raw Python object pointer (or {name}`null`).
+
+**Safety**
+* **Correctness:** Users must ensure that the set exception is eventually
+handled if {name}`null`.
+* **Memory:** Users must manually manage the reference's lifetime.
+-/
+add_decl_doc toNullableCPtrUnsafe
+
+/--
+Constructs a successful {lean}`CPyResult` returning {lean}`o`,
+sharing the single strong reference between them.
+
+**Memory Safety:** Users must manually manage the reference's lifetime.
+-/
+@[inline] def ofCPyUnsafe (o : CPy α) : CPyResult α :=
+  .ofNullableCPtrUnsafe o.toCPtrUnsafe
+
+/--
+Constructs a {lean}`CPyResult` indicating failure.
+
+**Safety:** Users should ensure that an exception is set.
+-/
+@[inline] public def failureUnsafe : CPyResult α :=
+  ⟨null⟩
+
+public instance : Inhabited (CPyResult α) := ⟨failureUnsafe⟩
+
+public abbrev IsFailure (self : CPyResult α) : Prop :=
+  self.IsNull
+
+/--
+Constructs a {name}`CPy` from a successful {name}`CPyResult`,
+sharing the single strong reference between them.
+
+**Memory Safety:** Users must manually manage the reference's lifetime.
+-/
+@[inline] def toCPyUnsafe (self : CPyResult α) (h : ¬ self.IsFailure) : CPy α :=
+  .ofCPtrUnsafe (.ofNullableCPtr self.toNullableCPtrUnsafe h)
+
+end CPyResult
+
+@[inline, inherit_doc PyEnvironment.mkObjectUnsafe]
+public def PyContext.mkResultUnsafe (ctx : @& PyContext) (r : CPyResult α) (h : ¬ r.IsFailure) : α :=
+  ctx.env.mkObjectUnsafe (r.toCPyUnsafe h)
 
 /-! ## MonadPy -/
 
@@ -500,15 +541,13 @@ Not a monad itself, but lifts into monads equipped with a Python environment.
 -/
 @[expose] -- for codegen
 public def CPyIO (α) :=
-  BaseIO (CPtr α)
+  BaseIO (CPyResult α)
 
 namespace CPyIO
 
 /-- Constructs a {lean}`CPyIO` function from its definition.  -/
-@[inline] public def mkUnsafe (x : BaseIO (CPtr α)) : CPyIO α :=
+@[inline] public def mkUnsafe (x : BaseIO (CPyResult α)) : CPyIO α :=
   x
-
-public instance : Nonempty (CPyIO α) := ⟨mkUnsafe <| pure .null⟩
 
 /--
 Runs the {lean}`CPyIO` function, returning the raw, unmanaged pointer.
@@ -516,8 +555,12 @@ Runs the {lean}`CPyIO` function, returning the raw, unmanaged pointer.
 **Memory Safety:** Users must ensure a Python environment exists
 and that the returned pointer does not outlive it.
 -/
-@[inline] def runUnsafe (x : CPyIO α) : BaseIO (CPtr α) :=
+@[inline] def runUnsafe (x : CPyIO α) : BaseIO (CPyResult α) :=
   x
+
+/-- Constructs a successful {lean}`CPyIO` that returns {lean}`o`. -/
+@[inline] def ok (o : PyObject) : CPyIO PyObject :=
+  mkUnsafe <| pure <| .ofCPyUnsafe o.newRefUnsafe
 
 /--
 Constructs a {lean}`CPyIO` that fails.
@@ -525,7 +568,9 @@ Constructs a {lean}`CPyIO` that fails.
 **Safety:** Users should ensure that an exception is set.
 -/
 @[inline] def failureUnsafe : CPyIO α :=
-  mkUnsafe <| pure .null
+  mkUnsafe <| pure .failureUnsafe
+
+public instance : Nonempty (CPyIO α) := ⟨failureUnsafe⟩
 
 /-- Converts a {lean}`CPyIO` returning a typed Python object into untyped general object. -/
 @[inline] public def cast (x : CPyIO α) : CPyIO PyObject :=
@@ -541,7 +586,7 @@ This creates a new temporary Python context for the call.
 @[inline] public def PyIO.toCPyIO (x : PyIO PyObject) : CPyIO PyObject := .mkUnsafe do
   let ctx ← PyContext.getOrInit
   match ( ← x.runUnsafe? ctx) with
-  | some obj => return obj.newRefUnsafe
+  | some obj => CPyIO.ok obj
   | none => CPyIO.failureUnsafe
 
 /--
@@ -655,23 +700,19 @@ opaque PyContext.systemError! (msg : @& String) (ctx : @& PyContext) : PySystemE
 @[inline] public protected def PyContext.getRaisedException
   (ctx : PyContext)
 : BaseIO PyBaseException := do
-  let eptr ← getRaisedException.runUnsafe
-  if h : eptr.IsNull then
+  let res ← getRaisedException.runUnsafe
+  if h : res.IsFailure then
     return ctx.unsetException
   else
-    return ctx.mkObjectUnsafe eptr h
+    return ctx.mkResultUnsafe res h
 
 /--
 Sets the currently raised exception to {lean}`e`.
-If {lean}`e.IsNull`, this just clears the exception.
 
-**Safety**
-* **Correctness:** Users must ensure the exception is handled or signaled.
-* **Memory:** Users must ensure that {lean}`e` is still alive if it is not
-{lean}`CPtr.null`.
+**Safety:** Users must ensure the exception is handled or signaled.
 -/
 @[extern "nerodia_set_raised_exception"]
-opaque setRaisedExceptionUnsafe (e : CPtr PyBaseException) : BaseIO Unit
+opaque setRaisedExceptionUnsafe (e : @& PyBaseException) : BaseIO Unit
 
 namespace PyIO
 
@@ -689,7 +730,7 @@ Otherwise, lift {lean}`x` into a supporting monad.
 
 /-- Raises the exception {lean}`e`. -/
 @[inline] public protected def raise (e : PyBaseException) : PyIO α := do
-  setRaisedExceptionUnsafe (e.newRefUnsafe.castUnsafe (⟨·⟩))
+  setRaisedExceptionUnsafe e
   PyIO.failureUnsafe
 
 public instance : MonadRaise PyIO := ⟨PyIO.raise⟩
@@ -766,11 +807,11 @@ If a Python error occurs, it is raised via {name}`throw`.
   (x : CPyIO α)
 : m α := do
   let ctx ← getPyContextUnsafe
-  let ptr ← x.runUnsafe
-  if h : ptr.IsNull then
+  let res ← x.runUnsafe
+  if h : res.IsFailure then
     throw (← ctx.getRaisedException)
   else
-    return ctx.mkObjectUnsafe ptr h
+    return ctx.mkResultUnsafe res h
 
 /--
 Runs the {lean}`CPyIO` function in a supporting monad
@@ -783,11 +824,11 @@ public abbrev toExceptT
 /-- Lifts the {lean}`CPyIO` function into {lean}`PyIO`, reusing its Python context. -/
 @[inline] public def toPyIO (x : CPyIO α) : PyIO α := do
   let ctx ← getPyContextUnsafe
-  let ptr ← x.runUnsafe
-  if h : ptr.IsNull then
+  let res ← x.runUnsafe
+  if h : res.IsFailure then
     .failureUnsafe
   else
-    return ctx.mkObjectUnsafe ptr h
+    return ctx.mkResultUnsafe res h
 
 public instance : MonadLift CPyIO PyIO := ⟨toPyIO⟩
 
@@ -812,12 +853,12 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
   (x : CPyIO α)
 : m α := do
   let ctx ← getPyContextUnsafe
-  let ptr ← x.runUnsafe
-  if h : ptr.IsNull then
+  let res ← x.runUnsafe
+  if h : res.IsFailure then
     ctx.clearError
     failure
   else
-    return ctx.mkObjectUnsafe ptr h
+    return ctx.mkResultUnsafe res h
 
 /--
 Runs the {lean}`CPyIO` function in a supporting monad
@@ -835,20 +876,10 @@ public abbrev run?
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
 : m (Option α) := x.toOptionT.run
 
-/--
-Clears any current exception and raises {lean}`e`.
-If {lean}`e.IsNull`, just clears the exception.
-
-**Memory Safety:**  Users must ensure that {lean}`e` is still alive
-if it is not {lean}`CPtr.null`.
--/
-@[inline] def raiseUnsafe (e : CPtr PyBaseException) : CPyIO α := .mkUnsafe do
-  setRaisedExceptionUnsafe e
-  CPyIO.failureUnsafe
-
 /-- Raises the exception {lean}`e`.  -/
 @[inline] public protected def raise (e : PyBaseException) : CPyIO α := .mkUnsafe do
-  raiseUnsafe (e.newRefUnsafe.castUnsafe (⟨·⟩))
+  setRaisedExceptionUnsafe e
+  CPyIO.failureUnsafe
 
 public instance : MonadRaise CPyIO := ⟨CPyIO.raise⟩
 
@@ -857,11 +888,11 @@ public instance : MonadRaise CPyIO := ⟨CPyIO.raise⟩
   (x : CPyIO α) (f : PyBaseException → m α)
 : m α := do
   let ctx ← getPyContextUnsafe
-  let ptr ← x.runUnsafe
-  if h : ptr.IsNull then
+  let res ← x.runUnsafe
+  if h : res.IsFailure then
     f (← ctx.getRaisedException)
   else
-    return ctx.mkObjectUnsafe ptr h
+    return ctx.mkResultUnsafe res h
 
 end CPyIO
 
@@ -925,6 +956,50 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
 
 end CPyUnitIO
 
+/-! ## CPyArg -/
+
+/--
+A raw Python function argument (a borrowed Python object reference).
+
+**Not memory safe.** The reference must not escape the function.
+This is not managed by Lean. Nerodia handles this within its API, and users are
+not expected to manage {name}`TCPyArg` objects manually.
+-/
+public structure TCPyArg (α : Type u) where
+  private ofCPtrUnsafe ::
+    private toCPtrUnsafe : CPtr α
+
+@[inherit_doc TCPyArg]
+public abbrev CPyArg := TCPyArg PyObject
+
+/--
+Wraps a borrowed Python object reference into a memory-managed Lean object.
+
+**Memory Safety:** Users must ensure the reference currently valid
+(e.g., it has not escaped its original function).
+-/
+@[extern "nerodia_py_context_mk_arg"]
+def PyContext.mkArgUnsafe (ctx : @& PyContext) (arg : TCPyArg α) : α :=
+  Classical.choice arg.toCPtrUnsafe.nonempty
+
+/--
+A raw C pointer array of Python function arguments
+(borrowed Python object references).
+
+**Not memory safe.** The references must not escape the function.
+This is not managed by Lean. Nerodia handles this within its API, and users are
+not expected to manage {name}`TCPyArg` objects manually.
+ -/
+public structure CPyArgs where
+  private ofAddrUnsafe ::
+    private addr : Addr
+
+@[extern "nerodia_py_context_mk_args"]
+opaque PyContext.mkArgsUnsafe (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyObject
+
+@[extern "nerodia_py_context_mk_nth_arg"]
+opaque PyContext.mkNthArgUnsafe (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyObject
+
 /-! ## Python Methods -/
 
 @[extern "nerodia_set_py_type_error"]
@@ -933,33 +1008,20 @@ opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
 /-- Raises a {lean}`PyTypeError` with the given message {lean}`msg`. -/
 @[inline] public def raisePyTypeError (msg : String) : CPyIO α := .mkUnsafe do
   setPyTypeErrorUnsafe msg
-  return .null
+  return .failureUnsafe
 
 /-- Raises a {lean}`PyTypeError` indicating {lit}`fn` was called with the wrong number of arguments. -/
 @[inline] def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α :=
   raisePyTypeError s!"{fn} takes exactly {expected} arguments ({given} given)"
 
-/-- A raw C object pointer provided as a Python function argument. -/
-public structure TCPyArg (α : Type u) where
-  private mk ::
-    private ptr : CPtr α
-    private not_isNull_ptr : ¬ ptr.IsNull
-
-/-- A raw C object pointer provided as a Python function argument. -/
-public abbrev CPyArg := TCPyArg PyObject
-
-@[inline] def PyContext.mkArgUnsafe (ctx : PyContext) (arg : TCPyArg α) : α :=
-  ctx.mkObjectRef arg.ptr arg.not_isNull_ptr
-
 /-- The type of a Python method with no arguments. -/
 @[expose] -- for codegen
 public def PyMethNoArgs :=
-  (self : CPyArg) → (arg : CPtr PyObject) →
-  (h_arg : arg.IsNull) → CPyIO PyObject
+  (self : CPyArg) → Null → CPyIO PyObject
 
 @[inline] public def PyMethNoArgs.ofPyIO
   (x : (self : PyObject) → PyIO PyObject)
-: PyMethNoArgs := fun self _ _ => PyIO.toCPyIO do
+: PyMethNoArgs := fun self _ => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
   x self
@@ -970,18 +1032,7 @@ public def PyMethNoArgs :=
 
 @[inline] public def PyMethNoArgs.ofCPyIO
   (x : CPyIO PyObject)
-: PyMethNoArgs := fun _ _ _ => x
-
-/-- A raw C array of Python function arguments. -/
-public structure CPyArgs where
-  private mk ::
-    private addr : USize
-
-@[extern "nerodia_py_context_mk_args"]
-opaque PyContext.mkArgsUnsafe (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyObject
-
-@[extern "nerodia_py_context_mk_nth_arg"]
-opaque PyContext.mkNthArgUnsafe (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyObject
+: PyMethNoArgs := fun _ _ => x
 
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
@@ -1102,8 +1153,12 @@ Used by {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
 public class MkResult (α : Type u) (ty : outParam String) where
   mkResult : α → CPyIO PyObject
 
+-- TODO: Should be `CPyBaseIO`
+@[inline] public def getCPyNone : CPyIO PyObject := .mkUnsafe do
+  CPyIO.ok (← PyContext.getOrInit).none
+
 public instance : MkResult PUnit "None" where
-  mkResult _ := private .mkUnsafe <| return (← PyContext.getOrInit).none.newRefUnsafe
+  mkResult _ := getCPyNone
 
 public instance [MkResult α ty] : MkResult (BaseIO α) ty where
   mkResult x := private .mkUnsafe do MkResult.mkResult (← x)

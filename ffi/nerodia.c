@@ -314,13 +314,13 @@ LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
   return (size_t)Py_NewRef(nerodia_to_object(self));
 }
 
-/* mkObject : @& PyEnvironment|PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
+/* mkObjectUnsafe : @& PyEnvironment|PyContext -> CPy α -> α */
 LEAN_EXPORT lean_obj_res nerodia_mk_object(b_lean_obj_arg env_or_ctx, size_t ptr) {
   return nerodia_of_object((PyObject*)ptr, env_or_ctx);
 }
 
-/* mkObjectRef : @& PyContext -> (ptr : CPtr α) -> ¬ ptr.IsNull -> α */
-LEAN_EXPORT lean_obj_res nerodia_py_context_mk_object_ref(b_lean_obj_arg ctx, size_t ptr) {
+/* mkArgUnsafe : @& PyContext ->  CPyArg α -> α */
+LEAN_EXPORT lean_obj_res nerodia_py_context_mk_arg(b_lean_obj_arg ctx, size_t ptr) {
   return nerodia_of_object(Py_NewRef((PyObject*)ptr), ctx);
 }
 
@@ -350,9 +350,9 @@ LEAN_EXPORT size_t nerodia_get_raised_exception(void) {
   return (size_t)PyErr_GetRaisedException();
 }
 
-/* CPtr PyBaseException -> BaseIO Unit */
-LEAN_EXPORT lean_obj_res nerodia_set_raised_exception(size_t e) {
-  PyErr_SetRaisedException((PyObject*)e);
+/* PyBaseException -> BaseIO Unit */
+LEAN_EXPORT lean_obj_res nerodia_set_raised_exception(b_lean_obj_arg e) {
+  PyErr_SetRaisedException((PyObject*)Py_NewRef(nerodia_to_object(e)));
   return lean_box(0);
 }
 
