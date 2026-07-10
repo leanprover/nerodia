@@ -392,7 +392,7 @@ LEAN_EXPORT lean_obj_res nerodia_none(b_lean_obj_arg env_or_ctx) {
   return nerodia_of_immortal_object(Py_None, env_or_ctx);
 }
 
-/* import : @& String -> BaseIO (CPtr PyObject) */
+/* import : @& String -> CPyIO PyObject */
 LEAN_EXPORT size_t nerodia_import(b_lean_obj_arg mod_name) {
   return (size_t)PyImport_ImportModule(lean_string_cstr(mod_name));
 }
@@ -405,17 +405,16 @@ LEAN_EXPORT int32_t nerodia_py_module_add_by_string
     lean_string_cstr(name), nerodia_to_object(val));
 }
 
-/* getAttrByString : @& String -> BaseIO (CPtr PyObject) */
+/* getAttrByString : @& String -> CPyIO PyObject */
 LEAN_EXPORT size_t nerodia_py_object_get_attr_by_string(b_lean_obj_arg self, b_lean_obj_arg attr_name) {
   return (size_t)PyObject_GetAttrString(nerodia_to_object(self), lean_string_cstr(attr_name));
 }
 
 /* ### Types */
 
-/** getType : @& PyObject -> PyBaseIO PyType  */
-LEAN_EXPORT lean_obj_res nerodia_py_object_get_type(b_lean_obj_arg self, b_lean_obj_arg ctx) {
-  PyObject* ty = Py_NewRef((PyObject*)Py_TYPE(nerodia_to_object(self)));
-  return nerodia_of_object(ty, ctx);
+/** getType : @& PyObject -> CPyBaseIO PyType  */
+LEAN_EXPORT size_t nerodia_py_object_get_type(b_lean_obj_arg self) {
+  return (size_t)Py_NewRef((PyObject*)Py_TYPE(nerodia_to_object(self)));
 }
 
 /* isTypeInstance : @& PyObject -> Bool */
@@ -455,7 +454,7 @@ LEAN_EXPORT uint8_t nerodia_py_type_is_immutable(b_lean_obj_arg self) {
 
 /** ### Strings */
 
-/* mkPyStr : @& String -> BaseIO (CPtr PyStr) */
+/* mkPyStr : @& String -> CPyIO PyStr */
 LEAN_EXPORT size_t nerodia_mk_py_str(b_lean_obj_arg s) {
   // Lean strings include a null-terminator.
   // `FromStringAndSize` does not expect one, so use `size-1`.
@@ -464,12 +463,12 @@ LEAN_EXPORT size_t nerodia_mk_py_str(b_lean_obj_arg s) {
     lean_string_cstr(s), lean_string_size(s)-1);
 }
 
-/* str : @& PyObject -> BaseIO (CPtr PyStr) */
+/* str : @& PyObject -> CPyIO PyStr */
 LEAN_EXPORT size_t nerodia_py_object_str(b_lean_obj_arg o) {
   return (size_t)PyObject_Str(nerodia_to_object(o));
 }
 
-/* repr : @& PyObject -> BaseIO (CPtr PyStr) */
+/* repr : @& PyObject -> CPyIO PyStr */
 LEAN_EXPORT size_t nerodia_py_object_repr(b_lean_obj_arg o) {
   return (size_t)PyObject_Repr(nerodia_to_object(o));
 }
@@ -509,7 +508,7 @@ LEAN_EXPORT size_t nerodia_py_str_encode(
     lean_string_cstr(encoding), lean_string_cstr(errors));
 }
 
-/* utf8Encode : @& PyStr -> BaseIO (CPtr PyBytes) */
+/* utf8Encode : @& PyStr -> CPyIO PyBytes */
 LEAN_EXPORT size_t nerodia_py_str_encode_utf8(b_lean_obj_arg o) {
   return (size_t)PyUnicode_AsUTF8String(nerodia_to_object(o));
 }
@@ -533,7 +532,7 @@ LEAN_EXPORT size_t nerodia_py_object_decode(
 
 /** ### Bytes */
 
-/* mkPyBytes : @& ByteArray -> BaseIO (CPtr PyBytes) */
+/* mkPyBytes : @& ByteArray -> CPyIO PyBytes */
 LEAN_EXPORT size_t nerodia_mk_py_bytes(b_lean_obj_arg self) {
   return (size_t)PyBytes_FromStringAndSize(
     (const char *)lean_sarray_cptr(self), lean_sarray_size(self));
