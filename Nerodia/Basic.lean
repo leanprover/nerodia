@@ -5,87 +5,13 @@ Authors: Mac Malone
 -/
 module
 public import Nerodia.Data.CPtr
+public import Nerodia.Data.Codec
+public import Nerodia.Control.MonadPy
+public import Nerodia.Control.PyIO.Basic
 
 /-! # Nerodia -/
 
 namespace Nerodia
-
-/-! ## PyEnvironment -/
-
-/--
-Reference holder for the Python environment.
-
-Python objects created by Nerodia implicitly hold a reference to the Python
-environment. Thus, the Python environment will not be finalized until all Python
-objects managed by Lean are freed.
--/
-public structure PyEnvironment where
-  private mk ::
-    private data : Dynamic
-    deriving Nonempty
-
-namespace PyEnvironment
-
-/--
-Returns a reference to the Python environment.
-
-If no Python environment exists yet, it will be initialized.
--/
-@[extern "nerodia_py_environment_get_or_init"]
-public opaque getOrInit : BaseIO PyEnvironment
-
-end PyEnvironment
-
-/-! ## PyContext -/
-
-structure PyContext.Model where
-  mk ::
-    env : PyEnvironment
-    data : Dynamic
-    deriving Nonempty
-
-/--
-Reference holder for the Python environment ({name}`PyEnvironment`)
-and the global interpreter lock (GIL).
-
-**Not thread safe.** As a {name}`PyContext` object holds a lock (the GIL),
-it must not be marked persistent or multi-threaded. Any attempt to do so
-will emit a fatal panic. Nerodia ensures this within its API, and users are
-not expected to manage {name}`PyContext` objects manually.
--/
-public structure PyContext where
-  private ofModel ::
-    private toModel : PyContext.Model
-    deriving Nonempty
-
-namespace PyContext
-
-noncomputable opaque mkOpaque (env : PyEnvironment) : BaseIO PyContext
-
-/--
-Constructs a Python context from a Python environment,
-ensuring this thread has the global interpreter lock (GIL).
--/
-@[extern "nerodia_py_context_mk"]
-public def mk (env : @& PyEnvironment) : BaseIO PyContext :=
-  (ofModel {·.toModel with env}) <$> mkOpaque env
-
-/--
-Returns a reference to this thread's Python context,
-ensuring the thread has the global interpreter lock (GIL).
-
-If no Python environment exists yet, it will be initialized.
--/
-@[extern "nerodia_py_context_get_or_init"]
-public def getOrInit : BaseIO PyContext := do
-  mk (← PyEnvironment.getOrInit)
-
-/-- Returns a reference to the Python environment. -/
-@[extern "nerodia_py_context_env"]
-public def env (ctx : @& PyContext) : PyEnvironment :=
-  ctx.toModel.env
-
-end PyContext
 
 /-! ## PyObject -/
 
@@ -323,188 +249,7 @@ sharing the single strong reference between them.
 
 end CPyResult
 
-/-! ## MonadPy -/
-
-/-- Type class of monads equipped with a Python environment. -/
-public class MonadPyEnv (m : Type → Type u) where
-  getPyEnvironment : m PyEnvironment
-
-export MonadPyEnv (getPyEnvironment)
-
-public instance [MonadLift m n] [MonadPyEnv m] : MonadPyEnv n where
-  getPyEnvironment := liftM (m := m) getPyEnvironment
-
-/-- Type class of monads equipped with a Python context. -/
-public class MonadPy (m : Type → Type u) where
-  /--
-  Returns the Python context of the monad.
-
-  **Thread Safety:** Users must ensure the {name}`PyContext` does
-  not cross thread boundaries.
-  -/
-  getPyContextUnsafe : m PyContext
-
-export MonadPy (getPyContextUnsafe)
-
-public instance [MonadLift m n] [MonadPy m] :MonadPy n where
-  getPyContextUnsafe := liftM (m := m) getPyContextUnsafe
-
-public instance [Functor m] [MonadPy m] : MonadPyEnv m where
-  getPyEnvironment := (·.env) <$> getPyContextUnsafe
-
-/-- Returns the {lit}`None` constant of the Python enviroment. -/
-@[inline] public def getPyNone [Functor m] [MonadPyEnv m] : m PyObject :=
-  (·.none) <$> getPyEnvironment
-
-/-! ## Monad Types -/
-
-/-
-Any definition that signals an exception without handling it is unsafe.
-Python [expects][1] exceptions to be handled and [requires][2] that futher
-Python functions are not called while an exception is set.
-
-[1]: https://docs.python.org/3/c-api/exceptions.html#exception-handling
-[2]: https://github.com/python/cpython/issues/67759
-
-Definitions that signal an exception without setting are also unsafe.
-While CPython [will][3] set its own exception if an FFI call returns `NULL`
-without setting one, relying on this would be contray to the specification.
-
-[3]: https://github.com/python/cpython/blob/v3.14.5/Objects/call.c#L31-L46
--/
-
-/-- The primary monad for impure code using Python. -/
-@[expose] -- for codegen
-public def PyIO (α) :=
-  ReaderT PyContext BaseIO (Option α)
-
-namespace PyIO
-
-/--
-Constructs a {lean}`PyIO` from its definition.
-
-**Safety:** Users should ensure that an exception is set on {lean}`x`'s failure.
--/
-@[inline] def mkUnsafe (x : ReaderT PyContext (OptionT BaseIO) α) : PyIO α :=
-  x
-
-/--
-Runs the {lean}`PyIO` function, returning {lean}`none` if an exception was raised.
-
-**Safety**
-* **Correctness:** Users must handle a raised exception.
-* **Thread:** Users must ensure that {lean}`ctx` does not cross thread boundaries.
--/
-@[inline] def runUnsafe? (ctx : PyContext) (x : PyIO α) : BaseIO (Option α) :=
-  x ctx
-
-@[inline, inherit_doc getPyContextUnsafe]
-public protected def getPyContextUnsafe : PyIO PyContext :=
-  mkUnsafe read
-
-public instance : MonadPy PyIO := ⟨PyIO.getPyContextUnsafe⟩
-
-/--
-Constructs a {lean}`PyIO` that fails.
-
-**Safety:** Users should ensure that an exception is set.
--/
-@[inline] def failureUnsafe : PyIO α :=
-  mkUnsafe failure
-
-@[inline, inherit_doc pure]
-public protected def pure (a : α) : PyIO α :=
-  mkUnsafe <| pure a
-
-public instance : Pure PyIO := ⟨PyIO.pure⟩
-
-@[inline, inherit_doc Functor.map]
-public protected def map (f : α → β) (x : PyIO α) : PyIO β :=
-  mkUnsafe <| Functor.map f x
-
-public instance : Functor PyIO where map := PyIO.map
-
-@[inline, inherit_doc bind]
-public protected def bind (x : PyIO α) (f : α → PyIO β) : PyIO β :=
-  mkUnsafe <| bind x f
-
--- Internally used by `@[py_module_fn]`
-public instance : Bind PyIO := ⟨PyIO.bind⟩
-
-public instance : Monad PyIO := {}
-
-end PyIO
-
-/-- A monad for impure code using Python. Unlike {lean}`PyIO`, it cannot error. -/
-@[expose] -- for codegen
-public def PyBaseIO :=
-  ReaderT PyContext BaseIO
-
-namespace PyBaseIO
-
-/--
-Constructs a {lean}`PyBaseIO` from its definition.
-
-**Thread Safety:** Users must ensure the {lean}`PyContext` does not cross
-thread boundaries.
--/
-@[inline] public def mkUnsafe (x : ReaderT PyContext BaseIO α)  : PyBaseIO α :=
-  x
-
-@[inline] public def ofBaseIO (x : BaseIO α)  : PyBaseIO α :=
-  mkUnsafe x
-
-public instance : MonadLift BaseIO PyBaseIO := ⟨ofBaseIO⟩
-
-/--
-Runs the action within the given Python context.
-
-**Thread Safety:** Users must ensure {lean}`ctx` does not cross thread boundaries.
--/
-@[inline] public def runUnsafe (ctx : PyContext) (x : PyBaseIO α)  : BaseIO α :=
-  x.run ctx
-
-/-- Runs the action within the given Python environment. -/
-@[inline] public def run (env : PyEnvironment) (x : PyBaseIO α) : BaseIO α := do
-  x.runUnsafe (← PyContext.mk env)
-
-@[inline] public def toPyIO (x : PyBaseIO α) : PyIO α := .mkUnsafe fun ctx =>
-  liftM <| x.runUnsafe ctx
-
-public instance : MonadLift PyBaseIO PyIO := ⟨toPyIO⟩
-
-@[inline] public nonrec def toBaseIO (x : PyBaseIO α) : BaseIO α := do
-  x.runUnsafe (← PyContext.getOrInit)
-
-public instance : MonadEval PyBaseIO BaseIO := ⟨PyBaseIO.toBaseIO⟩
-
-@[inline, inherit_doc getPyContextUnsafe]
-public protected def getPyContextUnsafe : PyBaseIO PyContext :=
-  mkUnsafe read
-
-public instance : MonadPy PyBaseIO := ⟨PyBaseIO.getPyContextUnsafe⟩
-
-@[inline, inherit_doc pure]
-public protected def pure (a : α) : PyBaseIO α :=
-  mkUnsafe <| pure a
-
-public instance : Pure PyBaseIO := ⟨PyBaseIO.pure⟩
-
-@[inline, inherit_doc Functor.map]
-public protected def map (f : α → β) (x : PyBaseIO α) : PyBaseIO β :=
-  mkUnsafe <| Functor.map f x
-
-public instance : Functor PyBaseIO where map := PyBaseIO.map
-
-@[inline, inherit_doc bind]
-public protected def bind (x : PyBaseIO α) (f : α → PyBaseIO β) : PyBaseIO β :=
-  mkUnsafe <| bind x f
-
-public instance : Bind PyBaseIO := ⟨PyBaseIO.bind⟩
-
-public instance : Monad PyBaseIO := {}
-
-end PyBaseIO
+/-! ## C Monad Types -/
 
 /--
 Return context for external CPython functions that return an object
@@ -660,6 +405,25 @@ end CPyBaseIO
 /-- Constructs a successful {lean}`CPyIO` that returns {lean}`o`. -/
 @[inline] public protected abbrev CPyIO.pure (o : PyObject) : CPyIO PyObject :=
   CPyBaseIO.pure o |>.toCPyIO
+
+/--
+Sequences a {lean}`CPyBaseIO` action after a {lean}`PyBaseIO` action.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyBaseIO.bindCPyBaseIO
+  (x : PyBaseIO α) (f : α → CPyBaseIO β)
+: CPyBaseIO β := .ofBaseIOUnsafe do
+  let ctx ← PyContext.getOrInit
+  f (← x.runUnsafe ctx)
+
+/--
+Runs a {lean}`PyBaseIO` action producing a Python object in {lean}`CPyBaseIO`.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyBaseIO.toCPyBaseIO (x : PyBaseIO PyObject) : CPyBaseIO PyObject :=
+  x.bindCPyBaseIO CPyBaseIO.pure
 
 /--
 Sequences a {lean}`CPyIO` action after a {lean}`PyIO` action.
@@ -1196,6 +960,14 @@ public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyMo
 
 end PyModule
 
+/-- Returns the {lit}`None` constant of the Python environment. -/
+@[inline] public def getPyNone [Functor m] [MonadPyEnv m] : m PyObject :=
+  (·.none) <$> getPyEnvironment
+
+/-- Returns the {lit}`None` constant of the Python environment. -/
+@[inline] public def getCPyNone : CPyBaseIO PyObject :=
+  PyBaseIO.toCPyBaseIO getPyNone
+
 /--
 Type class used to construct a Lean object from a Python function argument.
 
@@ -1216,9 +988,6 @@ Used by {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
 -/
 public class MkResult (α : Type u) (ty : outParam String) where
   mkResult : α → CPyIO PyObject
-
-@[inline] public def getCPyNone : CPyBaseIO PyObject := .ofBaseIOUnsafe do
-  CPyBaseIO.pure (← PyContext.getOrInit).none
 
 public instance : MkResult PUnit "None" where
   mkResult _ := getCPyNone
@@ -1246,107 +1015,6 @@ public opaque PyObject.getAttrByString
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
 public instance : MkResult String "str" := ⟨(mkPyStr · |>.cast)⟩
-
-/-- Identifier of a registered Python encoding. -/
-public structure Codec where
-  ofString ::
-    protected toString : String
-
-namespace Codec
-
-public instance : ToString Codec := ⟨Codec.toString⟩
-
-/-!
-### Standard Python Encodings
-
-The Lean names of these Python identifiers follow Lean naming conventions
-(i.e., lower camel case).
-
-See the [Python documentation][1] for a for a full list of codecs and
-what languages they support.
-
-[1]: https://docs.python.org/3/library/codecs.html#standard-encodings
--/
-
-public abbrev ascii : Codec := ⟨"ascii"⟩
-public abbrev latin1 : Codec := ⟨"latin_1"⟩
-public abbrev utf8 : Codec := ⟨"utf-8"⟩
-public abbrev utf16 : Codec := ⟨"utf-16"⟩
-public abbrev utf16LE : Codec := ⟨"utf-16-le"⟩
-public abbrev utf16BE : Codec := ⟨"utf-16-be"⟩
-public abbrev utf32 : Codec := ⟨"utf-32"⟩
-public abbrev utf32LE : Codec := ⟨"utf-32-le"⟩
-public abbrev utf32BE : Codec := ⟨"utf-32-be"⟩
-
-end Codec
-
-/-- Identifier of a registed Python error handler for codecs. -/
-public structure CodecErrors where
-  ofString ::
-    protected toString : String
-
-namespace CodecErrors
-
-public instance : ToString CodecErrors := ⟨CodecErrors.toString⟩
-
-/-!
-### Standard Python Error Handlers
-
-The Lean names of these Python identifiers follow Lean naming conventions
-(i.e., lower camel case).
--/
-
-/-- Raise {lit}`UnicodeError` (or a subclass). -/
-public abbrev strict : CodecErrors := ⟨"strict"⟩
-
-/-- Ignore the malformed data and continue without further notice. -/
-public abbrev ignore : CodecErrors := ⟨"ignore"⟩
-
-/--
-Replace unspported characters with a replacement marker. On encoding,
-use `?` (the ASCII character). On decoding, use `�` (U+FFFD, the official
-Unicode replacement character).
--/
-public abbrev replace : CodecErrors := ⟨"replace"⟩
-
-/--
-Replace unspported characters with backslashed escape sequences.
-On encoding,  use hexadecimal form of Unicode code point with formats
-{lit}`\xhh`, {lit}`\uxxxx`, {lit}`\Uxxxxxxxx`. On decoding, use hexadecimal
-form of byte value with format {lit}`\xhh`.
--/
-public abbrev backslashReplace : CodecErrors := ⟨"backslashreplace"⟩
-
-/--
-On decoding, replace surrogates with their individual surrogate escape
-code ranging from {lit}`U+DC80` to {lit}`U+DCFF`. This code will then be turned
-back into the surrogate when the {name}`surrogateEscape` error handler is
-used when encoding the data.
--/
-public abbrev surrogateEscape : CodecErrors := ⟨"surrogateescape"⟩
-
-/--
-For Unicode codecs, allow encoding and decoding a surrogate code point
-({lit}`U+D800` - {lit}`U+DFFF`) as normal code point. Otherwise, these codecs
-treat the presence of a lone surrogate as an error.
--/
-public abbrev surrogatePass : CodecErrors := ⟨"surrogatepass"⟩
-
-/--
-When encoding text, replace unspported characters with XML/HTML numeric
-character reference, which is a decimal form of Unicode code point with
-format `&#num;`.
--/
-public abbrev xmlCharRefReplace : CodecErrors := ⟨"xmlcharrefreplace"⟩
-
-/--
-When encoding text, replace unspported characters with {lit}`\N{...}`
-escape sequences. What appears in the braces is the {lit}`Name` property
-from the Unicode Character Database.
--/
-public abbrev nameReplace : CodecErrors := ⟨"namereplace"⟩
-
-end CodecErrors
 
 /-- Decodes a Lean {name}`ByteArray` into a Python string. -/
 @[extern "nerodia_decode"]

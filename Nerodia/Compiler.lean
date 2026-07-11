@@ -10,4 +10,5 @@ public import Nerodia.Compiler.ModuleConfig.Basic
 public import Nerodia.Compiler.ModuleConfig.Extension
 public import Nerodia.Compiler.Attributes
 public import Nerodia.Compiler.Commands
+public import Nerodia.Compiler.Meta
 public import Nerodia.Compiler.Main
