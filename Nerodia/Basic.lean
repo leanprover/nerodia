@@ -15,112 +15,283 @@ namespace Nerodia
 
 /-! ## PyObject -/
 
-/--
-A Python object.
+/-- A Python type hint. -/
+public structure TypeExpr where
+  ofString ::
+    protected toString : String
+    deriving Nonempty, DecidableEq
 
-See https://docs.python.org/3/c-api/structures.html#c.PyObject
+/-- A fixed enumartion of builtin base types. -/
+-- A very simple model, it could be made more dynamic in the future.
+inductive PyObject.Kind
+| type
+| baseException
+| str
+| bytes
+| module
+deriving Nonempty, DecidableEq
+
+/-- The logical model of a Python object. -/
+structure PyObject.Model where
+  addr : Addr
+  hint : TypeExpr
+  kind : PyObject.Kind
+  /-- Represents all data not otherwise modelled. -/
+  data : Dynamic
+  deriving Nonempty
+
+/--
+A Python object. A [{lit}`PyObject`][1] pointer managed by Lean.
+
+[1]: https://docs.python.org/3/c-api/structures.html#c.PyObject
 -/
 public structure PyObject where
-  private mk ::
-    private impl : NonScalar
+  private ofModel ::
+    private toModel : PyObject.Model
     deriving Nonempty
+
+public abbrev TypePred : Type :=
+  PyObject → Prop
+
+public class ToTypeExpr (T : TypePred) where
+  toTypeExpr : TypeExpr
+
+public def TypePred.any : TypePred :=
+  fun _ => True
+
+/-- A typed Python object. -/
+public structure Py (T : TypePred) extends PyObject where
+  property : T toPyObject
+
+public instance : CoeOut (Py T) PyObject := ⟨Py.toPyObject⟩
+
+public class inductive NonemptyPy (T : TypePred) : Prop where
+  | intro (o : PyObject) (h : T o) : NonemptyPy T
+
+public instance [NonemptyPy T] : Nonempty (Py T) := by
+  match (inferInstance : NonemptyPy T) with
+  | .intro o h => exact ⟨Py.mk o h⟩
+
+/-- A Python object of unkown type. -/
+public abbrev PyAny := Py .any
 
 namespace PyObject
 
 /-- Returns the address of the Python object (not the Lean wrapper). -/
 @[extern "nerodia_py_object_addr"]
-public opaque addr (self : @& PyObject) : Addr
+public def addr (self : @& PyObject) : Addr :=
+  self.toModel.addr
+
+set_option linter.unusedVariables.funArgs false in
+@[inline] unsafe def castImpl (ty : TypeExpr) (self : PyObject) : PyObject :=
+  unsafeCast self
+
+/--
+Casts the object to the type indicating by the hint {lean}`ty`.
+
+This weakly types the object, providing no strong guarantees.
+
+This is akin to the Python {lit}`typing.cast(ty, self)`.
+-/
+@[implemented_by castImpl]
+public def cast (ty : TypeExpr) (self : PyObject) : PyObject :=
+  ⟨{self.toModel with hint := ty}⟩
+
+end PyObject
 
 /-!
-### Builtin Type Checking
+## Builtin Types
 
-These functions are considered pure even though the Python specification
-leaves the mutability of type inheritance undefined. In practice, CPython does
-sometimes allow subtypes to have their {lit}`__bases__` reassigned and thus
-mutate away inheritance (and further relaxes the constraints on this in 3.15).
-However, it prevents reassignments between builtin types and heavily relies
-on the fact that type confusion between builtin types cannot happen.
+Builtin Python types (e.g., {lit}`str`) are represented statically in Nerodia.
+They have given specialized static types (e.g., {lit}`PyStr`), and the type check
+for them is a pure function (e.g., {lit}`isStrInstance`). This is not strictly
+in accordance with the Python specification, which leaves the mutability of an
+object's type undefined.
 
-Thus, Nerodia chooses to model these as pure to make reasoning easier,
+In pratice, while CPython does permit type mutation (e.g., via {lit}`__class__`
+and {lit}`__bases__` reasignment), it prevents reassignment between most builtin
+types. Furthermore, CPython's implementation strongly assumes builtin type
+confusion cannot happen.
+
+Nerodia thus chooses to model them statically to make reasoning easier,
 accepting the cost of a potential future breakage in the event of an unlikely,
 massive Python refactor.
 -/
 
+noncomputable def PyObject.ofKind (k : Kind) : PyObject :=
+  ⟨{Classical.ofNonempty (α := PyObject.Model) with kind := k}⟩
+
+noncomputable def PyObject.isOfKind (self : @& PyObject) (k : Kind) : Bool :=
+  self.toModel.kind == k
+
+theorem NonemptyPy.of_kind {k : PyObject.Kind} : NonemptyPy (·.isOfKind k) :=
+  .intro (.ofKind k) <| by simp [PyObject.ofKind, PyObject.isOfKind]
+
+public def TypePred.subtype (T : TypePred) (U : TypePred) : TypePred :=
+  fun o => T o ∧ U o
+
+/-! ### type -/
+
 /-- Returns whether this type is an instance of {lit}`type`. -/
 @[extern "nerodia_py_object_is_type_instance"]
-public opaque isTypeInstance (self : @& PyObject) : Bool
+public def PyObject.isTypeInstance (self : @& PyObject) : Bool :=
+  self.isOfKind .type
 
-/-- Returns whether this type is an instance of {lit}`str`. -/
-@[extern "nerodia_py_object_is_str_instance"]
-public opaque isStrInstance (self : @& PyObject) : Bool
+public def TypePred.type : TypePred :=
+  (·.isTypeInstance)
 
-end PyObject
-
-/-! ## Builtin Types -/
+public instance : NonemptyPy .type := .of_kind
 
 /--
 A Python type object.
 
-In practice, these are instances of {lit}`type` or one of its subclasses,
-but that is not guaranteed by the Limited API.
+An instance of {lit}`type` or one of its subclasses.
+Equivalently, a [{lit}`PyTypeObject`][1] pointer managed by Lean.
 
-See https://docs.python.org/3/c-api/type.html#c.PyTypeObject
+[1]: https://docs.python.org/3/c-api/type.html#c.PyTypeObject
 -/
-public structure PyType extends PyObject where
-  private innerMk ::
-    deriving Nonempty
+public abbrev PyType := Py .type
 
-public instance : Coe PyType PyObject := ⟨PyType.toPyObject⟩
+@[inline] public def PyType.mk (o : PyObject) (h : o.isTypeInstance) : PyType :=
+  ⟨o, h⟩
+
+/-! ### BaseException -/
+
+/-- Returns whether this type is an instance of {lit}`BaseException`. -/
+@[extern "nerodia_py_object_is_base_exception_instance"]
+public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
+  self.isOfKind .baseException
+
+public def TypeExpr.baseException : TypeExpr :=
+  ⟨"BaseException"⟩
+
+public def TypePred.baseException : TypePred :=
+  (·.isBaseExceptionInstance)
+
+public instance : NonemptyPy .baseException := .of_kind
+
+/-- A instance of {lit}`BaseException` that satisfies {lean}`T`. -/
+public abbrev TPyBaseException (T : TypePred) := Py (.subtype .baseException T)
 
 /-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
-public structure PyBaseException extends PyObject where
-  private innerMk ::
-    deriving Nonempty
+public abbrev PyBaseException := TPyBaseException .any
 
-/-- A Python exception object. That is, an instance of {lit}`Exception`. -/
-public structure PyException extends PyBaseException where
-  private innerMk ::
-    deriving Nonempty
+@[inline] public def PyBaseException.mk (o : PyObject) (h : o.isBaseExceptionInstance) : PyBaseException :=
+  ⟨o, ⟨h, .intro⟩⟩
 
-public instance : Coe PyException PyBaseException :=
-  ⟨PyException.toPyBaseException⟩
+public def TPyBaseException.toPyBaseException (self : TPyBaseException T) : PyBaseException :=
+  ⟨self, ⟨self.property.1, .intro⟩⟩
 
-/-- A Python system error object. That is, an instance of {lit}`SystemError`. -/
-public structure PySystemError extends PyException where
-  private innerMk ::
-    deriving Nonempty
+public instance: CoeOut (TPyBaseException T) PyBaseException := ⟨TPyBaseException.toPyBaseException⟩
 
-public instance : Coe PySystemError PyException :=
-  ⟨PySystemError.toPyException⟩
+/-! ### str -/
 
-/-- A Python type error object. That is, an instance of {lit}`TypeError`. -/
-public structure PyTypeError extends PyException where
-  private innerMk ::
-    deriving Nonempty
+/-- Returns whether this type is an instance of {lit}`str`. -/
+@[extern "nerodia_py_object_is_str_instance"]
+public def PyObject.isStrInstance (self : @& PyObject) : Bool :=
+  self.isOfKind .str
 
-public instance : Coe PyTypeError PyException :=
-  ⟨PyTypeError.toPyException⟩
+public def TypePred.str : TypePred :=
+  (·.isStrInstance)
 
-/-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
-public structure PyModule extends PyObject where
-  private innerMk ::
-    deriving Nonempty
+public instance : NonemptyPy .str := .of_kind
 
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
-public structure PyStr extends PyObject where
-  private innerMk ::
-    deriving Nonempty
+public abbrev PyStr := Py .str
 
-public instance : Coe PyStr PyObject := ⟨PyStr.toPyObject⟩
-
-set_option linter.unusedVariables.funArgs false in
 @[inline] public def PyStr.mk (o : PyObject) (h : o.isStrInstance) : PyStr :=
-  ⟨o⟩
+  ⟨o, h⟩
+
+/-! ### bytes -/
+
+/-- Returns whether this type is an instance of {lit}`bytes`. -/
+@[extern "nerodia_py_object_is_bytes_instance"]
+public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
+  self.isOfKind .bytes
+
+public def TypePred.bytes : TypePred :=
+  (·.isBytesInstance)
+
+public instance : NonemptyPy .bytes := .of_kind
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
-public structure PyBytes extends PyObject where
-  private innerMk ::
-    deriving Nonempty
+public abbrev PyBytes := Py .bytes
+
+@[inline] public def PyBytes.mk (o : PyObject) (h : o.isBytesInstance) : PyBytes :=
+  ⟨o, h⟩
+
+/-! ### types.ModuleType -/
+
+/-- Returns whether this type is an instance of {lit}`types.ModuleType`. -/
+@[extern "nerodia_py_object_is_module_instance"]
+public def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
+  self.isOfKind .module
+
+public def TypePred.module : TypePred :=
+  (·.isModuleInstance)
+
+public instance : NonemptyPy .module := .of_kind
+
+/-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
+public abbrev PyModule := Py .module
+
+@[inline] public def PyModule.mk (o : PyObject) (h : o.isModuleInstance) : PyModule :=
+  ⟨o, h⟩
+
+/-!
+## BaseException Subtypes
+
+Unlike {lit}`BaseException` itself, it is possible to mutate objects between
+many of its subtypes (e.g., an object can be retyped to/from {lit}`Exception`).
+As such, instances of these subtypes are weakly typed.
+-/
+
+public noncomputable def PyObject.IsHintedAs (ty : TypeExpr) (self : @& PyObject) : Prop :=
+  self.toModel.hint = ty
+
+public instance : NonemptyPy (·.IsHintedAs ty) :=
+  .intro (.cast ty Classical.ofNonempty) <| by simp [PyObject.cast, PyObject.IsHintedAs]
+
+public instance : NonemptyPy (.subtype .baseException (·.IsHintedAs ty)) :=
+  .intro (.cast ty (.ofKind .baseException)) <| by
+    simp [
+      PyObject.cast, TypePred.subtype,
+      TypePred.baseException, PyObject.isBaseExceptionInstance,
+      PyObject.isOfKind, PyObject.ofKind, PyObject.IsHintedAs
+    ]
+
+/-- An instance of {lit}`BaseException` that is weakly typed as {lit}`ty`. -/
+public abbrev HPyBaseException (ty : TypeExpr) := TPyBaseException (·.IsHintedAs ty)
+
+/-! ### Exception -/
+
+public def TypeExpr.exception : TypeExpr := ⟨"Exception"⟩
+
+public abbrev TypePred.exception : TypePred :=
+  baseException.subtype (·.IsHintedAs .exception)
+
+/-- A weakly typed instance of {lit}`Exception`. -/
+public abbrev PyException := HPyBaseException .exception
+
+/-! ### SystemError -/
+
+public def TypeExpr.systemError : TypeExpr := ⟨"SystemError"⟩
+
+public abbrev TypePred.systemError : TypePred :=
+  baseException.subtype (·.IsHintedAs .systemError)
+
+/-- A weakly typed instance of {lit}`SystemError`. -/
+public abbrev PySystemError := HPyBaseException .systemError
+
+/-! ### TypeError -/
+
+public def TypeExpr.typeError : TypeExpr := ⟨"TypeError"⟩
+
+public abbrev TypePred.typeError : TypePred :=
+  baseException.subtype (·.IsHintedAs .typeError)
+
+/-- A weakly typed instance of {lit}`TypeError`. -/
+public abbrev PyTypeError := HPyBaseException .typeError
 
 /-! ## Builtin Constants -/
 

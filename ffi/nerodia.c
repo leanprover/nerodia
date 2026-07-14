@@ -419,13 +419,29 @@ LEAN_EXPORT size_t nerodia_py_object_get_type(b_lean_obj_arg self) {
 
 /* isTypeInstance : @& PyObject -> Bool */
 LEAN_EXPORT uint8_t nerodia_py_object_is_type_instance(b_lean_obj_arg self) {
-  return PyType_Check(nerodia_to_object(self)) != 0;
+  return PyType_Check(nerodia_to_object(self));
+}
+
+/* isBaseExceptionInstance : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_base_exception_instance(b_lean_obj_arg self) {
+  return PyExceptionInstance_Check(nerodia_to_object(self));
 }
 
 /* isStrInstance : @& PyObject -> Bool */
 LEAN_EXPORT uint8_t nerodia_py_object_is_str_instance(b_lean_obj_arg self) {
-  return PyUnicode_Check(nerodia_to_object(self)) != 0;
+  return PyUnicode_Check(nerodia_to_object(self));
 }
+
+/* isBytesInstance : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_bytes_instance(b_lean_obj_arg self) {
+  return PyBytes_Check(nerodia_to_object(self));
+}
+
+/* isModuleInstance : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_module_instance(b_lean_obj_arg self) {
+  return PyModule_Check(nerodia_to_object(self));
+}
+
 
 /* typeType : @& PyEnvironment|PyContext -> PyType */
 LEAN_EXPORT lean_obj_res nerodia_type_type(b_lean_obj_arg env_or_ctx) {
