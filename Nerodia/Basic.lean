@@ -34,6 +34,7 @@ deriving Nonempty, DecidableEq
 /-- The logical model of a Python object. -/
 structure PyObject.Model where
   addr : Addr
+  env : PyEnvironment
   hint : TypeExpr
   kind : PyObject.Kind
   /-- Represents all data not otherwise modelled. -/
@@ -65,22 +66,43 @@ public structure Py (T : TypePred) extends PyObject where
 
 public instance : CoeOut (Py T) PyObject := ⟨Py.toPyObject⟩
 
-public class inductive NonemptyPy (T : TypePred) : Prop where
-  | intro (o : PyObject) (h : T o) : NonemptyPy T
+public abbrev NonemptyPy (T : TypePred) := Nonempty (Py T)
 
-public instance [NonemptyPy T] : Nonempty (Py T) := by
-  match (inferInstance : NonemptyPy T) with
-  | .intro o h => exact ⟨Py.mk o h⟩
+public theorem NonemptyPy.intro (o : PyObject) (h : T o) : NonemptyPy T :=
+  ⟨⟨o, h⟩⟩
+
+public instance : NonemptyPy .any := .intro Classical.ofNonempty .intro
+
 
 /-- A Python object of unkown type. -/
 public abbrev PyAny := Py .any
 
+@[inline] public def PyAny.mk (o : PyObject) : PyAny :=
+  ⟨o, .intro⟩
+
+public instance : CoeOut (Py T) PyAny := ⟨(PyAny.mk ·)⟩
+
 namespace PyObject
+
+/-- Returns the Python environment to which this object belongs. -/
+public noncomputable def env (self : PyObject) : PyEnvironment :=
+  self.toModel.env
 
 /-- Returns the address of the Python object (not the Lean wrapper). -/
 @[extern "nerodia_py_object_addr"]
 public def addr (self : @& PyObject) : Addr :=
   self.toModel.addr
+
+/--
+Returns whether two objects are identical (are the same pointer).
+
+This is equivalent to the Python {lit}`self is other`.
+-/
+@[extern "nerodia_py_object_dec_eq"]
+public def decEq (self other : PyObject) : Decidable (self = other) :=
+  Classical.propDecidable _
+
+public instance : DecidableEq PyObject := decEq
 
 set_option linter.unusedVariables.funArgs false in
 @[inline] unsafe def castImpl (ty : TypeExpr) (self : PyObject) : PyObject :=
@@ -119,7 +141,7 @@ massive Python refactor.
 -/
 
 noncomputable def PyObject.ofKind (k : Kind) : PyObject :=
-  ⟨{Classical.ofNonempty (α := PyObject.Model) with kind := k}⟩
+  {Classical.ofNonempty (α := PyObject) with toModel.kind := k}
 
 noncomputable def PyObject.isOfKind (self : @& PyObject) (k : Kind) : Bool :=
   self.toModel.kind == k
@@ -162,13 +184,15 @@ public abbrev PyType := Py .type
 public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
   self.isOfKind .baseException
 
-public def TypeExpr.baseException : TypeExpr :=
-  ⟨"BaseException"⟩
-
 public def TypePred.baseException : TypePred :=
   (·.isBaseExceptionInstance)
 
 public instance : NonemptyPy .baseException := .of_kind
+
+@[inline, expose] public def TypeExpr.baseException : TypeExpr :=
+  ⟨"BaseException"⟩
+
+public instance : ToTypeExpr .baseException := ⟨.baseException⟩
 
 /-- A instance of {lit}`BaseException` that satisfies {lean}`T`. -/
 public abbrev TPyBaseException (T : TypePred) := Py (.subtype .baseException T)
@@ -196,6 +220,11 @@ public def TypePred.str : TypePred :=
 
 public instance : NonemptyPy .str := .of_kind
 
+@[inline, expose] public def TypeExpr.str : TypeExpr :=
+  ⟨"str"⟩
+
+public instance : ToTypeExpr .str := ⟨.str⟩
+
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
 public abbrev PyStr := Py .str
 
@@ -213,6 +242,11 @@ public def TypePred.bytes : TypePred :=
   (·.isBytesInstance)
 
 public instance : NonemptyPy .bytes := .of_kind
+
+@[inline, expose] public def TypeExpr.bytes : TypeExpr :=
+  ⟨"str"⟩
+
+public instance : ToTypeExpr .bytes := ⟨.bytes⟩
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
 public abbrev PyBytes := Py .bytes
@@ -260,6 +294,8 @@ public instance : NonemptyPy (.subtype .baseException (·.IsHintedAs ty)) :=
       PyObject.isOfKind, PyObject.ofKind, PyObject.IsHintedAs
     ]
 
+public instance : ToTypeExpr (.subtype .baseException (·.IsHintedAs ty)) := ⟨ty⟩
+
 /-- An instance of {lit}`BaseException` that is weakly typed as {lit}`ty`. -/
 public abbrev HPyBaseException (ty : TypeExpr) := TPyBaseException (·.IsHintedAs ty)
 
@@ -292,16 +328,6 @@ public abbrev TypePred.typeError : TypePred :=
 
 /-- A weakly typed instance of {lit}`TypeError`. -/
 public abbrev PyTypeError := HPyBaseException .typeError
-
-/-! ## Builtin Constants -/
-
-/-- Returns a reference to the {lit}`None` constant. -/
-@[extern "nerodia_none"]
-public opaque PyEnvironment.none (env : @& PyEnvironment) : PyObject
-
-@[extern "nerodia_none", inherit_doc PyEnvironment.none]
-public abbrev PyContext.none (ctx : @& PyContext) : PyObject :=
-  ctx.env.none
 
 /-! ## Builtin Type Objects -/
 
@@ -406,7 +432,7 @@ Constructs a {lean}`CPyResult` indicating failure.
 
 public instance : Inhabited (CPyResult α) := ⟨failureUnsafe⟩
 
-public abbrev IsFailure (self : CPyResult α) : Prop :=
+abbrev IsFailure (self : CPyResult α) : Prop :=
   self.IsNull
 
 /--
@@ -445,8 +471,8 @@ Runs the {lean}`CPyIO` function, returning the raw, unmanaged pointer.
 **Safety**
 * Users must ensure a Python context exists.
 * Users must ensure the raised exception is handled on {name}`CPyResult.IsFailure`.
-* **Memory:** Users must ensure that a rturned object reference is consumed,
-and that it  does not outlive the enviroment.
+* **Memory:** Users must ensure that a returned object reference is consumed,
+and that it does not outlive the enviroment.
 -/
 @[inline] def toBaseIOUnsafe (x : CPyIO α) : BaseIO (CPyResult α) :=
   x
@@ -465,9 +491,15 @@ public instance : Nonempty (CPyIO α) := ⟨failureUnsafe⟩
 @[inline] public def ofBind (x : BaseIO α) (f : α → CPyIO β) : CPyIO β :=
   ofBaseIOUnsafe do f (← x)
 
+set_option linter.unusedVariables.funArgs false in
 /-- Converts a {lean}`CPyIO` returning a typed Python object into untyped general object. -/
-@[inline] public def cast (x : CPyIO α) : CPyIO PyObject :=
+@[inline] public def cast (x : CPyIO (Py T)) (h : ∀ o, T o → U o) : CPyIO (Py U) :=
   unsafe unsafeCast x
+
+@[inline] public def toAny (x : CPyIO (Py T)) : CPyIO PyAny :=
+  x.cast fun _ _ => .intro
+
+public instance : CoeOut (CPyIO (Py T)) (CPyIO PyAny) := ⟨CPyIO.toAny⟩
 
 end CPyIO
 
@@ -559,13 +591,15 @@ Runs {lean}`e` if {lean}`x` has set an exception.
 
 /-- Returns a new strong reference to Python object's raw unmanaged C pointer. -/
 @[extern "nerodia_py_object_new_ref"]
-def PyObject.newRef (self : @& PyObject) : CPyBaseIO PyObject :=
-  .ofBaseIOUnsafe <| pure <| .ofCPtrUnsafe (.ofAddrNoncomputable self.addr)
+def Py.newRef (self : @& Py T) : CPyBaseIO (Py T) :=
+  have : Nonempty (Py T) := ⟨self⟩
+  let cptr := .ofAddrNoncomputable self.addr
+  .ofBaseIOUnsafe <| pure (.ofCPtrUnsafe cptr)
 
 namespace CPyBaseIO
 
 /-- Constructs a {lean}`CPyBaseIO` that returns {lean}`o`. -/
-@[inline] public protected def pure (o : PyObject) : CPyBaseIO PyObject :=
+@[inline] public protected def pure (o : Py T) : CPyBaseIO (Py T) :=
   o.newRef
 
 public instance [Nonempty α] : Nonempty (CPyBaseIO α) :=
@@ -574,7 +608,7 @@ public instance [Nonempty α] : Nonempty (CPyBaseIO α) :=
 end CPyBaseIO
 
 /-- Constructs a successful {lean}`CPyIO` that returns {lean}`o`. -/
-@[inline] public protected abbrev CPyIO.pure (o : PyObject) : CPyIO PyObject :=
+@[inline] public protected abbrev CPyIO.pure (o : Py T) : CPyIO (Py T) :=
   CPyBaseIO.pure o |>.toCPyIO
 
 /--
@@ -593,7 +627,7 @@ Runs a {lean}`PyBaseIO` action producing a Python object in {lean}`CPyBaseIO`.
 
 This creates a new temporary Python context for the call.
 -/
-@[inline] public def PyBaseIO.toCPyBaseIO (x : PyBaseIO PyObject) : CPyBaseIO PyObject :=
+@[inline] public def PyBaseIO.toCPyBaseIO (x : PyBaseIO (Py T)) : CPyBaseIO (Py T) :=
   x.bindCPyBaseIO CPyBaseIO.pure
 
 /--
@@ -612,7 +646,7 @@ Runs a {lean}`PyIO` action producing a Python object in {lean}`CPyIO`.
 
 This creates a new temporary Python context for the call.
 -/
-@[inline] public def PyIO.toCPyIO (x : PyIO PyObject) : CPyIO PyObject :=
+@[inline] public def PyIO.toCPyIO (x : PyIO (Py T)) : CPyIO (Py T) :=
   x.bindCPyIO CPyIO.pure
 
 /--
@@ -963,14 +997,11 @@ A raw Python function argument (a borrowed Python object reference).
 
 **Not memory safe.** The reference must not escape the function.
 This is not managed by Lean. Nerodia handles this within its API, and users are
-not expected to manage {name}`TCPyArg` objects manually.
+not expected to manage {name}`CPyArg` objects manually.
 -/
-public structure TCPyArg (α : Type u) where
+public structure CPyArg (T : TypePred := .any) where
   private ofCPtrUnsafe ::
-    private toCPtrUnsafe : CPtr α
-
-@[inherit_doc TCPyArg]
-public abbrev CPyArg := TCPyArg PyObject
+    private toCPtrUnsafe : CPtr (Py T)
 
 /--
 Wraps a borrowed Python object reference into a memory-managed Lean object.
@@ -979,7 +1010,7 @@ Wraps a borrowed Python object reference into a memory-managed Lean object.
 (e.g., it has not escaped its original function).
 -/
 @[extern "nerodia_py_context_mk_arg"]
-def PyContext.mkArgUnsafe (ctx : @& PyContext) (arg : TCPyArg α) : α :=
+def PyContext.mkArgUnsafe (ctx : @& PyContext) (arg : CPyArg T) : (Py T) :=
   Classical.choice arg.toCPtrUnsafe.nonempty
 
 /--
@@ -988,17 +1019,19 @@ A raw C pointer array of Python function arguments
 
 **Not memory safe.** The references must not escape the function.
 This is not managed by Lean. Nerodia handles this within its API, and users are
-not expected to manage {name}`TCPyArg` objects manually.
+not expected to manage {name}`CPyArgs` objects manually.
  -/
 public structure CPyArgs where
   private ofAddrUnsafe ::
     private addr : Addr
 
 @[extern "nerodia_py_context_mk_args"]
-opaque PyContext.mkArgsUnsafe (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyObject
+opaque PyContext.mkArgsUnsafe
+  (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyAny
 
 @[extern "nerodia_py_context_mk_nth_arg"]
-opaque PyContext.mkNthArgUnsafe (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyObject
+opaque PyContext.mkNthArgUnsafe
+  (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyAny
 
 /-! ## Python Methods -/
 
@@ -1017,30 +1050,30 @@ opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
 /-- The type of a Python method with no arguments. -/
 @[expose] -- for codegen
 public def PyMethNoArgs :=
-  (self : CPyArg) → Null → CPyIO PyObject
+  (self : CPyArg) → Null → CPyIO PyAny
 
 @[inline] public def PyMethNoArgs.ofPyIO
-  (x : (self : PyObject) → PyIO PyObject)
+  (x : (self : PyAny) → PyIO PyAny)
 : PyMethNoArgs := fun self _ => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
   x self
 
 @[inline] public def PyMethNoArgs.ofPyIO'
-  (x : PyIO PyObject)
+  (x : PyIO PyAny)
 : PyMethNoArgs := ofPyIO fun _ => x
 
 @[inline] public def PyMethNoArgs.ofCPyIO
-  (x : CPyIO PyObject)
+  (x : CPyIO PyAny)
 : PyMethNoArgs := fun _ _ => x
 
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
 public def PyMethFastCall :=
-  (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO PyObject
+  (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO PyAny
 
 @[inline] public def PyMethFastCall.ofPyIO
-  (x : (self : PyObject) → (args : Array PyObject) → PyIO PyObject)
+  (x : (self : PyAny) → (args : Array PyAny) → PyIO PyAny)
 : PyMethFastCall := fun self args nargs => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
@@ -1050,7 +1083,7 @@ public def PyMethFastCall :=
 /-- **Do not use.** Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethFastCallUnsafe
   (fn : String) (arity : USize)
-  (x : (args : CPyArgs) → CPyIO PyObject)
+  (x : (args : CPyArgs) → CPyIO PyAny)
 : PyMethFastCall := fun _ args nargs =>
   if nargs = arity then
     x args
@@ -1060,10 +1093,10 @@ public def PyMethFastCall :=
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
 public def PyMethO :=
-  (self : CPyArg) → (arg : CPyArg) → CPyIO PyObject
+  (self : CPyArg) → (arg : CPyArg) → CPyIO PyAny
 
 @[inline] public def PyMethO.ofPyIO
-  (x : (self : PyObject) → (arg : PyObject) → PyIO PyObject)
+  (x : (self : PyAny) → (arg : PyAny) → PyIO PyAny)
 : PyMethO := fun self arg => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
@@ -1071,13 +1104,13 @@ public def PyMethO :=
   x self arg
 
 @[inline] public def PyMethO.ofPyIO'
-  (x : (arg : PyObject) → PyIO PyObject)
+  (x : (arg : PyAny) → PyIO PyAny)
 : PyMethO := ofPyIO fun _ => x
 
 /-- The type of a Python module initialization function. -/
 @[expose] -- for codegen
 public def PyModuleInit :=
-  (mod : TCPyArg PyModule) → CPyUnitIO
+  (mod : CPyArg .module) → CPyUnitIO
 
 @[inline] public def PyModuleInit.ofPyIO
   (x : PyModule → PyIO Unit)
@@ -1121,62 +1154,114 @@ Imports the module named {lean}`modName`.
 In Python, the import can be anything, so this may not return a {lean}`PyModule`.
 -/
 @[extern "nerodia_import"]
-public opaque «import» (modName : @& String) : CPyIO PyObject
+public opaque «import» (modName : @& String) : CPyIO PyAny
 
 namespace PyModule
 
 /-- Adds an object {lean}`val` to the module {lean}`self` as {lean}`name`. -/
 @[extern "nerodia_py_module_add_by_string"]
-public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyModule) : CPyUnitIO
+public opaque addByString (name : @& String) (val : @& PyAny) (self : @& PyModule) : CPyUnitIO
 
 end PyModule
 
+/-! ## None -/
+
+noncomputable opaque PyEnvironment.noneOpaque (env : PyEnvironment) : PyObject
+
+noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : PyObject :=
+  {env.noneOpaque with toModel.env := env}
+
+/-- Equivalent to the Python {lit}`self is None`. -/
+@[extern "nerodia_py_object_is_none"]
+public def PyObject.isNone (self : PyObject) : Bool :=
+  self = self.env.noneRaw
+
+theorem PyEnvironment.isNone_noneRaw : (noneRaw env).isNone := by
+  simp [PyEnvironment.noneRaw, PyObject.env, PyObject.isNone]
+
+public def TypePred.none : TypePred :=
+  (·.isNone)
+
+open PyEnvironment in
+public instance : NonemptyPy .none :=
+  .intro (noneRaw Classical.ofNonempty) isNone_noneRaw
+
+@[inline, expose] public def TypeExpr.none : TypeExpr :=
+  ⟨"None"⟩
+
+public instance : ToTypeExpr .none := ⟨.none⟩
+
+/-- A Python {lit}`None` constant. -/
+public abbrev PyNone := Py .none
+
+/-- Returns a reference to the {lit}`None` constant. -/
+@[extern "nerodia_none"]
+public def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
+  ⟨env.noneRaw, isNone_noneRaw⟩
+
+@[extern "nerodia_none", inherit_doc PyEnvironment.none]
+public abbrev PyContext.none (ctx : @& PyContext) : PyNone :=
+  ctx.env.none
+
 /-- Returns the {lit}`None` constant of the Python environment. -/
-@[inline] public def getPyNone [Functor m] [MonadPyEnv m] : m PyObject :=
+@[inline] public def getPyNone [Functor m] [MonadPyEnv m] : m PyNone :=
   (·.none) <$> getPyEnvironment
 
 /-- Returns the {lit}`None` constant of the Python environment. -/
-@[inline] public def getCPyNone : CPyBaseIO PyObject :=
+@[inline] public def getCPyNone : CPyBaseIO PyNone :=
   PyBaseIO.toCPyBaseIO getPyNone
+
+/-! ## Compiler Helper Type Classes -/
 
 /--
 Type class used to construct a Lean object from a Python function argument.
 
 Used by {lit}`@[py_module_fn]`.
 -/
-public class OfPyArg (α : Type) (ty : outParam String) where
-  ofPyArg (fn : String) (i : Nat) : PyObject → PyIO α
+public class OfPyArg (α : Type) (T : outParam TypePred) where
+  ofPyArg (fn : String) (i : Nat) : PyAny → PyIO α
 
 /-- **Do not use.** Internal function for {lit}`@[py_module_fn]`.  -/
 @[inline] public def Internal.ofPyArgUnsafe
-  [OfPyArg α ty] (fn : String) (i : USize) (args : CPyArgs) : PyIO α
-:= do OfPyArg.ofPyArg fn (i.toNat+1) ((← getPyContextUnsafe).mkNthArgUnsafe args i)
+  [OfPyArg α T] (fn : String) (i : USize) (args : CPyArgs)
+: PyIO α := do
+  let obj := ((← getPyContextUnsafe).mkNthArgUnsafe args i)
+  OfPyArg.ofPyArg fn (i.toNat+1) obj
+
 
 /--
 Type class used to construct Python return values from Lean objects.
 
 Used by {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
 -/
-public class MkResult (α : Type u) (ty : outParam String) where
-  mkResult : α → CPyIO PyObject
+public class MkResult (α : Type u) (T : outParam TypePred) where
+  mkResult : α → CPyIO (Py T)
 
-public instance : MkResult PUnit "None" where
+@[inline] public def Internal.mkResult {α} {T} [MkResult α T] (a : α) : CPyIO PyAny :=
+  MkResult.mkResult a |>.toAny
+
+public instance : MkResult PUnit .none where
   mkResult _ := getCPyNone
 
-public instance [MkResult α ty] : MkResult (BaseIO α) ty where
+public instance [MkResult α T] : MkResult (BaseIO α) T where
   mkResult x := .ofBind x MkResult.mkResult
 
-public instance [MkResult α ty] : MkResult (PyIO α) ty where
+public instance [MkResult α T] : MkResult (PyIO α) T where
   mkResult x := x.bindCPyIO MkResult.mkResult
 
-public abbrev PyAttrInit := CPyIO PyObject
+@[expose] -- for codegen
+public def PyAttrInit :=
+  CPyIO PyAny
+
+@[inline] public def PyAttrInit.ofCPyIO (x : CPyIO PyAny) : PyAttrInit :=
+  x
 
 /-! ## Objects -/
 
 /-- Returns the attribute named {lean}`attrName` on {lean}`self`. -/
 @[extern "nerodia_py_object_get_attr_by_string"]
 public opaque PyObject.getAttrByString
-  (self : @& PyObject) (attrName : @& String) : CPyIO PyObject
+  (self : @& PyObject) (attrName : @& String) : CPyIO PyAny
 
 
 /-! ## Strings & ByteArray -/
@@ -1185,7 +1270,7 @@ public opaque PyObject.getAttrByString
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
-public instance : MkResult String "str" := ⟨(mkPyStr · |>.cast)⟩
+public instance : MkResult String .str := ⟨mkPyStr⟩
 
 /-- Decodes a Lean {name}`ByteArray` into a Python string. -/
 @[extern "nerodia_decode"]
@@ -1230,7 +1315,7 @@ public opaque PyStr.toString (self : @& PyStr) : String
 
 public instance : ToString PyStr := ⟨PyStr.toString⟩
 
-public instance : OfPyArg String "str" where
+public instance : OfPyArg String .str where
   ofPyArg fn i o :=
     if h : o.isStrInstance then
       return (PyStr.mk o h).toString
@@ -1258,7 +1343,7 @@ public abbrev PyStr.encodeUTF8 (self : @& PyStr) : CPyIO PyBytes :=
 @[extern "nerodia_mk_py_bytes"]
 public opaque mkPyBytes (s : @& ByteArray) : CPyIO PyBytes
 
-public instance : MkResult ByteArray "bytes" := ⟨(mkPyBytes · |>.cast)⟩
+public instance : MkResult ByteArray .bytes := ⟨mkPyBytes⟩
 
 namespace PyBytes
 

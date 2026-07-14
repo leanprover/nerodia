@@ -16,17 +16,23 @@ public def writePyiFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   if let some doc := mod.doc? then
     pyi.putStr doc.quote
     pyi.putStr "\n"
-  for m in mod.attrs do
-    pyi.putStr s!"\n{m.name}: {m.ty}"
-    if let some doc := m.doc? then
+  for df in mod.attrs do
+    pyi.putStr "\n"
+    pyi.putStr df.name
+    if let some ty := df.ty? then
+      pyi.putStr ": "
+      pyi.putStr ty
+    else
+      pyi.putStr "= ..."
+    if let some doc := df.doc? then
       pyi.putStr "\n"
       pyi.putStr doc.quote
   pyi.putStr "\n"
-  for m in mod.methods do
+  for df in mod.methods do
     pyi.putStr "\ndef "
-    pyi.putStr m.name
-    pyi.putStr m.pySig
-    if let some doc := m.doc? then
+    pyi.putStr df.name
+    pyi.putStr df.pySig
+    if let some doc := df.doc? then
       pyi.putStr ":\n  "
       pyi.putStr doc.quote
       pyi.putStr "\n  ..."

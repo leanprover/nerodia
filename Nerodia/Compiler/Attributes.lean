@@ -11,7 +11,7 @@ import Lean.Meta.SynthInstance
 import Lean.Meta.DecLevel
 import Lean.AddDecl
 import Lean.DocString
-import Lean.Meta.Eval
+import Lean.Meta.ReduceEval
 import Nerodia.Compiler.ModuleConfig.Extension
 
 /-! # Nerodiac Attributes -/
@@ -67,38 +67,50 @@ initialize
 syntax (name := py_module_fn) "py_module_fn" (ppSpace str)?
   (ppSpace atomic("(" &"sig") " := " str ")")? : attr
 
-def mkResult (ty : Expr) (x : Expr) : MetaM (Expr × String) := do
+def mkHint (p : Expr) : MetaM (Option String) := do
+  let inst? ← trySynthInstance (mkApp (mkConst `Nerodia.ToTypeExpr) p)
+  if let .some inst := inst? then
+    let hintExpr := mkApp2 (mkConst `Nerodia.ToTypeExpr.toTypeExpr) p inst
+    let hintExpr := mkApp (mkConst `Nerodia.TypeExpr.toString) hintExpr
+    return some (← reduceEval hintExpr)
+  else
+    return none
+
+def mkResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) := do
   let u ← getDecLevel ty
-  let hintTy := mkConst ``String
-  let hintExpr ← mkFreshExprMVar (some hintTy)
-  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.MkResult [u]) ty hintExpr)
-  let hintExpr ← instantiateMVars hintExpr
-  let hint ← unsafe evalExpr String hintTy hintExpr
-  let x := mkApp4 (mkConst `Nerodia.MkResult.mkResult [u]) ty hintExpr inst x
-  return (x, hint)
+  let predTy := mkConst `Nerodia.TypePred
+  let predExpr ← mkFreshExprMVar (some predTy)
+  let predInst ← synthInstance (mkApp2 (mkConst `Nerodia.MkResult [u]) ty predExpr)
+  let predExpr ← instantiateMVars predExpr
+  let x := mkApp4 (mkConst `Nerodia.Internal.mkResult [u]) ty predExpr predInst x
+  let hint? ← mkHint predExpr
+  return (x, hint?)
 
 def mkArgCore
   (fnName : Name)
   (fn : Expr) (i : Expr) (ty : Expr) (arg : Expr)
-: MetaM (Expr × String) := do
-  let hintTy := mkConst ``String
-  let hintExpr ← mkFreshExprMVar (some hintTy)
-  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.OfPyArg) ty hintExpr)
-  let hintExpr ← instantiateMVars hintExpr
-  let hint ← unsafe evalExpr String hintTy hintExpr
-  let x := mkApp6 (mkConst fnName) ty hintExpr inst fn i arg
-  return (x, hint)
+: MetaM (Expr × Option String) := do
+  let predTy := mkConst `Nerodia.TypePred
+  let predExpr ← mkFreshExprMVar (some predTy)
+  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.OfPyArg) ty predExpr)
+  let x := mkApp6 (mkConst fnName) ty predExpr inst fn i arg
+  let hint? ← mkHint predExpr
+  return (x, hint?)
 
-@[inline] def mkArg (fn : Expr) (i : Nat) (ty : Expr) (arg : Expr) : MetaM (Expr × String) := do
+@[inline] def mkArg
+  (fn : Expr) (i : Nat) (ty : Expr) (arg : Expr)
+: MetaM (Expr × Option String) := do
   mkArgCore `Nerodia.OfPyArg.ofPyArg fn (toExpr (i+1)) ty arg
 
-@[inline] def mkCArg (fn : Expr) (i : USize) (ty : Expr) (args : Expr) : MetaM (Expr × String) := do
+@[inline] def mkCArg
+  (fn : Expr) (i : USize) (ty : Expr) (args : Expr)
+: MetaM (Expr × Option String) := do
   mkArgCore `Nerodia.Internal.ofPyArgUnsafe fn (toExpr i) ty args
 
 def mkPyBind (ty ma lam : Expr) : Expr :=
   mkApp6 (mkConst ``Bind.bind [0, 0])
     (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyIO.instBind)
-    ty (mkConst `Nerodia.PyObject) ma lam
+    ty (mkConst `Nerodia.PyAny) ma lam
 
 def mkAuxSym
   (kind : Name) (isUnsafe : Bool) (levelParams : List Name)
@@ -154,11 +166,14 @@ def mkArgChain
     let a := args[i]
     let ldecl ← getFVarLocalDecl a
     let i := USize.ofNat32 i (Nat.lt_trans h lt32)
-    let (ma, pyTy) ← mkCArg fn i ldecl.type cargs
+    let (ma, pyTy?) ← mkCArg fn i ldecl.type cargs
     let lam ← mkLambdaFVars #[a] body
     let body := mkPyBind ldecl.type ma lam
     let pyName := mkPyName ldecl.userName
-    let pySig := s!"{pyName}: {pyTy}, {pySig}"
+    let pySig :=
+      match pyTy? with
+      | some pyTy => s!"{pyName}: {pyTy}, {pySig}"
+      | none => s!"{pyName}, {pySig}"
     return (body, pySig)
   return (body, s!"({pySig}")
 
@@ -196,10 +211,10 @@ initialize
             pySig := pySigD callConv.pySig
           }
         else MetaM.run' do
-          let (val, pyTy) ← mkResult decl.type declConst
+          let (val, pyRet?) ← mkResult decl.type declConst
           let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) val
           let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
-          let pySig := pySigD s!"() -> {pyTy}"
+          let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
           addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
       else
         MetaM.run' do
@@ -209,21 +224,26 @@ initialize
             return (← getFVarLocalDecl a).binderInfo.isExplicit
           unless allExplicit do
             throwError "All parameters of a `@[py_module_fn]` definition must be explicit."
-          let (rx, pyRet) ← mkResult rTy (mkAppN declConst as)
+          let (rx, pyRet?) ← mkResult rTy (mkAppN declConst as)
+          let pySigD params := pySigD <|
+            pyRet?.elim params (s!"{params} -> {·}")
           if as.size = 0 then
             let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) rx
             let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
-            let pySig := pySigD s!"() -> {pyRet}"
+            let pySig := pySigD "()"
             addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
           else if h : as.size = 1 then
-            withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
+            withLocalDeclD `arg (mkConst `Nerodia.PyAny) fun arg => do
             let a := as[0]
             let ldecl ← getFVarLocalDecl a
-            let (ma, pyTy) ← mkArg fn 0 ldecl.type arg
+            let (ma, pyTy?) ← mkArg fn 0 ldecl.type arg
             let pyName := mkPyName ldecl.userName
-            let pySig := pySigD s!"({pyName}: {pyTy}, /) -> {pyRet}"
+            let pySig := pySigD <|
+              match pyTy? with
+              | some pyTy => s!"({pyName}: {pyTy}, /)"
+              | none => s!"({pyName}, /)"
             -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
-            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
+            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyAny) rx
             let lam ← mkLambdaFVars #[a] rx
             let rx := mkPyBind ldecl.type ma lam
             let lam ← mkLambdaFVars #[arg] rx
@@ -233,10 +253,10 @@ initialize
           else if lt32 : as.size < UInt32.size then
             withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun cargs => do
             -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
-            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyObject) rx
-            let (rx, pySig) ← mkArgChain fn cargs as rx lt32
-            let rx := mkApp (mkConst `Nerodia.PyIO.toCPyIO) rx
-            let pySig := pySigD s!"{pySig} -> {pyRet}"
+            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyAny) rx
+            let (rx, pyParams) ← mkArgChain fn cargs as rx lt32
+            let rx := mkApp2 (mkConst `Nerodia.PyIO.toCPyIO) (mkConst `Nerodia.TypePred.any) rx
+            let pySig := pySigD pyParams
             let lam ← mkLambdaFVars #[cargs] rx
             let val := mkApp3 (mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe)
               fn (toExpr as.usize) lam
@@ -276,11 +296,12 @@ initialize
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
       MetaM.run' do
       let us := decl.levelParams.map .param
-      let (val, pyTy) ← mkResult decl.type (mkConst declName us)
+      let (val, pyTy?) ← mkResult decl.type (mkConst declName us)
+      let val := mkApp (mkConst `Nerodia.PyAttrInit.ofCPyIO) val
       let cSym ← mkAuxSym `_pyAttr decl.isUnsafe decl.levelParams `Nerodia.PyAttrInit val
       let df : AttrDef := {
         name, doc?, cSym
-        ty := ty?.elim pyTy (·.getString)
+        ty? := ty?.elim pyTy? (some ·.getString)
       }
       modifyModuleConfig fun cfg => {cfg with attrs := cfg.attrs.push df}
   }

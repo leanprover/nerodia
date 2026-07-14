@@ -15,7 +15,7 @@ public structure AttrDef where
   name : String
   doc? : Option String
   cSym : String
-  ty : String
+  ty? : Option String
 
 public structure MethodFlags where
   private ofString ::

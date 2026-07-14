@@ -306,10 +306,17 @@ LEAN_EXPORT void nerodia_set_init_error(lean_obj_arg init_res, const char *mod_n
 }
 /* ## Lean API */
 
+/* addr : @& PyObject -> Addr */
 LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
   return (size_t)nerodia_to_object(self);
 }
 
+/* decEq : @& PyObject -> @& PyObject -> Decidable (self = other) */
+LEAN_EXPORT size_t nerodia_py_object_dec_eq(b_lean_obj_arg self, b_lean_obj_arg other) {
+  return nerodia_to_object(self) == nerodia_to_object(other);
+}
+
+/* newRef : @& Py T -> CPyBaseIO (Py T) */
 LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
   return (size_t)Py_NewRef(nerodia_to_object(self));
 }
@@ -390,6 +397,11 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_system_error(b_lean_obj_arg msg, b_l
 /* none : @& PyEnvironment|PyContext -> PyObject */
 LEAN_EXPORT lean_obj_res nerodia_none(b_lean_obj_arg env_or_ctx) {
   return nerodia_of_immortal_object(Py_None, env_or_ctx);
+}
+
+/* isNone : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_none(b_lean_obj_arg self) {
+  return nerodia_to_object(self) == Py_None;
 }
 
 /* import : @& String -> CPyIO PyObject */
