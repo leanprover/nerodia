@@ -60,11 +60,19 @@ public class ToTypeExpr (T : TypePred) where
 public def TypePred.any : TypePred :=
   fun _ => True
 
+public def TypePred.subtype (T : TypePred) (U : TypePred) : TypePred :=
+  fun o => T o ∧ U o
+
 /-- A typed Python object. -/
 public structure Py (T : TypePred) extends PyObject where
   property : T toPyObject
 
 public instance : CoeOut (Py T) PyObject := ⟨Py.toPyObject⟩
+
+public class IsPy (α : Type) : Prop where
+  eq_py : ∃ T, α = Py T
+
+public instance : IsPy (Py T) := ⟨T, rfl⟩
 
 public abbrev NonemptyPy (T : TypePred) := Nonempty (Py T)
 
@@ -72,7 +80,6 @@ public theorem NonemptyPy.intro (o : PyObject) (h : T o) : NonemptyPy T :=
   ⟨⟨o, h⟩⟩
 
 public instance : NonemptyPy .any := .intro Classical.ofNonempty .intro
-
 
 /-- A Python object of unkown type. -/
 public abbrev PyAny := Py .any
@@ -148,9 +155,6 @@ noncomputable def PyObject.isOfKind (self : @& PyObject) (k : Kind) : Bool :=
 
 theorem NonemptyPy.of_kind {k : PyObject.Kind} : NonemptyPy (·.isOfKind k) :=
   .intro (.ofKind k) <| by simp [PyObject.ofKind, PyObject.isOfKind]
-
-public def TypePred.subtype (T : TypePred) (U : TypePred) : TypePred :=
-  fun o => T o ∧ U o
 
 /-! ### type -/
 
@@ -356,7 +360,7 @@ A raw strong reference to a Python object.
 It is not managed by Lean. Nerodia handles this within its API, and users are
 not expected to manage {name}`CPyBaseResult` objects manually.
 -/
-public structure CPyBaseResult (α : Type u) extends toCPtrUnsafe : CPtr α where
+public structure CPyBaseResult (α : Type) extends toCPtrUnsafe : CPtr α where
   /--
   Constructs a {name}`CPyBaseResult` from a raw Python object pointer,
   with both sharing the strong reference.
@@ -365,7 +369,8 @@ public structure CPyBaseResult (α : Type u) extends toCPtrUnsafe : CPtr α wher
   and manually manage the reference's lifetime.
   -/
   private ofCPtrUnsafe ::
-    deriving Nonempty, DecidableEq
+    [isPy : IsPy α]
+    deriving DecidableEq
 
 
 /--
@@ -375,6 +380,11 @@ with both sharing the strong reference.
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
 add_decl_doc CPyBaseResult.toCPtrUnsafe
+
+namespace CPyBaseResult
+public instance [IsPy α] [Nonempty α] : Nonempty (CPyBaseResult α) :=
+  ⟨⟨Classical.ofNonempty⟩⟩
+end CPyBaseResult
 
 /-! ## CPyResult -/
 
@@ -388,7 +398,7 @@ to a Python object. {lit}`NULL` indicates an exception has been raised.
 It is not managed by Lean. Nerodia handles this within its API, and users are
 not expected to manage {name}`CPyResult` objects manually.
 -/
-public structure CPyResult (α : Type u) extends toNullableCPtrUnsafe : NullableCPtr α where
+public structure CPyResult (α : Type) extends toNullableCPtrUnsafe : NullableCPtr α where
   /--
   Constructs a result from a raw Python object pointer
   (or {name}`null`), with both sharing the strong reference.
@@ -399,6 +409,7 @@ public structure CPyResult (α : Type u) extends toNullableCPtrUnsafe : Nullable
   and manually manage the reference's lifetime.
   -/
   private ofNullableCPtrUnsafe ::
+    isPy_of_not_isNull : ¬ toNullableCPtrUnsafe.IsNull → IsPy α
     deriving DecidableEq
 
 namespace CPyResult
@@ -420,7 +431,7 @@ sharing the single strong reference between them.
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
 @[inline] def ofCPyBaseResultUnsafe (o : CPyBaseResult α) : CPyResult α :=
-  .ofNullableCPtrUnsafe o.toCPtrUnsafe
+  .ofNullableCPtrUnsafe o.toCPtrUnsafe fun _ => o.isPy
 
 /--
 Constructs a {lean}`CPyResult` indicating failure.
@@ -428,7 +439,7 @@ Constructs a {lean}`CPyResult` indicating failure.
 **Safety:** Users should ensure that an exception is set.
 -/
 @[inline] public def failureUnsafe : CPyResult α :=
-  ⟨null⟩
+  ⟨null, by simp⟩
 
 public instance : Inhabited (CPyResult α) := ⟨failureUnsafe⟩
 
@@ -442,6 +453,7 @@ sharing the single strong reference between them.
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
 @[inline] def toCPyBaseResultUnsafe (self : CPyResult α) (h : ¬ self.IsFailure) : CPyBaseResult α :=
+  have : IsPy α := self.isPy_of_not_isNull h
   .ofCPtrUnsafe (.ofNullableCPtr self.toNullableCPtrUnsafe h)
 
 end CPyResult
@@ -602,7 +614,7 @@ namespace CPyBaseIO
 @[inline] public protected def pure (o : Py T) : CPyBaseIO (Py T) :=
   o.newRef
 
-public instance [Nonempty α] : Nonempty (CPyBaseIO α) :=
+public instance [IsPy α] [Nonempty α] : Nonempty (CPyBaseIO α) :=
   ⟨ofBaseIOUnsafe <| pure <| Classical.ofNonempty⟩
 
 end CPyBaseIO
