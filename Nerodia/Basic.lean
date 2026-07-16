@@ -208,10 +208,14 @@ namespace Py
 public instance : CoeOut (Py T) PyObject := ⟨Py.toPyObject⟩
 end Py
 
+/-! ### IsPy -/
+
 public class IsPy (α : Type) : Prop where
   eq_py : ∃ T, α = Py T
 
 public instance : IsPy (Py T) := ⟨T, rfl⟩
+
+/-! ### NonemptyPy -/
 
 public abbrev NonemptyPy (T : TypePred) := Nonempty (Py T)
 
@@ -229,6 +233,19 @@ public instance [NonemptyPy U] : NonemptyPy (T ∪ U) :=
   let o : Py U := Classical.ofNonempty
   .intro o o.mem.union_right
 
+/-! ### ToPy -/
+
+public class ToPy (α : Type u) (T : TypePred) where
+  toPy (a : α) : Py T
+
+export ToPy (toPy)
+
+namespace ToPy
+public instance : ToPy (Py T) T := ⟨(·)⟩
+public instance : ToPy (Py (T ∩ U)) T := ⟨fun o => .mk o o.mem.left⟩
+public instance : ToPy (Py (T ∩ U)) U := ⟨fun o => .mk o o.mem.right⟩
+end ToPy
+
 /-! ## PyAny -/
 
 /-- A Python object of unkown type. -/
@@ -237,6 +254,7 @@ public abbrev PyAny := Py .any
 @[inline] public def PyObject.toPyAny (o : PyObject) : PyAny :=
   ⟨o, .any⟩
 
+public instance : ToPy (Py T) .any := ⟨(·.toPyAny)⟩
 public instance : CoeOut (Py T) PyAny := ⟨(·.toPyAny)⟩
 
 /-! ## PyObject Basics -/
@@ -361,24 +379,37 @@ public instance : NonemptyPy .baseException := .of_kind
 
 public instance : ToTypeExpr .baseException := ⟨.baseException⟩
 
-/-- A instance of {lit}`BaseException` that satisfies {lean}`T`. -/
-public abbrev TPyBaseException (T : TypePred) := Py (.baseException ∩ T)
-
 /-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
-public abbrev PyBaseException := TPyBaseException .any
+public abbrev PyBaseException := Py .baseException
 
-public def TPyBaseException.toPyBaseException (self : TPyBaseException T) : PyBaseException :=
-  ⟨self, ⟨self.mem.left, .any⟩⟩
+/-- Shorthand for {lean}`ToPy α .baseException` -/
+public abbrev ToPyBaseException (α : Type u) := ToPy α .baseException
 
-public instance: CoeOut (TPyBaseException T) PyBaseException := ⟨TPyBaseException.toPyBaseException⟩
+/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyBaseException`. -/
+public abbrev PyBaseExceptionView (α : Type u) := α
+
+namespace PyBaseExceptionView
+
+public abbrev toPyBaseException
+  [ToPyBaseException α] (self : PyBaseExceptionView α)
+: PyBaseException := toPy self
+
+public instance [ToPyBaseException α] :
+  CoeOut (PyBaseExceptionView α) PyBaseException := ⟨toPyBaseException⟩
+
+end PyBaseExceptionView
 
 /-- Returns whether this type is an instance of {lit}`BaseException`. -/
 @[extern "nerodia_py_object_is_base_exception_instance"]
 public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
   self.isOfKind .baseException
 
+@[grind _=_] public theorem PyObject.isBaseExceptionInstance_iff_mem :
+  PyObject.isBaseExceptionInstance o ↔ o ∈ TypePred.baseException
+:= isOfKind_iff_mem
+
 @[inline] public def PyBaseException.mk (o : PyObject) (h : o.isBaseExceptionInstance) : PyBaseException :=
-  ⟨o, ⟨.of_isOfKind h, .any⟩⟩
+  ⟨o, .of_isOfKind h⟩
 
 /-! ### str -/
 
@@ -479,8 +510,12 @@ public instance : NonemptyPy (.baseException ∩ .hint ty) :=
 
 public instance : ToTypeExpr (.baseException ∩ (.hint ty)) := ⟨ty⟩
 
+-- /-- An instance of {lit}`BaseException` that is weakly typed as {lit}`ty`. -/
+-- public abbrev HPyBaseException (ty : TypeExpr) := TPyBaseException (.hint ty)
+
 /-- An instance of {lit}`BaseException` that is weakly typed as {lit}`ty`. -/
-public abbrev HPyBaseException (ty : TypeExpr) := TPyBaseException (.hint ty)
+public abbrev HPyBaseException (ty : TypeExpr) :=
+  PyBaseExceptionView <| Py <| .baseException ∩ .hint ty
 
 /-! ### Exception -/
 
@@ -902,17 +937,9 @@ public class MonadRaise (m : Type u → Type v) where
    /-- Raises the exception {lean}`e`.-/
   raise (e : PyBaseException) : m α
 
-public class ToBaseException (ε : Type u) where
-  toBaseException (e : ε) : PyBaseException
-
-public instance : ToBaseException PyBaseException := ⟨(·)⟩
-public instance : ToBaseException PyException := ⟨(·)⟩
-public instance : ToBaseException PySystemError := ⟨(·)⟩
-public instance : ToBaseException PyTypeError := ⟨(·)⟩
-
  /-- Raises the exception {lean}`e`.-/
-@[inline] public def raise [MonadRaise m] [ToBaseException ε] (e : ε) : m α :=
-  MonadRaise.raise (ToBaseException.toBaseException e)
+@[inline] public def raise [MonadRaise m] [ToPyBaseException ε] (e : ε) : m α :=
+  MonadRaise.raise (toPy e)
 
 /-- Clears the current exception. Does nothing if there is none. -/
 @[extern "nerodia_py_context_clear_error"]
@@ -1598,6 +1625,11 @@ public def PyBaseException.sprint (e : PyBaseException) : PyBaseIO String := do
       | return "<exception str() failed>"
     return s.toString
   return if estr.isEmpty then ename else s!"{ename}: {estr}"
+
+@[inherit_doc PyBaseException.sprint]
+public abbrev PyBaseExceptionView.sprint
+  [ToPyBaseException α] (self : PyBaseExceptionView α)
+: PyBaseIO String := self.toPyBaseException.sprint
 
 namespace PyIO
 
