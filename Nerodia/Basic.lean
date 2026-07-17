@@ -8,6 +8,7 @@ public import Nerodia.Data.CPtr
 public import Nerodia.Data.Codec
 public import Nerodia.Control.MonadPy
 public import Nerodia.Control.PyIO.Basic
+meta import Nerodia.ViewMethod
 
 /-! # Nerodia -/
 
@@ -1562,15 +1563,9 @@ Decodes a bytes-like object into a string.
 
 This is equivalent to the Python {lit}`str(self, encoding, errors)`.
 -/
-@[extern "nerodia_py_object_decode"]
+@[extern "nerodia_py_object_decode", view_method]
 public opaque PyBuffer.decode (self : @& PyBuffer)
   (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyStr
-
-@[inline, inherit_doc PyBuffer.decode]
-public def PyBufferView.decode
-  [ToPyBuffer α] (self : @& PyBufferView α)
-  (encoding : @& Codec) (errors : @& CodecErrors := .strict)
-: CPyIO PyStr := self.toPyBuffer.decode encoding errors
 
 /--
 Computes a string representation of the object {lean}`self`.
@@ -1674,6 +1669,7 @@ end PyBytes
 Formats the exception as a Lean string,
 closely mirroring how Python would print it.
 -/
+@[view_method]
 public def PyBaseException.sprint (e : PyBaseException) : PyBaseIO String := do
   -- Aims to mirror `print_exception`
   -- https://github.com/python/cpython/blob/v3.14.5/Python/pythonrun.c#L965
@@ -1687,11 +1683,6 @@ public def PyBaseException.sprint (e : PyBaseException) : PyBaseIO String := do
       | return "<exception str() failed>"
     return s.toString
   return if estr.isEmpty then ename else s!"{ename}: {estr}"
-
-@[inherit_doc PyBaseException.sprint]
-public abbrev PyBaseExceptionView.sprint
-  [ToPyBaseException α] (self : PyBaseExceptionView α)
-: PyBaseIO String := self.toPyBaseException.sprint
 
 namespace PyIO
 
