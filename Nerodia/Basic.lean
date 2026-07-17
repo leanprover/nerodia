@@ -281,12 +281,31 @@ public def decEq (self other : PyObject) : Decidable (self = other) :=
 
 public instance : DecidableEq PyObject := decEq
 
+end PyObject
+
+/-!
+## Weak Typing
+
+Typing in Python is mutable. Objects can have their type changed by
+reassigning their {lit}`__class__` attribute, and types themselves can have
+their inheritance tree change by reassigning {lit}`__bases__`.
+
+As such, most type relations in Python do not hold statically and therefore
+cannot be modelled correctly and safely by a pure relation in Lean. Nonetheless,
+statically typing Python objects in Lean is still useful, so Nerodia provides
+a mechanism for *weak typing*. Objects can be freely annotated with *type hints*
+in the  form of Python type expressions (i.e., {lean}`TypeExpr`) manually cast
+between types without proof.
+-/
+
+namespace PyObject
+
 set_option linter.unusedVariables.funArgs false in
 @[inline] unsafe def castImpl (ty : TypeExpr) (self : PyObject) : PyObject :=
   unsafeCast self
 
 /--
-Casts the object to the type indicating by the hint {lean}`ty`.
+Casts the object to the type indicating by the expression {lean}`ty`.
 
 This weakly types the object, providing no strong guarantees.
 
@@ -298,21 +317,79 @@ public def cast (ty : TypeExpr) (self : PyObject) : PyObject :=
 
 end PyObject
 
+/-- Type predicate for objects weakly typed as {lean}`ty`. -/
+public def TypePred.hint (ty : TypeExpr) : TypePred :=
+  .ofFn (·.toModel.hint = ty)
+
+public instance : ToTypeExpr (.hint ty) := ⟨ty⟩
+
+@[simp, grind .] public theorem PyObject.cast_mem_hint :
+  PyObject.cast ty o ∈ TypePred.hint ty
+:= by simp [TypePred.hint, PyObject.cast]
+
+public instance : NonemptyPy (.hint ty) :=
+  .intro (.cast ty Classical.ofNonempty) PyObject.cast_mem_hint
+
+/-- A Python object weakly typed as {lean}`ty`.-/
+public abbrev HPy (ty : TypeExpr) := Py (.hint ty)
+
+@[inherit_doc PyObject.cast]
+public def HPy.mk (o : PyObject) (ty : TypeExpr) : HPy ty :=
+  ⟨o.cast ty, PyObject.cast_mem_hint⟩
+
+public instance : ToPy (Py T) (.hint ty) := ⟨(HPy.mk ·.toPyObject ty)⟩
+
+/-! ### Buffer -/
+
+public def TypeExpr.buffer : TypeExpr := ⟨"Buffer"⟩
+public abbrev TypePred.buffer : TypePred := .hint .buffer
+
+/--
+A weakly typed instance of [{lit}`collections.abc.Buffer`][2].
+
+That is, a Python object which implements the [Buffer Protocol][1].
+
+[1]: https://docs.python.org/3/c-api/buffer.html#bufferobjects
+[2]: https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer
+-/
+public abbrev PyBuffer := HPy .buffer
+
+/-- Shorthand for {lean}`ToPy α .buffer` -/
+public abbrev ToPyBuffer (α : Type u) := ToPy α .buffer
+
+/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyBuffer`. -/
+public abbrev PyBufferView (α : Type u) := α
+
+namespace PyBufferView
+
+public abbrev toPyBuffer
+  [ToPyBuffer α] (self : PyBufferView α)
+: PyBuffer := toPy self
+
+public instance [ToPyBuffer α] :
+  CoeOut (PyBufferView α) PyBuffer := ⟨toPyBuffer⟩
+
+end PyBufferView
+
 /-!
 ## Builtin Types
 
-Builtin Python types (e.g., {lit}`str`) are represented statically in Nerodia.
-They have given specialized static types (e.g., {lit}`PyStr`), and the type check
-for them is a pure function (e.g., {lit}`isStrInstance`). This is not strictly
-in accordance with the Python specification, which leaves the mutability of an
-object's type undefined.
+Not all typing in Nerodia is weak. While the Python specification leaves
+the mutability of an object's type undefined, the CPython implementation has
+notable restrictions on this mutablility. Notably, it prevents reassignment
+between many builtin types (e.g., {lit}`str`).
 
-In pratice, while CPython does permit type mutation (e.g., via {lit}`__class__`
-and {lit}`__bases__` reasignment), it prevents reassignment between most builtin
-types. Furthermore, CPython's implementation strongly assumes builtin type
-confusion cannot happen.
+Nerodia lverages this provide pure type checks (e.g., {lit}`isStrInstance`)
+for these functions. Their static types (e.g., {lit}`PyStr`) then hold a proof
+of this check. Since many builtin types are also immutable, the data of such
+types can be safely accessed in a pure manner (e.g., {lit}`PyStr.toString`).
 
-Nerodia thus chooses to model them statically to make reasoning easier,
+Nonethless, there are caveats. Foremost, this is not strictly in accordance
+with the Python specification, which leaves the mutability of an object's type
+undefined. However, CPython's implementation strongly assumes confusion between
+builtin types cannot happen (e.g., retyping an {lit}`int` to/from a {lit}`str`
+would easily segfault when used). Weighing these considerations, Nerodia chooses
+to model builtin types functionally to make reasoning easier and more pure,
 accepting the cost of a potential future breakage in the event of an unlikely,
 massive Python refactor.
 -/
@@ -327,8 +404,14 @@ def TypePred.kind (k : PyObject.Kind) : TypePred :=
   PyObject.ofKind k ∈ TypePred.kind k
 := by simp [TypePred.kind, PyObject.ofKind]
 
-open Classical in
-noncomputable abbrev PyObject.isOfKind (k : Kind) (self : @& PyObject) : Bool :=
+@[simp] theorem PyObject.cast_mem_kind_iff :
+   o.cast ty ∈ TypePred.kind k ↔ o ∈ TypePred.kind k
+:= by simp [PyObject.cast, TypePred.kind]
+
+noncomputable instance : Decidable (self ∈ TypePred.kind k) :=
+  Classical.propDecidable _
+
+noncomputable def PyObject.isOfKind (k : Kind) (self : @& PyObject) : Bool :=
   self ∈ TypePred.kind k
 
 open Classical in
@@ -447,7 +530,7 @@ public instance : NonemptyPy .bytes := .of_kind
 public instance : ToTypeExpr .bytes := ⟨.bytes⟩
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
-public abbrev PyBytes := Py .bytes
+public abbrev PyBytes := PyBufferView (Py .bytes)
 
 /-- Returns whether this type is an instance of {lit}`bytes`. -/
 @[extern "nerodia_py_object_is_bytes_instance"]
@@ -482,26 +565,6 @@ Unlike {lit}`BaseException` itself, it is possible to mutate objects between
 many of its subtypes (e.g., an object can be retyped to/from {lit}`Exception`).
 As such, instances of these subtypes are weakly typed.
 -/
-
-noncomputable def PyObject.IsHintedAs (ty : TypeExpr) (self : @& PyObject) : Prop :=
-  self.toModel.hint = ty
-
-theorem PyObject.isHintedAs_cast : IsHintedAs ty (cast ty o) := by
-  simp [PyObject.cast, PyObject.IsHintedAs]
-
-@[simp] theorem TypePred.cast_mem_kind_iff :
-   o.cast ty ∈ kind k ↔ o ∈ kind k
-:= by simp [PyObject.cast, TypePred.kind]
-
-public def TypePred.hint (ty : TypeExpr) : TypePred :=
-  .ofFn (·.IsHintedAs ty)
-
-public instance : NonemptyPy (.hint ty) :=
-  .intro (.cast ty Classical.ofNonempty) PyObject.isHintedAs_cast
-
-@[simp, grind .] public theorem TypePred.cast_mem_hint :
-  PyObject.cast ty o ∈ TypePred.hint ty
-:= by simp [TypePred.hint, PyObject.isHintedAs_cast]
 
 open TypePred in
 public instance : NonemptyPy (.baseException ∩ .hint ty) :=
@@ -1481,7 +1544,6 @@ public def PyAttrInit :=
 public opaque PyObject.getAttrByString
   (self : @& PyObject) (attrName : @& String) : CPyIO PyAny
 
-
 /-! ## Strings & ByteArray -/
 
 /-- Creates a Python string from a Lean string. -/
@@ -1496,13 +1558,19 @@ public opaque decode (bytes : @& ByteArray)
   (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyStr
 
 /--
-Decodes a bytes-like object into a string. All other objects raise a {lit}`TypeError`.
+Decodes a bytes-like object into a string.
 
 This is equivalent to the Python {lit}`str(self, encoding, errors)`.
 -/
 @[extern "nerodia_py_object_decode"]
-public opaque PyObject.decode (self : @& PyObject)
+public opaque PyBuffer.decode (self : @& PyBuffer)
   (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyStr
+
+@[inline, inherit_doc PyBuffer.decode]
+public def PyBufferView.decode
+  [ToPyBuffer α] (self : @& PyBufferView α)
+  (encoding : @& Codec) (errors : @& CodecErrors := .strict)
+: CPyIO PyStr := self.toPyBuffer.decode encoding errors
 
 /--
 Computes a string representation of the object {lean}`self`.
@@ -1589,12 +1657,6 @@ public def size (self : @& PyBytes) : Nat :=
 
 @[simp, grind =]
 public theorem size_eq : size bs = bs.toByteArray.size := by rfl
-
-/-- Decodes bytes as a string. -/
-@[inline] public def decode
-  (self : @& PyBytes)
-  (encoding : @& Codec) (errors : @& CodecErrors := .strict)
-: CPyIO PyStr := self.toPyObject.decode encoding errors
 
 /--
 Decodes bytes as a UTF-8-encoded string.

@@ -16,6 +16,10 @@ public def writePyiFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   if let some doc := mod.doc? then
     pyi.putStr doc.quote
     pyi.putStr "\n"
+  pyi.putStr "\
+    from typing import *\n\
+    from collections.abc import *\n\
+    \n"
   for df in mod.attrs do
     pyi.putStr "\n"
     pyi.putStr df.name
