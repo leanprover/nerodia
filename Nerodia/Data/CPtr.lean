@@ -20,14 +20,24 @@ It is not managed by Lean. Nerodia handles this within its API, and users are
 not expected to manage {name}`NullableCPtr` objects manually.
 -/
 public structure NullableCPtr (α : Type u) : Type where
-  private ofNullableAddrUnsafe ::
+  /--
+  Constructs a pointer from a raw address.
+
+  **Safety:** The address must be a pointer to {lean}`α` (if not {lean}`null`).
+  -/
+  ofNullableAddrUnsafe ::
     nullableAddr : NullableAddr
     nonempty_of_not_isNull_nullableAddr (h : ¬ nullableAddr.IsNull) : Nonempty α
     deriving DecidableEq
 
 namespace NullableCPtr
 
-@[inline] def ofAddrUnsafe [Nonempty α] (addr : Addr) : NullableCPtr α :=
+ /--
+  Constructs a pointer from a raw address.
+
+  **Safety:** The address must be a pointer to {lean}`α`.
+  -/
+@[inline] public def ofAddrUnsafe [Nonempty α] (addr : Addr) : NullableCPtr α :=
   ofNullableAddrUnsafe addr fun _ => inferInstance
 
 public theorem nullableAddr_inj : nullableAddr a = nullableAddr b ↔ a = b := by
@@ -68,11 +78,16 @@ namespace CPtr
 
 public instance : Coe (CPtr α) (NullableCPtr α) := ⟨toNullableCPtr⟩
 
-public noncomputable def ofAddrNoncomputable [Nonempty α] (addr : Addr) : CPtr α :=
+/--
+Constructs a pointer from a raw address.
+
+**Safety:** The address must be a pointer to {lean}`α`.
+-/
+@[inline] public def ofAddrUnsafe [Nonempty α] (addr : Addr) : CPtr α :=
   ofNullableCPtr (.ofAddrUnsafe addr) addr.not_isNull
 
 public instance [Nonempty α] : Nonempty (CPtr α) :=
-  ⟨ofAddrNoncomputable Classical.ofNonempty⟩
+  ⟨ofAddrUnsafe Classical.ofNonempty⟩
 
 @[inline] public def addr (self : CPtr α) : Addr :=
   .ofNullableAddr self.nullableAddr self.not_isNull

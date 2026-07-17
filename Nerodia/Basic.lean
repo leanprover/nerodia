@@ -24,7 +24,7 @@ public structure TypeExpr where
 
 /-- A fixed enumartion of builtin base types. -/
 -- A very simple model, it could be made more dynamic in the future.
-inductive PyObject.Kind
+inductive Py.Kind
 | type
 | baseException
 | str
@@ -34,13 +34,11 @@ inductive PyObject.Kind
 deriving Nonempty, DecidableEq
 
 /-- The logical model of a Python object. -/
-structure PyObject.Model where
+structure Py.Model where
   addr : Addr
   env : PyEnvironment
   hint : TypeExpr
-  kind : PyObject.Kind
-  /-- Represents all data not otherwise modelled. -/
-  data : Dynamic
+  kind : Py.Kind
   deriving Nonempty
 
 /--
@@ -48,9 +46,9 @@ A Python object. A [{lit}`PyObject`][1] pointer managed by Lean.
 
 [1]: https://docs.python.org/3/c-api/structures.html#c.PyObject
 -/
-public structure PyObject where
+public structure Py.Raw where
   private ofModel ::
-    private toModel : PyObject.Model
+    private toModel : Py.Model
     deriving Nonempty
 
 /-! ## Type Predicate -/
@@ -58,17 +56,17 @@ public structure PyObject where
 /-- A Neordia type predicate. -/
 @[expose] -- for Lean/Nerodia codegen
 public def TypePred : Type :=
-  PyObject → Prop
+  Py.Raw → Prop
 
 namespace TypePred
 
-public def ofFn (p : PyObject → Prop) : TypePred :=
+public def ofFn (p : Py.Raw → Prop) : TypePred :=
   p
 
-public def Mem (T : TypePred) (o : PyObject) : Prop :=
+public def Mem (T : TypePred) (o : Py.Raw) : Prop :=
   T o
 
-public instance : Membership PyObject TypePred := ⟨Mem⟩
+public instance : Membership Py.Raw TypePred := ⟨Mem⟩
 
 @[simp, grind =] public theorem mem_ofFn :
   o ∈ ofFn p ↔ p o
@@ -138,27 +136,31 @@ public instance : HasSubset TypePred := ⟨Subset⟩
   T ⊆ U ↔ ∀ o, o ∈ T → o ∈ U
 := Iff.intro id id
 
-/-- Python {lit}`Any` (or {lit}`object`). The top (⊤) element of type predicates. -/
-public def any : TypePred :=
+public theorem Subset.mem_of_mem
+  {T U : TypePred} (h : T ⊆ U) (ho : o ∈ T)
+: o ∈ U := subset_iff_forall.mp h o ho
+
+/-- Python {lit}`object`. The top (⊤) element of type predicates. -/
+public def object : TypePred :=
   ofFn fun _ => True
 
-@[simp, grind .] public theorem Mem.any : o ∈ any := True.intro
+@[simp, grind .] public theorem Mem.object : o ∈ object := True.intro
 
 -- the below are `@[simp]` only because grind already handles them
 
-@[simp] public theorem subset_any : T ⊆ any :=
-  subset_iff_forall.mpr fun _ _ => .any
+@[simp] public theorem Subset.object : T ⊆ object :=
+  subset_iff_forall.mpr fun _ _ => .object
 
-@[simp] public theorem union_any : T ∪ any = any := by
+@[simp] public theorem union_object : T ∪ object = object := by
   simp [TypePred.ext_iff, mem_union_iff_or]
 
-@[simp] public theorem any_union : any ∪ T = any := by
+@[simp] public theorem object_union : object ∪ T = object := by
   simp [TypePred.ext_iff, mem_union_iff_or]
 
-@[simp] public theorem inter_any : T ∩ any = T := by
+@[simp] public theorem inter_object : T ∩ object = T := by
   simp [TypePred.ext_iff, mem_inter_iff_and]
 
-@[simp] public theorem any_inter : any ∩ T = T := by
+@[simp] public theorem object_inter : object ∩ T = T := by
   simp [TypePred.ext_iff, mem_inter_iff_and]
 
 /-- Python {lit}`Never`. The bottom (⊥) element of type predicates. -/
@@ -202,12 +204,11 @@ public class ToTypeExpr (T : TypePred) where
 /-! ## Py -/
 
 /-- A typed Python object. -/
-public structure Py (T : TypePred) extends PyObject where
-  mem : toPyObject ∈ T
+public structure Py (T : TypePred) where
+  raw : Py.Raw
+  raw_mem : raw ∈ T
 
-namespace Py
-public instance : CoeOut (Py T) PyObject := ⟨Py.toPyObject⟩
-end Py
+attribute [simp, grind .] Py.raw_mem
 
 /-! ### IsPy -/
 
@@ -220,55 +221,131 @@ public instance : IsPy (Py T) := ⟨T, rfl⟩
 
 public abbrev NonemptyPy (T : TypePred) := Nonempty (Py T)
 
-public theorem NonemptyPy.intro (o : PyObject) (h : o ∈ T) : NonemptyPy T :=
+public theorem NonemptyPy.intro (o : Py.Raw) (h : o ∈ T) : NonemptyPy T :=
   ⟨⟨o, h⟩⟩
 
-public instance : NonemptyPy .any :=
+public instance : NonemptyPy .object :=
   .intro Classical.ofNonempty .intro
 
 public instance [NonemptyPy T] : NonemptyPy (T ∪ U) :=
   let o : Py T := Classical.ofNonempty
-  .intro o o.mem.union_left
+  .intro o.raw o.raw_mem.union_left
 
 public instance [NonemptyPy U] : NonemptyPy (T ∪ U) :=
   let o : Py U := Classical.ofNonempty
-  .intro o o.mem.union_right
+  .intro o.raw o.raw_mem.union_right
 
 /-! ### ToPy -/
 
-public class ToPy (α : Type u) (T : TypePred) where
+public class ToPy (T : TypePred) (α : Type u)  where
   toPy (a : α) : Py T
 
 export ToPy (toPy)
 
 namespace ToPy
-public instance : ToPy (Py T) T := ⟨(·)⟩
-public instance : ToPy (Py (T ∩ U)) T := ⟨fun o => .mk o o.mem.left⟩
-public instance : ToPy (Py (T ∩ U)) U := ⟨fun o => .mk o o.mem.right⟩
+public instance : ToPy T (Py T) := ⟨(·)⟩
+@[simp, grind .] theorem toPy_eq_self : toPy (o : Py T) = o := by rfl
+public instance : ToPy T (Py (T ∩ U)) := ⟨fun o => .mk o.raw o.raw_mem.left⟩
+public instance : ToPy U (Py (T ∩ U)) := ⟨fun o => .mk o.raw o.raw_mem.right⟩
 end ToPy
+
+/-! ## PyObject -/
+
+@[inline, expose] public def TypeExpr.object : TypeExpr :=
+  ⟨"object"⟩
+
+public instance : ToTypeExpr .object := ⟨.object⟩
+
+/-- Any Python object. That is, an instance of {lit}`object`. -/
+public abbrev PyObject := Py .object
+
+@[inline] public def PyObject.mk (o : Py.Raw) : PyObject :=
+  Py.mk o .object
+
+@[simp, grind =] public theorem PyObject.raw_mk : (mk o).raw = o := by rfl
+
+/-- Shorthand for {lean}`ToPy .object α` -/
+public abbrev ToPyObject := ToPy .object
+
+public instance : ToPyObject (Py T) := ⟨(PyObject.mk ·.raw)⟩
+
+/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
+public abbrev PyObjectView (α : Type u) := α
+
+namespace PyObjectView
+
+public abbrev toPyObject
+  [ToPyObject α] (self : PyObjectView α)
+: PyObject := toPy self
+
+public instance [ToPyObject α] :
+  CoeOut (PyObjectView α) PyObject := ⟨toPyObject⟩
+
+end PyObjectView
 
 /-! ## PyAny -/
 
-/-- A Python object of unkown type. -/
-public abbrev PyAny := Py .any
+/--
+Any Python object.
 
-@[inline] public def PyObject.toPyAny (o : PyObject) : PyAny :=
-  ⟨o, .any⟩
+This is propositionally equivalent to {lean}`object`, but
+it has different type class instances.
+-/
+@[irreducible] public def TypePred.any : TypePred := .object
 
-public instance : ToPy (Py T) .any := ⟨(·.toPyAny)⟩
-public instance : CoeOut (Py T) PyAny := ⟨(·.toPyAny)⟩
+@[simp, grind =] public theorem TypePred.any_eq_object : any = object := by
+  unfold any; rfl
 
-/-! ## PyObject Basics -/
+@[simp, grind .] public theorem TypePred.Mem.any : o ∈ any := by
+  simp
 
-namespace PyObject
+@[simp, grind .] public theorem TypePred.Subset.any : T ⊆ any := by
+  simp
+
+/--
+A Python object of unknown type. This is analgous to Python's {lit}`Any`.
+
+In parameters, {lean}`PyObject` should generally be perferred.
+{lean}`PyAny` is primarily used to annotate a function that returns
+an object of unknown type (e.g., {lit}`Nerodia.import`).
+-/
+public abbrev PyAny := PyObjectView (Py .any)
+
+@[inline] public def PyAny.mk (o : Py.Raw) : PyAny :=
+  Py.mk o .any
+
+@[simp, grind =] public theorem PyAny.raw_mk : (mk o).raw = o := by rfl
+
+/-- Shorthand for {lean}`ToPy .any α` -/
+public abbrev ToPyAny := ToPy .any
+
+public instance : ToPyAny (Py T) := ⟨(PyAny.mk ·.raw)⟩
+
+/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
+public abbrev PyAnyView (α : Type u) := α
+
+namespace PyAnyView
+
+public abbrev toPyAny
+  [ToPyAny α] (self : PyAnyView α)
+: PyAny := toPy self
+
+public instance [ToPyAny α] :
+  CoeOut (PyAnyView α) PyAny := ⟨toPyAny⟩
+
+end PyAnyView
+
+/-! ## Basics -/
+
+namespace Py.Raw
 
 /-- Returns the Python environment to which this object belongs. -/
-public noncomputable def env (self : PyObject) : PyEnvironment :=
+public noncomputable def env (self : Py.Raw) : PyEnvironment :=
   self.toModel.env
 
 /-- Returns the address of the Python object (not the Lean wrapper). -/
 @[extern "nerodia_py_object_addr"]
-public def addr (self : @& PyObject) : Addr :=
+public def addr (self : @& Py.Raw) : Addr :=
   self.toModel.addr
 
 /--
@@ -277,12 +354,12 @@ Returns whether two objects are identical (are the same pointer).
 This is equivalent to the Python {lit}`self is other`.
 -/
 @[extern "nerodia_py_object_dec_eq"]
-public def decEq (self other : PyObject) : Decidable (self = other) :=
+public def decEq (self other : Py.Raw) : Decidable (self = other) :=
   Classical.propDecidable _
 
-public instance : DecidableEq PyObject := decEq
+public instance : DecidableEq Py.Raw := decEq
 
-end PyObject
+end Py.Raw
 
 /-!
 ## Weak Typing
@@ -299,10 +376,10 @@ in the  form of Python type expressions (i.e., {lean}`TypeExpr`) manually cast
 between types without proof.
 -/
 
-namespace PyObject
+namespace Py.Raw
 
 set_option linter.unusedVariables.funArgs false in
-@[inline] unsafe def castImpl (ty : TypeExpr) (self : PyObject) : PyObject :=
+@[inline] unsafe def castImpl (ty : TypeExpr) (self : Py.Raw) : Py.Raw :=
   unsafeCast self
 
 /--
@@ -313,10 +390,10 @@ This weakly types the object, providing no strong guarantees.
 This is akin to the Python {lit}`typing.cast(ty, self)`.
 -/
 @[implemented_by castImpl]
-public def cast (ty : TypeExpr) (self : PyObject) : PyObject :=
+public def cast (ty : TypeExpr) (self : Py.Raw) : Py.Raw :=
   ⟨{self.toModel with hint := ty}⟩
 
-end PyObject
+end Py.Raw
 
 /-- Type predicate for objects weakly typed as {lean}`ty`. -/
 public def TypePred.hint (ty : TypeExpr) : TypePred :=
@@ -324,21 +401,21 @@ public def TypePred.hint (ty : TypeExpr) : TypePred :=
 
 public instance : ToTypeExpr (.hint ty) := ⟨ty⟩
 
-@[simp, grind .] public theorem PyObject.cast_mem_hint :
-  PyObject.cast ty o ∈ TypePred.hint ty
-:= by simp [TypePred.hint, PyObject.cast]
+@[simp, grind .] public theorem Py.Raw.cast_mem_hint :
+  Py.Raw.cast ty o ∈ TypePred.hint ty
+:= by simp [TypePred.hint, Py.Raw.cast]
 
 public instance : NonemptyPy (.hint ty) :=
-  .intro (.cast ty Classical.ofNonempty) PyObject.cast_mem_hint
+  .intro (.cast ty Classical.ofNonempty) Py.Raw.cast_mem_hint
 
 /-- A Python object weakly typed as {lean}`ty`.-/
 public abbrev HPy (ty : TypeExpr) := Py (.hint ty)
 
-@[inherit_doc PyObject.cast]
-public def HPy.mk (o : PyObject) (ty : TypeExpr) : HPy ty :=
-  ⟨o.cast ty, PyObject.cast_mem_hint⟩
+@[inherit_doc Py.Raw.cast]
+public def HPy.mk (o : Py.Raw) (ty : TypeExpr) : HPy ty :=
+  ⟨o.cast ty, Py.Raw.cast_mem_hint⟩
 
-public instance : ToPy (Py T) (.hint ty) := ⟨(HPy.mk ·.toPyObject ty)⟩
+public instance : ToPy (.hint ty) (Py T)  := ⟨(HPy.mk ·.raw ty)⟩
 
 /-! ### Buffer -/
 
@@ -355,8 +432,8 @@ That is, a Python object which implements the [Buffer Protocol][1].
 -/
 public abbrev PyBuffer := HPy .buffer
 
-/-- Shorthand for {lean}`ToPy α .buffer` -/
-public abbrev ToPyBuffer (α : Type u) := ToPy α .buffer
+/-- Shorthand for {lean}`ToPy .buffer α` -/
+public abbrev ToPyBuffer := ToPy .buffer
 
 /-- Equips {lean}`α` with the dot notation methods of a {lean}`PyBuffer`. -/
 public abbrev PyBufferView (α : Type u) := α
@@ -395,36 +472,36 @@ accepting the cost of a potential future breakage in the event of an unlikely,
 massive Python refactor.
 -/
 
-noncomputable def PyObject.ofKind (k : Kind) : PyObject :=
-  {Classical.ofNonempty (α := PyObject) with toModel.kind := k}
+noncomputable def Py.Raw.ofKind (k : Kind) : Py.Raw :=
+  {Classical.ofNonempty (α := Py.Raw) with toModel.kind := k}
 
-def TypePred.kind (k : PyObject.Kind) : TypePred :=
+def TypePred.kind (k : Py.Kind) : TypePred :=
   .ofFn (·.toModel.kind = k)
 
-@[simp, grind .] theorem PyObject.ofKind_mem_kind :
-  PyObject.ofKind k ∈ TypePred.kind k
-:= by simp [TypePred.kind, PyObject.ofKind]
+@[simp, grind .] theorem Py.Raw.ofKind_mem_kind :
+  Py.Raw.ofKind k ∈ TypePred.kind k
+:= by simp [TypePred.kind, Py.Raw.ofKind]
 
-@[simp] theorem PyObject.cast_mem_kind_iff :
+@[simp] theorem Py.Raw.cast_mem_kind_iff :
    o.cast ty ∈ TypePred.kind k ↔ o ∈ TypePred.kind k
-:= by simp [PyObject.cast, TypePred.kind]
+:= by simp [Py.Raw.cast, TypePred.kind]
 
 noncomputable instance : Decidable (self ∈ TypePred.kind k) :=
   Classical.propDecidable _
 
-noncomputable def PyObject.isOfKind (k : Kind) (self : @& PyObject) : Bool :=
+noncomputable def Py.Raw.isOfKind (k : Py.Kind) (self : @& Py.Raw) : Bool :=
   self ∈ TypePred.kind k
 
 open Classical in
-theorem PyObject.isOfKind_iff_mem :
+theorem Py.Raw.isOfKind_iff_mem :
   isOfKind k o ↔ o ∈ TypePred.kind k
 := Iff.intro of_decide_eq_true decide_eq_true
 
 theorem TypePred.Mem.of_isOfKind (h : o.isOfKind k)  : o ∈ kind k :=
-  PyObject.isOfKind_iff_mem.mp h
+  Py.Raw.isOfKind_iff_mem.mp h
 
 theorem NonemptyPy.of_kind : NonemptyPy (.kind k) :=
-  .intro (.ofKind k) PyObject.ofKind_mem_kind
+  .intro (.ofKind k) Py.Raw.ofKind_mem_kind
 
 /-! ### type -/
 
@@ -441,15 +518,15 @@ Equivalently, a [{lit}`PyTypeObject`][1] pointer managed by Lean.
 
 [1]: https://docs.python.org/3/c-api/type.html#c.PyTypeObject
 -/
-public abbrev PyType := Py .type
+public abbrev PyType := PyObjectView <| Py .type
 
 /-- Returns whether this type is an instance of {lit}`type`. -/
-@[extern "nerodia_py_object_is_type_instance"]
+@[extern "nerodia_py_object_is_type_instance", view_method]
 public def PyObject.isTypeInstance (self : @& PyObject) : Bool :=
-  self.isOfKind .type
+  self.raw.isOfKind .type
 
 @[inline] public def PyType.mk (o : PyObject) (h : o.isTypeInstance) : PyType :=
-  ⟨o, .of_isOfKind h⟩
+  ⟨o.raw, .of_isOfKind h⟩
 
 /-! ### BaseException -/
 
@@ -464,10 +541,10 @@ public instance : NonemptyPy .baseException := .of_kind
 public instance : ToTypeExpr .baseException := ⟨.baseException⟩
 
 /-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
-public abbrev PyBaseException := Py .baseException
+public abbrev PyBaseException := PyObjectView <| Py .baseException
 
-/-- Shorthand for {lean}`ToPy α .baseException` -/
-public abbrev ToPyBaseException (α : Type u) := ToPy α .baseException
+/-- Shorthand for {lean}`ToPy .baseException α` -/
+public abbrev ToPyBaseException := ToPy .baseException
 
 /-- Equips {lean}`α` with the dot notation methods of a {lean}`PyBaseException`. -/
 public abbrev PyBaseExceptionView (α : Type u) := α
@@ -484,16 +561,16 @@ public instance [ToPyBaseException α] :
 end PyBaseExceptionView
 
 /-- Returns whether this type is an instance of {lit}`BaseException`. -/
-@[extern "nerodia_py_object_is_base_exception_instance"]
+@[extern "nerodia_py_object_is_base_exception_instance", view_method]
 public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
-  self.isOfKind .baseException
+  self.raw.isOfKind .baseException
 
 @[grind _=_] public theorem PyObject.isBaseExceptionInstance_iff_mem :
-  PyObject.isBaseExceptionInstance o ↔ o ∈ TypePred.baseException
-:= isOfKind_iff_mem
+  PyObject.isBaseExceptionInstance o ↔ o.raw ∈ TypePred.baseException
+:= Py.Raw.isOfKind_iff_mem
 
 @[inline] public def PyBaseException.mk (o : PyObject) (h : o.isBaseExceptionInstance) : PyBaseException :=
-  ⟨o, .of_isOfKind h⟩
+  ⟨o.raw, .of_isOfKind h⟩
 
 /-! ### str -/
 
@@ -508,15 +585,15 @@ public instance : NonemptyPy .str := .of_kind
 public instance : ToTypeExpr .str := ⟨.str⟩
 
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
-public abbrev PyStr := Py .str
+public abbrev PyStr := PyObjectView <| Py .str
 
 /-- Returns whether this type is an instance of {lit}`str`. -/
-@[extern "nerodia_py_object_is_str_instance"]
+@[extern "nerodia_py_object_is_str_instance", view_method]
 public def PyObject.isStrInstance (self : @& PyObject) : Bool :=
-  self.isOfKind .str
+  self.raw.isOfKind .str
 
 @[inline] public def PyStr.mk (o : PyObject) (h : o.isStrInstance) : PyStr :=
-  ⟨o, .of_isOfKind h⟩
+  ⟨o.raw, .of_isOfKind h⟩
 
 /-! ### bytes -/
 
@@ -531,15 +608,15 @@ public instance : NonemptyPy .bytes := .of_kind
 public instance : ToTypeExpr .bytes := ⟨.bytes⟩
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
-public abbrev PyBytes := PyBufferView (Py .bytes)
+public abbrev PyBytes := PyBufferView <| PyObjectView <| Py .bytes
 
 /-- Returns whether this type is an instance of {lit}`bytes`. -/
-@[extern "nerodia_py_object_is_bytes_instance"]
+@[extern "nerodia_py_object_is_bytes_instance", view_method]
 public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
-  self.isOfKind .bytes
+  self.raw.isOfKind .bytes
 
 @[inline] public def PyBytes.mk (o : PyObject) (h : o.isBytesInstance) : PyBytes :=
-  ⟨o, .of_isOfKind h⟩
+  ⟨o.raw, .of_isOfKind h⟩
 
 /-! ### types.ModuleType -/
 
@@ -549,15 +626,15 @@ public def TypePred.module : TypePred :=
 public instance : NonemptyPy .module := .of_kind
 
 /-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
-public abbrev PyModule := Py .module
+public abbrev PyModule := PyObjectView <| Py .module
 
 /-- Returns whether this type is an instance of {lit}`types.ModuleType`. -/
-@[extern "nerodia_py_object_is_module_instance"]
+@[extern "nerodia_py_object_is_module_instance", view_method]
 public def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
-  self.isOfKind .module
+  self.raw.isOfKind .module
 
 @[inline] public def PyModule.mk (o : PyObject) (h : o.isModuleInstance) : PyModule :=
-  ⟨o, .of_isOfKind h⟩
+  ⟨o.raw, .of_isOfKind h⟩
 
 /-!
 ## BaseException Subtypes
@@ -734,6 +811,20 @@ sharing the single strong reference between them.
   have : IsPy α := self.isPy_of_not_isNull h
   .ofCPtrUnsafe (.ofNullableCPtr self.toNullableCPtrUnsafe h)
 
+
+/--
+Casts a {name}`CPyResult` returning a typed Python object to one returning
+its supertype, sharing the single strong reference between them.
+
+**Memory Safety:** Users must manually manage the reference's lifetime.
+-/
+@[inline] def cast (x : CPyResult (Py T)) (h : T ⊆ U) : CPyResult (Py U) :=
+  let cptr := .ofNullableAddrUnsafe x.toNullableCPtrUnsafe.nullableAddr fun h' =>
+    let t : Py T := Classical.choice <|
+      x.toNullableCPtrUnsafe.nonempty_of_not_isNull h'
+    ⟨Py.mk t.raw (h.mem_of_mem t.raw_mem)⟩
+  .ofNullableCPtrUnsafe cptr fun _ => inferInstance
+
 end CPyResult
 
 /-! ## C Monad Types -/
@@ -782,14 +873,21 @@ public instance : Nonempty (CPyIO α) := ⟨failureUnsafe⟩
   ofBaseIOUnsafe do f (← x)
 
 set_option linter.unusedVariables.funArgs false in
-/-- Converts a {lean}`CPyIO` returning a typed Python object into untyped general object. -/
+/--
+Converts a {lean}`CPyIO` returning a
+typed Python object to one returning its supertype.
+-/
 @[inline] public def cast (x : CPyIO (Py T)) (h : T ⊆ U) : CPyIO (Py U) :=
-  unsafe unsafeCast x
+  x.map (·.cast h)
 
-@[inline] public def toAny (x : CPyIO (Py T)) : CPyIO PyAny :=
-  x.cast TypePred.subset_any
+/--
+Converts a {lean}`CPyIO` returning a
+arbitrary type to one returning {lean}`PyAny`.
+-/
+@[inline] public def monocast (x : CPyIO (Py T)) : CPyIO PyAny :=
+  x.cast .any
 
-public instance : CoeOut (CPyIO (Py T)) (CPyIO PyAny) := ⟨CPyIO.toAny⟩
+public instance : CoeOut (CPyIO (Py T)) (CPyIO PyAny) := ⟨CPyIO.monocast⟩
 
 end CPyIO
 
@@ -883,7 +981,7 @@ Runs {lean}`e` if {lean}`x` has set an exception.
 @[extern "nerodia_py_object_new_ref"]
 def Py.newRef (self : @& Py T) : CPyBaseIO (Py T) :=
   have : Nonempty (Py T) := ⟨self⟩
-  let cptr := .ofAddrNoncomputable self.addr
+  let cptr := .ofAddrUnsafe self.raw.addr
   .ofBaseIOUnsafe <| pure (.ofCPtrUnsafe cptr)
 
 namespace CPyBaseIO
@@ -1281,7 +1379,7 @@ A raw Python function argument (a borrowed Python object reference).
 This is not managed by Lean. Nerodia handles this within its API, and users are
 not expected to manage {name}`CPyArg` objects manually.
 -/
-public structure CPyArg (T : TypePred := .any) where
+public structure CPyArg (T : TypePred := .object) where
   private ofCPtrUnsafe ::
     private toCPtrUnsafe : CPtr (Py T)
 
@@ -1309,11 +1407,11 @@ public structure CPyArgs where
 
 @[extern "nerodia_py_context_mk_args"]
 opaque PyContext.mkArgsUnsafe
-  (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyAny
+  (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyObject
 
 @[extern "nerodia_py_context_mk_nth_arg"]
 opaque PyContext.mkNthArgUnsafe
-  (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyAny
+  (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyObject
 
 /-! ## Python Methods -/
 
@@ -1335,7 +1433,7 @@ public def PyMethNoArgs :=
   (self : CPyArg) → Null → CPyIO PyAny
 
 @[inline] public def PyMethNoArgs.ofPyIO
-  (x : (self : PyAny) → PyIO PyAny)
+  (x : (self : PyObject) → PyIO PyAny)
 : PyMethNoArgs := fun self _ => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
@@ -1355,7 +1453,7 @@ public def PyMethFastCall :=
   (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO PyAny
 
 @[inline] public def PyMethFastCall.ofPyIO
-  (x : (self : PyAny) → (args : Array PyAny) → PyIO PyAny)
+  (x : (self : PyObject) → (args : Array PyObject) → PyIO PyAny)
 : PyMethFastCall := fun self args nargs => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
@@ -1375,10 +1473,10 @@ public def PyMethFastCall :=
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
 public def PyMethO :=
-  (self : CPyArg) → (arg : CPyArg) → CPyIO PyAny
+  (self : CPyArg) → (arg : CPyArg) → CPyIO PyObject
 
 @[inline] public def PyMethO.ofPyIO
-  (x : (self : PyAny) → (arg : PyAny) → PyIO PyAny)
+  (x : (self : PyObject) → (arg : PyObject) → PyIO PyAny)
 : PyMethO := fun self arg => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
@@ -1386,7 +1484,7 @@ public def PyMethO :=
   x self arg
 
 @[inline] public def PyMethO.ofPyIO'
-  (x : (arg : PyAny) → PyIO PyAny)
+  (x : (arg : PyObject) → PyIO PyAny)
 : PyMethO := ofPyIO fun _ => x
 
 /-- The type of a Python module initialization function. -/
@@ -1425,7 +1523,7 @@ Returns the type of the object {lean}`self`.
 
 This is equivalent to {lit}`type(self)` in Python.
 -/
-@[extern "nerodia_py_object_get_type"]
+@[extern "nerodia_py_object_get_type", view_method]
 public opaque PyObject.getType (self : @& PyObject) : CPyBaseIO PyType
 
 /-! ## Module -/
@@ -1442,44 +1540,53 @@ namespace PyModule
 
 /-- Adds an object {lean}`val` to the module {lean}`self` as {lean}`name`. -/
 @[extern "nerodia_py_module_add_by_string"]
-public opaque addByString (name : @& String) (val : @& PyAny) (self : @& PyModule) : CPyUnitIO
+public opaque addByString (name : @& String) (val : @& PyObject) (self : @& PyModule) : CPyUnitIO
 
 end PyModule
 
 /-! ## None -/
 
-noncomputable opaque PyEnvironment.noneOpaque (env : PyEnvironment) : PyObject
-
-noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : PyObject :=
-  {env.noneOpaque with toModel.env := env}
-
-/-- Equivalent to the Python {lit}`self is None`. -/
-@[extern "nerodia_py_object_is_none"]
-public def PyObject.isNone (self : PyObject) : Bool :=
-  self = self.env.noneRaw
-
-theorem PyEnvironment.isNone_noneRaw : (noneRaw env).isNone := by
-  simp [PyEnvironment.noneRaw, PyObject.env, PyObject.isNone]
-
-public def TypePred.none : TypePred :=
-  (·.isNone)
-
-open PyEnvironment in
-public instance : NonemptyPy .none :=
-  .intro (noneRaw Classical.ofNonempty) isNone_noneRaw
-
 @[inline, expose] public def TypeExpr.none : TypeExpr :=
   ⟨"None"⟩
 
+noncomputable opaque PyEnvironment.noneAddr (env : PyEnvironment) : Addr
+
+noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : Py.Raw :=
+  .ofModel {env, addr := env.noneAddr, hint := .none, kind := .other}
+
+public def TypePred.none : TypePred :=
+  ofFn fun o => o = o.env.noneRaw
+
+theorem PyEnvironment.noneRaw_mem_none {env} : noneRaw env ∈ TypePred.none := by
+  simp [PyEnvironment.noneRaw, Py.Raw.env, TypePred.none]
+
 public instance : ToTypeExpr .none := ⟨.none⟩
 
+open PyEnvironment in
+public instance : NonemptyPy .none :=
+  .intro (noneRaw Classical.ofNonempty) noneRaw_mem_none
+
 /-- A Python {lit}`None` constant. -/
-public abbrev PyNone := Py .none
+public abbrev PyNone := PyObjectView (Py .none)
+
+open Classical in
+/-- Equivalent to the Python {lit}`self is None`. -/
+@[extern "nerodia_py_object_is_none", view_method]
+public def PyObject.isNone (self : PyObject) : Bool :=
+  @decide (self.raw ∈ TypePred.none) (Classical.propDecidable _)
+
+@[grind _=_]
+public theorem PyObject.isNone_iff_mem : isNone o ↔ o.raw ∈ TypePred.none := by
+  simp [PyObject.isNone]
 
 /-- Returns a reference to the {lit}`None` constant. -/
 @[extern "nerodia_none"]
 public def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
-  ⟨env.noneRaw, isNone_noneRaw⟩
+  ⟨env.noneRaw, noneRaw_mem_none⟩
+
+@[simp, grind =]
+public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
+  simp [PyObjectView.isNone, PyObjectView.toPyObject, toPy, PyObject.isNone_iff_mem]
 
 @[extern "nerodia_none", inherit_doc PyEnvironment.none]
 public abbrev PyContext.none (ctx : @& PyContext) : PyNone :=
@@ -1501,7 +1608,7 @@ Type class used to construct a Lean object from a Python function argument.
 Used by {lit}`@[py_module_fn]`.
 -/
 public class OfPyArg (α : Type) (T : outParam TypePred) where
-  ofPyArg (fn : String) (i : Nat) : PyAny → PyIO α
+  ofPyArg (fn : String) (i : Nat) : PyObject → PyIO α
 
 /-- **Do not use.** Internal function for {lit}`@[py_module_fn]`.  -/
 @[inline] public def Internal.ofPyArgUnsafe
@@ -1520,7 +1627,7 @@ public class MkResult (α : Type u) (T : outParam TypePred) where
   mkResult : α → CPyIO (Py T)
 
 @[inline] public def Internal.mkResult {α} {T} [MkResult α T] (a : α) : CPyIO PyAny :=
-  MkResult.mkResult a |>.toAny
+  MkResult.mkResult a |>.monocast
 
 public instance : MkResult PUnit .none where
   mkResult _ := getCPyNone
@@ -1538,12 +1645,12 @@ public def PyAttrInit :=
 @[inline] public def PyAttrInit.ofCPyIO (x : CPyIO PyAny) : PyAttrInit :=
   x
 
-/-! ## Objects -/
+/-! ## Attributes -/
 
 /-- Returns the attribute named {lean}`attrName` on {lean}`self`. -/
-@[extern "nerodia_py_object_get_attr_by_string"]
-public opaque PyObject.getAttrByString
-  (self : @& PyObject) (attrName : @& String) : CPyIO PyAny
+@[extern "nerodia_py_object_get_attr_by_string", view_method]
+public opaque PyAny.getAttrByString
+  (self : @& PyAny) (attrName : @& String) : CPyIO PyAny
 
 /-! ## Strings & ByteArray -/
 
@@ -1572,7 +1679,7 @@ Computes a string representation of the object {lean}`self`.
 
 This is equivalent to the Python expression {lit}`str(self)`.
 -/
-@[extern "nerodia_py_object_str"]
+@[extern "nerodia_py_object_str", view_method]
 public opaque PyObject.str (self : @& PyObject) : CPyIO PyStr
 
 /--
@@ -1580,7 +1687,7 @@ Computes a string representation of the object {lean}`self`.
 
 This is equivalent to the Python expression {lit}`repr(self)`.
 -/
-@[extern "nerodia_py_object_repr"]
+@[extern "nerodia_py_object_repr", view_method]
 public opaque PyObject.repr (self : @& PyObject) : CPyIO PyStr
 
 /--

@@ -114,6 +114,7 @@ def mkViewMethod (attrName declName : Name) : MetaM Unit := do
       }
     setInlineAttribute viewDeclName
     addInheritedDocString viewDeclName declName
+    enableRealizationsForConst viewDeclName
 
 initialize
   let attrName := `view_method

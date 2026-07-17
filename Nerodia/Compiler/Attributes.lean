@@ -233,7 +233,7 @@ initialize
             let pySig := pySigD "()"
             addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
           else if h : as.size = 1 then
-            withLocalDeclD `arg (mkConst `Nerodia.PyAny) fun arg => do
+            withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
             let a := as[0]
             let ldecl ← getFVarLocalDecl a
             let (ma, pyTy?) ← mkArg fn 0 ldecl.type arg
