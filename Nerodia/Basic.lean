@@ -87,7 +87,7 @@ Written as {lean}`T ∪ U`. Equivalent to the Python `T | U`.
 -/
 add_decl_doc union
 
-@[grind _=_] public theorem mem_union_iff_or {T U : TypePred} :
+@[grind =] public theorem mem_union_iff_or {T U : TypePred} :
   o ∈ T ∪ U ↔ o ∈ T ∨ o ∈ U
 := Iff.intro id id
 
@@ -115,7 +115,7 @@ as {lit}`T & U` / {lit}`Intersection[T, U]`.
 -/
 add_decl_doc inter
 
-@[grind _=_] public theorem mem_inter_iff_and {T U : TypePred} :
+@[grind =] public theorem mem_inter_iff_and {T U : TypePred} :
   o ∈ T ∩ U ↔ o ∈ T ∧ o ∈ U
 := Iff.intro id id
 
@@ -208,7 +208,21 @@ public structure Py (T : TypePred) where
   raw : Py.Raw
   raw_mem : raw ∈ T
 
-attribute [simp, grind .] Py.raw_mem
+namespace Py
+
+attribute [simp, grind! .] Py.raw_mem
+
+@[inline] public def left (self : Py (T ∩ U)) : Py T :=
+  mk self.raw self.raw_mem.left
+
+@[simp, grind =] public theorem raw_left : (left o).raw = o.raw := by rfl
+
+@[inline] public def right (self : Py (T ∩ U)) : Py U :=
+  mk self.raw self.raw_mem.right
+
+@[simp, grind =] public theorem raw_right : (right o).raw = o.raw := by rfl
+
+end Py
 
 /-! ### IsPy -/
 
@@ -243,10 +257,27 @@ public class ToPy (T : TypePred) (α : Type u)  where
 export ToPy (toPy)
 
 namespace ToPy
+
 public instance : ToPy T (Py T) := ⟨(·)⟩
-@[simp, grind .] theorem toPy_eq_self : toPy (o : Py T) = o := by rfl
-public instance : ToPy T (Py (T ∩ U)) := ⟨fun o => .mk o.raw o.raw_mem.left⟩
-public instance : ToPy U (Py (T ∩ U)) := ⟨fun o => .mk o.raw o.raw_mem.right⟩
+
+@[simp, grind =] theorem toPy_eq_self :
+  toPy (o : Py T) = o := by rfl
+
+public instance : ToPy T (Py (T ∩ U)) := ⟨Py.left⟩
+
+@[simp, grind =] theorem toPy_eq_left  :
+  toPy (o : Py  (T ∩ U)) = o.left := by rfl
+
+public instance : ToPy U (Py (T ∩ U)) := ⟨Py.right⟩
+
+@[simp, grind =] theorem toPy_eq_right :
+  toPy (o : Py (T ∩ U)) = o.right := by rfl
+
+public instance [ToPy T Py.Raw] : ToPy T (Py U) := ⟨(toPy ·.raw)⟩
+
+@[simp, grind =] theorem toPy_eq_toPy_raw  [ToPy U Py.Raw] :
+  toPy (o : Py T) = toPy (T := U) o.raw := by rfl
+
 end ToPy
 
 /-! ## PyObject -/
@@ -267,16 +298,28 @@ public abbrev PyObject := Py .object
 /-- Shorthand for {lean}`ToPy .object α` -/
 public abbrev ToPyObject := ToPy .object
 
-public instance : ToPyObject (Py T) := ⟨(PyObject.mk ·.raw)⟩
+namespace ToPyObject
+
+public instance : ToPyObject Py.Raw := ⟨PyObject.mk⟩
+
+@[simp, grind =] public theorem toPy_eq_mk :
+  toPy (o : Py.Raw) = PyObject.mk o := by rfl
+
+end ToPyObject
 
 /-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
 public abbrev PyObjectView (α : Type u) := α
 
 namespace PyObjectView
 
-public abbrev toPyObject
+@[inline] public def toPyObject
   [ToPyObject α] (self : PyObjectView α)
 : PyObject := toPy self
+
+@[simp, grind =]
+public theorem toPyObject_eq_toPy
+  [ToPyObject α] (self : PyObjectView α)
+: self.toPyObject = toPy (α := α) self := by rfl
 
 public instance [ToPyObject α] :
   CoeOut (PyObjectView α) PyObject := ⟨toPyObject⟩
@@ -319,16 +362,28 @@ public abbrev PyAny := PyObjectView (Py .any)
 /-- Shorthand for {lean}`ToPy .any α` -/
 public abbrev ToPyAny := ToPy .any
 
-public instance : ToPyAny (Py T) := ⟨(PyAny.mk ·.raw)⟩
+namespace ToPyAny
+
+public instance : ToPyAny Py.Raw := ⟨PyAny.mk⟩
+
+@[simp, grind =] public theorem toPy_eq_mk :
+  toPy (o : Py.Raw) = PyAny.mk o := by rfl
+
+end ToPyAny
 
 /-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
 public abbrev PyAnyView (α : Type u) := α
 
 namespace PyAnyView
 
-public abbrev toPyAny
+@[inline] public def toPyAny
   [ToPyAny α] (self : PyAnyView α)
 : PyAny := toPy self
+
+@[simp, grind =]
+public theorem toPyAny_eq_toPy
+  [ToPyAny α] (self : PyAnyView α)
+: self.toPyAny = toPy (α := α) self := by rfl
 
 public instance [ToPyAny α] :
   CoeOut (PyAnyView α) PyAny := ⟨toPyAny⟩
@@ -440,9 +495,14 @@ public abbrev PyBufferView (α : Type u) := α
 
 namespace PyBufferView
 
-public abbrev toPyBuffer
+@[inline] public def toPyBuffer
   [ToPyBuffer α] (self : PyBufferView α)
 : PyBuffer := toPy self
+
+@[simp, grind =]
+public theorem toPyBuffer_eq_toPy
+  [ToPyBuffer α] (self : PyBufferView α)
+: self.toPyBuffer = toPy (α := α) self := by rfl
 
 public instance [ToPyBuffer α] :
   CoeOut (PyBufferView α) PyBuffer := ⟨toPyBuffer⟩
@@ -551,9 +611,14 @@ public abbrev PyBaseExceptionView (α : Type u) := α
 
 namespace PyBaseExceptionView
 
-public abbrev toPyBaseException
+@[inline] public def toPyBaseException
   [ToPyBaseException α] (self : PyBaseExceptionView α)
 : PyBaseException := toPy self
+
+@[simp, grind =]
+public theorem toPyBaseException_eq_toPy
+  [ToPyBaseException α] (self : PyBaseExceptionView α)
+: self.toPyBaseException = toPy (α := α) self := by rfl
 
 public instance [ToPyBaseException α] :
   CoeOut (PyBaseExceptionView α) PyBaseException := ⟨toPyBaseException⟩
@@ -1579,14 +1644,13 @@ public def PyObject.isNone (self : PyObject) : Bool :=
 public theorem PyObject.isNone_iff_mem : isNone o ↔ o.raw ∈ TypePred.none := by
   simp [PyObject.isNone]
 
+@[simp] public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
+  simp [PyObject.isNone_iff_mem]
+
 /-- Returns a reference to the {lit}`None` constant. -/
 @[extern "nerodia_none"]
 public def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
   ⟨env.noneRaw, noneRaw_mem_none⟩
-
-@[simp, grind =]
-public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
-  simp [PyObjectView.isNone, PyObjectView.toPyObject, toPy, PyObject.isNone_iff_mem]
 
 @[extern "nerodia_none", inherit_doc PyEnvironment.none]
 public abbrev PyContext.none (ctx : @& PyContext) : PyNone :=
