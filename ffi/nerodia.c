@@ -472,14 +472,6 @@ LEAN_EXPORT size_t nerodia_py_type_get_qual_name(b_lean_obj_arg self) {
   return (size_t)PyType_GetQualName(nerodia_to_type_object(self));
 }
 
-LEAN_EXPORT uint8_t nerodia_py_type_is_heap_type(b_lean_obj_arg self) {
-  return PyType_HasFeature(nerodia_to_type_object(self), Py_TPFLAGS_HEAPTYPE) != 0;
-}
-
-LEAN_EXPORT uint8_t nerodia_py_type_is_immutable(b_lean_obj_arg self) {
-  return PyType_HasFeature(nerodia_to_type_object(self), Py_TPFLAGS_IMMUTABLETYPE) != 0;
-}
-
 /** ### Strings */
 
 /* mkPyStr : @& String -> CPyIO PyStr */

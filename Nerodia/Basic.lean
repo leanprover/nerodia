@@ -1669,19 +1669,9 @@ public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ _ => return⟩
 
 /-! ## PyType -/
 
-namespace PyType
-
 /-- Returns the qualified name of the type. -/
 @[extern "nerodia_py_type_get_qual_name"]
-public opaque getQualName (self : @& PyType) : CPyIO PyStr
-
-@[extern "nerodia_py_type_is_heap_type"]
-public opaque isHeapType (self : @& PyType) : Bool
-
-@[extern "nerodia_py_type_is_immutable"]
-public opaque isImmutable (self : @& PyType) : Bool
-
-end PyType
+public opaque PyType.getQualName (self : @& PyType) : CPyIO PyStr
 
 /-! ## Type -/
 
