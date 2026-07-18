@@ -454,18 +454,7 @@ LEAN_EXPORT uint8_t nerodia_py_object_is_module_instance(b_lean_obj_arg self) {
   return PyModule_Check(nerodia_to_object(self));
 }
 
-
-/* typeType : @& PyEnvironment|PyContext -> PyType */
-LEAN_EXPORT lean_obj_res nerodia_type_type(b_lean_obj_arg env_or_ctx) {
-  return nerodia_of_immortal_object((PyObject*)&PyType_Type, env_or_ctx);
-}
-
-/* strType : @& PyEnvironment|PyContext -> PyType */
-LEAN_EXPORT lean_obj_res nerodia_str_type(b_lean_obj_arg env_or_ctx) {
-  return nerodia_of_immortal_object((PyObject*)&PyUnicode_Type, env_or_ctx);
-}
-
-/* ### Type Objects */
+/* ### Types */
 
 /** getQualName : @& PyType -> CPyIO PyStr */
 LEAN_EXPORT size_t nerodia_py_type_get_qual_name(b_lean_obj_arg self) {
