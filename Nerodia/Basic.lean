@@ -226,10 +226,12 @@ end Py
 
 /-! ### IsPy -/
 
-public class IsPy (α : Type) : Prop where
-  eq_py : ∃ T, α = Py T
+public class inductive IsPy : (α : Type) → Prop
+| of_raw : IsPy Py.Raw
+| of_py {T} : IsPy (Py T)
 
-public instance : IsPy (Py T) := ⟨T, rfl⟩
+public instance : IsPy Py.Raw := .of_raw
+public instance : IsPy (Py T) := .of_py
 
 /-! ### NonemptyPy -/
 
@@ -876,18 +878,30 @@ sharing the single strong reference between them.
   have : IsPy α := self.isPy_of_not_isNull h
   .ofCPtrUnsafe (.ofNullableCPtr self.toNullableCPtrUnsafe h)
 
-
 /--
 Casts a {name}`CPyResult` returning a typed Python object to one returning
 its supertype, sharing the single strong reference between them.
 
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
-@[inline] def cast (x : CPyResult (Py T)) (h : T ⊆ U) : CPyResult (Py U) :=
+@[inline] protected def cast (x : CPyResult (Py T)) (h : T ⊆ U) : CPyResult (Py U) :=
   let cptr := .ofNullableAddrUnsafe x.toNullableCPtrUnsafe.nullableAddr fun h' =>
-    let t : Py T := Classical.choice <|
-      x.toNullableCPtrUnsafe.nonempty_of_not_isNull h'
+    let t := Classical.choice <| x.toNullableCPtrUnsafe.nonempty_of_not_isNull h'
     ⟨Py.mk t.raw (h.mem_of_mem t.raw_mem)⟩
+  .ofNullableCPtrUnsafe cptr fun _ => inferInstance
+
+/--
+Casts a {name}`CPyResult` returning anything to one returning
+an untyped object, sharing the single strong reference between them.
+
+**Memory Safety:** Users must manually manage the reference's lifetime.
+-/
+@[inline] def raw (x : CPyResult α) : CPyResult Py.Raw :=
+  let cptr := .ofNullableAddrUnsafe x.toNullableCPtrUnsafe.nullableAddr fun h' =>
+    let a := Classical.choice <| x.toNullableCPtrUnsafe.nonempty_of_not_isNull h'
+    match x.isPy_of_not_isNull h', a with
+    | .of_raw, a => ⟨a⟩
+    | .of_py, a => ⟨a.raw⟩
   .ofNullableCPtrUnsafe cptr fun _ => inferInstance
 
 end CPyResult
@@ -947,12 +961,12 @@ typed Python object to one returning its supertype.
 
 /--
 Converts a {lean}`CPyIO` returning a
-arbitrary type to one returning {lean}`PyAny`.
+arbitrary type to one returning {lean}`Py.Raw`.
 -/
-@[inline] public def monocast (x : CPyIO (Py T)) : CPyIO PyAny :=
-  x.cast .any
+@[inline] public def raw (x : CPyIO α) : CPyIO Py.Raw :=
+  x.map (·.raw)
 
-public instance : CoeOut (CPyIO (Py T)) (CPyIO PyAny) := ⟨CPyIO.monocast⟩
+public instance : CoeOut (CPyIO (Py T)) (CPyIO Py.Raw) := ⟨CPyIO.raw⟩
 
 end CPyIO
 
@@ -1082,6 +1096,17 @@ This creates a new temporary Python context for the call.
 -/
 @[inline] public def PyBaseIO.toCPyBaseIO (x : PyBaseIO (Py T)) : CPyBaseIO (Py T) :=
   x.bindCPyBaseIO CPyBaseIO.pure
+
+/--
+Sequences a {lean}`CPyIO` action after a {lean}`PyBaseIO` action.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyBaseIO.bindCPyIO
+  (x : PyBaseIO α) (f : α → CPyIO β)
+: CPyIO β := .ofBaseIOUnsafe do
+  let ctx ← PyContext.getOrInit
+  f (← x.runUnsafe ctx)
 
 /--
 Sequences a {lean}`CPyIO` action after a {lean}`PyIO` action.
@@ -1435,6 +1460,70 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
 
 end CPyUnitIO
 
+/-! ## PyResultIO -/
+
+@[expose] -- for codegen
+public def PyResultIO (α : Type) := PyBaseIO (CPyResult α)
+
+namespace PyResultIO
+
+@[inline] def ofPyBaseIOUnsafe (x : PyBaseIO (CPyResult α)) : PyResultIO α :=
+  x
+
+@[inline] def toPyBaseIOUnsafe (x : PyResultIO α) : PyBaseIO (CPyResult α) :=
+  x
+
+@[inline] def runUnsafe (ctx : PyContext) (x : PyResultIO α) : BaseIO (CPyResult α) :=
+  x.toPyBaseIOUnsafe.runUnsafe ctx
+
+/-- Constructs a {lean}`PyResultIO` that returns {lean}`o`. -/
+@[inline] public protected def pure (o : Py T) : PyResultIO (Py T) :=
+  .ofPyBaseIOUnsafe <| .ofBaseIO do
+    -- `newRef` does not require an attached thread state,
+    -- so we do not need to keep hold of the context (via `Runetime.hold`)
+    return .ofCPyBaseResultUnsafe (← o.newRef.toBaseIOUnsafe)
+
+/--
+Runs a {lean}`PyResultIO` action producing a Python object in {lean}`CPyIO`.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def toCPyIO (x : PyResultIO α) : CPyIO α := .ofBaseIOUnsafe do
+  x.runUnsafe (← PyContext.getOrInit)
+
+/--
+Converts a {lean}`PyResultIO` returning a
+arbitrary type to one returning {lean}`Py.Raw`.
+-/
+@[inline] public def raw (x : PyResultIO α) : PyResultIO Py.Raw :=
+  .ofPyBaseIOUnsafe do return (← x.toPyBaseIOUnsafe).raw
+
+end PyResultIO
+
+@[inline] public def CPyIO.toPyResultIO (x : CPyIO α) : PyResultIO α := .mk fun ctx => do
+  let r ← x.toBaseIOUnsafe
+  Runtime.hold ctx
+  return r
+
+/-- Sequences a {lean}`PyResultIO` action after a {lean}`PyBaseIO` action. -/
+@[inline] public def PyBaseIO.bindPyResultIO
+  (x : PyBaseIO α) (f : α → PyResultIO β)
+: PyResultIO β := .mk fun ctx => do
+  f (← x.runUnsafe ctx) |>.runUnsafe ctx
+
+/-- Sequences a {lean}`PyResultIO` action after a {lean}`PyIO` action. -/
+@[inline] public def PyIO.bindPyResultIO
+  (x : PyIO α) (f : α → PyResultIO β)
+: PyResultIO β := .mk fun ctx => do
+  match (← x.runUnsafe? ctx) with
+  | some a => f a |>.runUnsafe ctx
+  | none => pure .failureUnsafe
+
+/-- Internal function for {lit}`@[py_module_fn]` -/
+@[inline] public def Internal.pyBind
+  {α : Type} (x : PyIO α) (f : α → PyResultIO Py.Raw)
+: PyResultIO Py.Raw := x.bindPyResultIO f
+
 /-! ## CPyArg -/
 
 /--
@@ -1495,7 +1584,7 @@ opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
 /-- The type of a Python method with no arguments. -/
 @[expose] -- for codegen
 public def PyMethNoArgs :=
-  (self : CPyArg) → Null → CPyIO PyAny
+  (self : CPyArg) → Null → CPyIO Py.Raw
 
 @[inline] public def PyMethNoArgs.ofPyIO
   (x : (self : PyObject) → PyIO PyAny)
@@ -1509,39 +1598,44 @@ public def PyMethNoArgs :=
 : PyMethNoArgs := ofPyIO fun _ => x
 
 @[inline] public def PyMethNoArgs.ofCPyIO
-  (x : CPyIO PyAny)
-: PyMethNoArgs := fun _ _ => x
+  [IsPy α] (x : CPyIO α)
+: PyMethNoArgs := fun _ _ => x.raw
+
+/-- Internal function for {lit}`@[py_module_fn]`. -/
+@[inline] public def Internal.mkPyMethNoArgs
+  (x : CPyIO Py.Raw)
+: PyMethNoArgs := PyMethNoArgs.ofCPyIO x
 
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
 public def PyMethFastCall :=
-  (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO PyAny
+  (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO Py.Raw
 
 @[inline] public def PyMethFastCall.ofPyIO
-  (x : (self : PyObject) → (args : Array PyObject) → PyIO PyAny)
+  (x : (self : PyObject) → (args : Array PyObject) → PyIO (Py T))
 : PyMethFastCall := fun self args nargs => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
   let args := ctx.mkArgsUnsafe args nargs
   x self args
 
-/-- **Do not use.** Internal function for {lit}`@[py_module_fn]`. -/
+/-- Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethFastCallUnsafe
   (fn : String) (arity : USize)
-  (x : (args : CPyArgs) → CPyIO PyAny)
+  (x : (args : CPyArgs) → PyResultIO Py.Raw)
 : PyMethFastCall := fun _ args nargs =>
   if nargs = arity then
-    x args
+    x args |>.toCPyIO.raw
   else
     raiseArityNotEq fn arity nargs
 
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen
 public def PyMethO :=
-  (self : CPyArg) → (arg : CPyArg) → CPyIO PyObject
+  (self : CPyArg) → (arg : CPyArg) → CPyIO Py.Raw
 
 @[inline] public def PyMethO.ofPyIO
-  (x : (self : PyObject) → (arg : PyObject) → PyIO PyAny)
+  (x : (self : PyObject) → (arg : PyObject) → PyIO (Py T))
 : PyMethO := fun self arg => PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
@@ -1549,8 +1643,16 @@ public def PyMethO :=
   x self arg
 
 @[inline] public def PyMethO.ofPyIO'
-  (x : (arg : PyObject) → PyIO PyAny)
+  (x : (arg : PyObject) → PyIO (Py T))
 : PyMethO := ofPyIO fun _ => x
+
+/-- Internal function for {lit}`@[py_module_fn]`. -/
+@[inline] public def Internal.mkPyMethO
+  (x : (arg : PyObject) → PyResultIO Py.Raw)
+: PyMethO := fun _ arg => PyResultIO.toCPyIO <| .ofPyBaseIOUnsafe do
+  let ctx ← getPyContextUnsafe
+  let arg := ctx.mkArgUnsafe arg
+  x arg |>.toPyBaseIOUnsafe
 
 /-- The type of a Python module initialization function. -/
 @[expose] -- for codegen
@@ -1681,33 +1783,73 @@ public class OfPyArg (α : Type) (T : outParam TypePred) where
   let obj := ((← getPyContextUnsafe).mkNthArgUnsafe args i)
   OfPyArg.ofPyArg fn (i.toNat+1) obj
 
-
 /--
 Type class used to construct Python return values from Lean objects.
 
 Used by {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
 -/
+public class MkCResult (α : Type u) (T : outParam TypePred) where
+  mkCResult : α → CPyIO (Py T)
+
+/-- Internal function for {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]` -/
+@[inline] public def Internal.mkCResult {α} {T} [MkCResult α T] (a : α) : CPyIO Py.Raw :=
+  MkCResult.mkCResult a |>.raw
+
+public instance : MkCResult PUnit .none where
+  mkCResult _ := getCPyNone
+
+public instance : MkCResult (Py T) T where
+  mkCResult o := CPyBaseIO.pure o
+
+public instance [MkCResult α T] : MkCResult (BaseIO α) T where
+  mkCResult x := .ofBind x MkCResult.mkCResult
+
+public instance [MkCResult α T] : MkCResult (PyBaseIO α) T where
+  mkCResult x := x.bindCPyIO MkCResult.mkCResult
+
+public instance [MkCResult α T] : MkCResult (PyIO α) T where
+  mkCResult x := x.bindCPyIO MkCResult.mkCResult
+
+/--
+Type class used to construct Python return values from Lean objects.
+
+Used by {lit}`@[py_module_fn]`.
+-/
 public class MkResult (α : Type u) (T : outParam TypePred) where
-  mkResult : α → CPyIO (Py T)
+  mkResult : α → PyResultIO (Py T)
 
-@[inline] public def Internal.mkResult {α} {T} [MkResult α T] (a : α) : CPyIO PyAny :=
-  MkResult.mkResult a |>.monocast
+/-- Internal function for {lit}`@[py_module_fn]` -/
+@[inline] public def Internal.mkResult {α} {T} [MkResult α T] (a : α) : PyResultIO Py.Raw :=
+  MkResult.mkResult a |>.raw
 
-public instance : MkResult PUnit .none where
-  mkResult _ := getCPyNone
+public instance (priority := low) [MkCResult α T] : MkResult α T where
+  mkResult x := CPyIO.toPyResultIO (MkCResult.mkCResult x)
+
+public instance (priority := low) [MkResult α T] : MkCResult α T where
+  mkCResult x := PyResultIO.toCPyIO (MkResult.mkResult x)
+
+public instance : MkResult (Py T) T where
+  mkResult o := PyResultIO.pure o
 
 public instance [MkResult α T] : MkResult (BaseIO α) T where
-  mkResult x := .ofBind x MkResult.mkResult
+  mkResult x := PyBaseIO.bindPyResultIO x MkResult.mkResult
+
+public instance [MkResult α T] : MkResult (PyBaseIO α) T where
+  mkResult x := x.bindPyResultIO MkResult.mkResult
 
 public instance [MkResult α T] : MkResult (PyIO α) T where
-  mkResult x := x.bindCPyIO MkResult.mkResult
+  mkResult x := x.bindPyResultIO MkResult.mkResult
 
 @[expose] -- for codegen
 public def PyAttrInit :=
-  CPyIO PyAny
+  CPyIO Py.Raw
 
-@[inline] public def PyAttrInit.ofCPyIO (x : CPyIO PyAny) : PyAttrInit :=
-  x
+@[inline] public def PyAttrInit.ofCPyIO (x : CPyIO α) : PyAttrInit :=
+  x.raw
+
+/-- Internal function for {lit}`@[py_module_attr]` -/
+@[inline] public def Internal.mkPyAttrInit (x : CPyIO Py.Raw) : PyAttrInit :=
+  PyAttrInit.ofCPyIO x
 
 /-! ## Attributes -/
 
@@ -1722,7 +1864,7 @@ public opaque PyAny.getAttrByString
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
-public instance : MkResult String .str := ⟨mkPyStr⟩
+public instance : MkCResult String .str := ⟨mkPyStr⟩
 
 /-- Decodes a Lean {name}`ByteArray` into a Python string. -/
 @[extern "nerodia_decode"]
@@ -1794,8 +1936,6 @@ public abbrev PyStr.encodeUTF8 (self : @& PyStr) : CPyIO PyBytes :=
 /-- Creates a Python {lit}`bytes` object from a Lean {name}`ByteArray`. -/
 @[extern "nerodia_mk_py_bytes"]
 public opaque mkPyBytes (s : @& ByteArray) : CPyIO PyBytes
-
-public instance : MkResult ByteArray .bytes := ⟨mkPyBytes⟩
 
 namespace PyBytes
 

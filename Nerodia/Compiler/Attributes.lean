@@ -76,15 +76,23 @@ def mkHint (p : Expr) : MetaM (Option String) := do
   else
     return none
 
-def mkResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) := do
+def mkResultCore
+  (className mkName : Name) (ty : Expr) (x : Expr)
+: MetaM (Expr × Option String) := do
   let u ← getDecLevel ty
   let predTy := mkConst `Nerodia.TypePred
   let predExpr ← mkFreshExprMVar (some predTy)
-  let predInst ← synthInstance (mkApp2 (mkConst `Nerodia.MkResult [u]) ty predExpr)
+  let predInst ← synthInstance (mkApp2 (mkConst className [u]) ty predExpr)
   let predExpr ← instantiateMVars predExpr
-  let x := mkApp4 (mkConst `Nerodia.Internal.mkResult [u]) ty predExpr predInst x
+  let x := mkApp4 (mkConst mkName [u]) ty predExpr predInst x
   let hint? ← mkHint predExpr
   return (x, hint?)
+
+@[inline] def mkResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) :=
+  mkResultCore `Nerodia.MkResult `Nerodia.Internal.mkResult ty x
+
+@[inline] def mkCResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) :=
+  mkResultCore `Nerodia.MkCResult `Nerodia.Internal.mkCResult ty x
 
 def mkArgCore
   (fnName : Name)
@@ -107,17 +115,15 @@ def mkArgCore
 : MetaM (Expr × Option String) := do
   mkArgCore `Nerodia.Internal.ofPyArgUnsafe fn (toExpr i) ty args
 
-def mkPyBind (ty ma lam : Expr) : Expr :=
-  mkApp6 (mkConst ``Bind.bind [0, 0])
-    (mkConst `Nerodia.PyIO) (mkConst `Nerodia.PyIO.instBind)
-    ty (mkConst `Nerodia.PyAny) ma lam
+@[inline] def mkPyBind (ty ma lam : Expr) : Expr :=
+  mkApp3 (mkConst `Nerodia.Internal.pyBind) ty ma lam
 
 def mkAuxSym
   (kind : Name) (isUnsafe : Bool) (levelParams : List Name)
   (typeName : Name) (value : Expr)
 : CoreM String := do
   let name ← mkAuxDeclName kind
-  addAndCompile <| .defnDecl {
+  withoutExporting <| addAndCompile <| .defnDecl {
     name, levelParams, value
     type := mkConst typeName
     hints := .opaque
@@ -144,7 +150,7 @@ Constructs an expression which converts the Python arguments in {lean}`cargs`
 into Lean objects and passes them to {lean}`body` via a bind chain. Returns the
 expression paired with the inferred parameter list of the Python function.
 
-The expression is of the form:
+The expression is essentially of the form:
 
 {given -show}`fn : String, n : USize`
 {given -show}`ofPyArgUnsafe : String → USize → Expr → Id Expr`
@@ -211,8 +217,8 @@ initialize
             pySig := pySigD callConv.pySig
           }
         else MetaM.run' do
-          let (val, pyRet?) ← mkResult decl.type declConst
-          let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) val
+          let (val, pyRet?) ← mkCResult decl.type declConst
+          let val := mkApp (mkConst `Nerodia.Internal.mkPyMethNoArgs) val
           let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
           let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
           addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
@@ -224,47 +230,44 @@ initialize
             return (← getFVarLocalDecl a).binderInfo.isExplicit
           unless allExplicit do
             throwError "All parameters of a `@[py_module_fn]` definition must be explicit."
-          let (rx, pyRet?) ← mkResult rTy (mkAppN declConst as)
-          let pySigD params := pySigD <|
-            pyRet?.elim params (s!"{params} -> {·}")
           if as.size = 0 then
-            let val := mkApp (mkConst `Nerodia.PyMethNoArgs.ofCPyIO) rx
+            let (rx, pyRet?) ← mkCResult rTy (mkAppN declConst as)
+            let val := mkApp (mkConst `Nerodia.Internal.mkPyMethNoArgs) rx
             let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
-            let pySig := pySigD "()"
+            let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
             addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
-          else if h : as.size = 1 then
-            withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
-            let a := as[0]
-            let ldecl ← getFVarLocalDecl a
-            let (ma, pyTy?) ← mkArg fn 0 ldecl.type arg
-            let pyName := mkPyName ldecl.userName
-            let pySig := pySigD <|
-              match pyTy? with
-              | some pyTy => s!"({pyName}: {pyTy}, /)"
-              | none => s!"({pyName}, /)"
-            -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
-            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyAny) rx
-            let lam ← mkLambdaFVars #[a] rx
-            let rx := mkPyBind ldecl.type ma lam
-            let lam ← mkLambdaFVars #[arg] rx
-            let val := mkApp (mkConst `Nerodia.PyMethO.ofPyIO') lam
-            let cSym ← mkAuxSym `Nerodia.PyMethO val
-            addMethodDef {name, doc?, cSym, pySig, callConv := .o}
-          else if lt32 : as.size < UInt32.size then
-            withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun cargs => do
-            -- TODO: Use something more efficient than `CPyIO.toPyIO` here?
-            let rx := mkApp2 (mkConst `Nerodia.CPyIO.toPyIO) (mkConst `Nerodia.PyAny) rx
-            let (rx, pyParams) ← mkArgChain fn cargs as rx lt32
-            let rx := mkApp2 (mkConst `Nerodia.PyIO.toCPyIO) (mkConst `Nerodia.TypePred.any) rx
-            let pySig := pySigD pyParams
-            let lam ← mkLambdaFVars #[cargs] rx
-            let val := mkApp3 (mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe)
-              fn (toExpr as.usize) lam
-            let cSym ← mkAuxSym `Nerodia.PyMethFastCall val
-            addMethodDef {name, doc?, cSym, pySig, callConv := .fastCall}
           else
-            throwError "Cannot generate Python function: \
-              {.ofConstName declName} has too many arguments ({as.size})"
+            let (rx, pyRet?) ← mkResult rTy (mkAppN declConst as)
+            let pySigD params := pySigD <|
+              pyRet?.elim params (s!"{params} -> {·}")
+            if h : as.size = 1 then
+              withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
+              let a := as[0]
+              let ldecl ← getFVarLocalDecl a
+              let (ma, pyTy?) ← mkArg fn 0 ldecl.type arg
+              let pyName := mkPyName ldecl.userName
+              let pySig := pySigD <|
+                match pyTy? with
+                | some pyTy => s!"({pyName}: {pyTy}, /)"
+                | none => s!"({pyName}, /)"
+              let lam ← mkLambdaFVars #[a] rx
+              let rx := mkPyBind ldecl.type ma lam
+              let lam ← mkLambdaFVars #[arg] rx
+              let val := mkApp (mkConst `Nerodia.Internal.mkPyMethO) lam
+              let cSym ← mkAuxSym `Nerodia.PyMethO val
+              addMethodDef {name, doc?, cSym, pySig, callConv := .o}
+            else if lt32 : as.size < UInt32.size then
+              withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun cargs => do
+              let (rx, pyParams) ← mkArgChain fn cargs as rx lt32
+              let pySig := pySigD pyParams
+              let lam ← mkLambdaFVars #[cargs] rx
+              let mk := mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe
+              let val := mkApp3 mk fn (toExpr as.usize) lam
+              let cSym ← mkAuxSym `Nerodia.PyMethFastCall val
+              addMethodDef {name, doc?, cSym, pySig, callConv := .fastCall}
+            else
+              throwError "Cannot generate Python function: \
+                {.ofConstName declName} has too many arguments ({as.size})"
   }
 
 syntax (name := py_module_attr) "py_module_attr" (ppSpace str)?
@@ -296,8 +299,8 @@ initialize
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
       MetaM.run' do
       let us := decl.levelParams.map .param
-      let (val, pyTy?) ← mkResult decl.type (mkConst declName us)
-      let val := mkApp (mkConst `Nerodia.PyAttrInit.ofCPyIO) val
+      let (val, pyTy?) ← mkCResult decl.type (mkConst declName us)
+      let val := mkApp (mkConst `Nerodia.Internal.mkPyAttrInit) val
       let cSym ← mkAuxSym `_pyAttr decl.isUnsafe decl.levelParams `Nerodia.PyAttrInit val
       let df : AttrDef := {
         name, doc?, cSym
