@@ -57,7 +57,7 @@ wow
 
 /-- error: SystemError: no exception was set -/
 #guard_msgs in
-#eval (unsafeCast (pure null : BaseIO (NullableCPtr Empty)) : CPyIO Empty)
+#eval PyIO.failureUnsafe (α := Empty)
 
 /-- error: AttributeError: module 'sys' has no attribute 'bogus' -/
 #guard_msgs in

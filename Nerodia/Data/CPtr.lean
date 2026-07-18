@@ -8,7 +8,7 @@ public import Nerodia.Data.Addr
 
 /-! # Raw C Pointers -/
 
-namespace Nerodia
+namespace Nerodia.Internal
 
 /-! ## Nullable Pointers -/
 
