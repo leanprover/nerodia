@@ -38,8 +38,9 @@ Wraps a borrowed Python object reference into a memory-managed Lean object.
 (e.g., it has not escaped its original function).
 -/
 @[extern "nerodia_py_context_mk_arg"]
-def PyContext.mkArgUnsafe (ctx : @& PyContext) (arg : CPyArg T) : (Py T) :=
-  Classical.choice arg.toCPtrUnsafe.nonempty
+def Internal.PyContext.mkArgUnsafe
+  (ctx : @& PyContext) (arg : CPyArg T)
+: (Py T) := Classical.choice arg.toCPtrUnsafe.nonempty
 
 /--
 A raw C pointer array of Python function arguments
@@ -54,11 +55,11 @@ public structure CPyArgs where
     private addr : Addr
 
 @[extern "nerodia_py_context_mk_args"]
-opaque PyContext.mkArgsUnsafe
+opaque Internal.PyContext.mkArgsUnsafe
   (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyObject
 
 @[extern "nerodia_py_context_mk_nth_arg"]
-opaque PyContext.mkNthArgUnsafe
+opaque Internal.PyContext.mkNthArgUnsafe
   (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyObject
 
 /-- Internal function for {lit}`@[py_module_fn]`.  -/
@@ -69,6 +70,8 @@ opaque PyContext.mkNthArgUnsafe
   OfPyArg.ofPyArg fn (i.toNat+1) obj
 
 /-! ## Python Method Types -/
+
+open Internal (getPyContextUnsafe)
 
 /-! ### PyMethNoArgs -/
 
@@ -126,7 +129,7 @@ public def PyMethFastCall :=
   else
     raiseArityNotEq fn arity nargs
 
-/-! ### PyMethI -/
+/-! ### PyMethO -/
 
 /-- The type of a Python method with a single positional argument. -/
 @[expose] -- for codegen

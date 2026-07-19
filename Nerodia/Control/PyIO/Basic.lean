@@ -26,6 +26,8 @@ without setting one, relying on this would be contray to the specification.
 
 namespace Nerodia
 
+open Internal (PyContext)
+
 /-- The primary monad for impure code using Python. -/
 @[expose] -- for codegen
 public def PyIO (α) :=
@@ -61,11 +63,11 @@ Constructs a {lean}`PyIO` that fails.
 @[inline] public def failureUnsafe : PyIO α :=
   mkUnsafe failure
 
-@[inline, inherit_doc getPyContextUnsafe]
-public protected def getPyContextUnsafe : PyIO PyContext :=
+@[inline] protected def getPyContextUnsafe : PyIO PyContext :=
   mkUnsafe read
 
-public instance : MonadPy PyIO := ⟨PyIO.getPyContextUnsafe⟩
+public instance : MonadPy PyIO where
+  getPyContextUnsafe := private PyIO.getPyContextUnsafe
 
 @[inline, inherit_doc pure]
 public protected def pure (a : α) : PyIO α :=
@@ -133,11 +135,14 @@ public instance : MonadLift PyBaseIO PyIO := ⟨toPyIO⟩
 
 public instance : MonadEval PyBaseIO BaseIO := ⟨PyBaseIO.toBaseIO⟩
 
-@[inline, inherit_doc getPyContextUnsafe]
-public protected def getPyContextUnsafe : PyBaseIO PyContext :=
+@[inline] protected def getPyContextUnsafe : PyBaseIO PyContext :=
   mkUnsafe read
 
-public instance : MonadPy PyBaseIO := ⟨PyBaseIO.getPyContextUnsafe⟩
+public instance : MonadPy PyBaseIO where
+  getPyContextUnsafe := private PyBaseIO.getPyContextUnsafe
+
+def test : PyBaseIO Internal.PyContext :=
+  Internal.getPyContextUnsafe
 
 @[inline, inherit_doc pure]
 public protected def pure (a : α) : PyBaseIO α :=

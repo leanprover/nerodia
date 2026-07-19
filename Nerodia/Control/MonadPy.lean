@@ -21,18 +21,22 @@ public instance [MonadLift m n] [MonadPyEnv m] : MonadPyEnv n where
 
 /-- Type class of monads equipped with a Python context. -/
 public class MonadPy (m : Type → Type u) where
-  /--
-  Returns the Python context of the monad.
+  getPyContextUnsafe : m Internal.PyContext
 
-  **Thread Safety:** Users must ensure the {name}`PyContext` does
-  not cross thread boundaries.
-  -/
-  getPyContextUnsafe : m PyContext
+/--
+Returns the Python context of the monad.
 
-export MonadPy (getPyContextUnsafe)
+**Thread Safety:** Users must ensure the {name}`PyContext` does
+not cross thread boundaries.
+-/
+@[inline] public def Internal.getPyContextUnsafe [MonadPy m] : m PyContext :=
+  MonadPy.getPyContextUnsafe
 
-public instance [MonadLift m n] [MonadPy m] :MonadPy n where
-  getPyContextUnsafe := liftM (m := m) getPyContextUnsafe
+/-- **For internal use only.** See {name}`Internal.getPyContextUnsafe`. -/
+add_decl_doc MonadPy.getPyContextUnsafe
+
+public instance [MonadLift m n] [MonadPy m] : MonadPy n where
+  getPyContextUnsafe := liftM (m := m) Internal.getPyContextUnsafe
 
 public instance [Functor m] [MonadPy m] : MonadPyEnv m where
-  getPyEnvironment := (·.env) <$> getPyContextUnsafe
+  getPyEnvironment := (·.env) <$> Internal.getPyContextUnsafe

@@ -6,6 +6,7 @@ Authors: Mac Malone, Claude Code
 import Nerodia
 
 open Nerodia
+open Internal (PyContext)
 
 /-!
 # Interweaving Python Contexts & Threads

@@ -37,6 +37,8 @@ end PyEnvironment
 
 /-! ## PyContext -/
 
+namespace Internal
+
 structure PyContext.Model where
   mk ::
     env : PyEnvironment

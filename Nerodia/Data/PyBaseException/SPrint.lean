@@ -37,6 +37,7 @@ public def PyBaseException.sprint (e : PyBaseException) : PyBaseIO String := do
 
 namespace PyIO
 
+open Internal in
 /--
 Runs the {lean}`PyIO` function in {lean}`IO`.
 

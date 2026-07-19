@@ -149,6 +149,8 @@ end CPyResult
 
 end Internal
 
+open Internal (PyContext CPyBaseResult CPyResult getPyContextUnsafe)
+
 /-! ## C Monad Types -/
 
 /--
@@ -159,13 +161,13 @@ Not a monad itself, but lifts into monads equipped with a Python context.
 -/
 @[expose] -- for codegen
 public def CPyIO (α) :=
-  BaseIO (Internal.CPyResult α)
+  BaseIO (CPyResult α)
 
 
 namespace CPyIO
 
 /-- Constructs a {lean}`CPyIO` function from its definition.  -/
-@[inline] def ofBaseIOUnsafe (x : BaseIO (Internal.CPyResult α)) : CPyIO α :=
+@[inline] def ofBaseIOUnsafe (x : BaseIO (CPyResult α)) : CPyIO α :=
   x
 
 /--
@@ -173,11 +175,11 @@ Runs the {lean}`CPyIO` function, returning the raw, unmanaged pointer.
 
 **Safety**
 * Users must ensure a Python context exists.
-* Users must ensure the raised exception is handled on {name}`Internal.CPyResult.IsFailure`.
+* Users must ensure the raised exception is handled on failure.
 * **Memory:** Users must ensure that a returned object reference is consumed,
 and that it does not outlive the enviroment.
 -/
-@[inline] def toBaseIOUnsafe (x : CPyIO α) : BaseIO (Internal.CPyResult α) :=
+@[inline] def toBaseIOUnsafe (x : CPyIO α) : BaseIO (CPyResult α) :=
   x
 
 /--
@@ -221,11 +223,11 @@ Not a monad itself, but lifts into monads equipped with a Python context.
 -/
 @[expose] -- for codegen
 public def CPyBaseIO (α) :=
-  BaseIO (Internal.CPyBaseResult α)
+  BaseIO (CPyBaseResult α)
 
 namespace CPyBaseIO
 
-@[inline] def ofBaseIOUnsafe (x : BaseIO (Internal.CPyBaseResult α)) : CPyBaseIO α :=
+@[inline] def ofBaseIOUnsafe (x : BaseIO (CPyBaseResult α)) : CPyBaseIO α :=
   x
 
 /--
@@ -236,7 +238,7 @@ Runs the {lean}`CPyBaseIO` function, returning the raw, unmanaged pointer.
 * **Memory:** Users must ensure that the returned object reference is consumed,
 and that it  does not outlive the enviroment.
 -/
-@[inline] def toBaseIOUnsafe (x : CPyBaseIO α) : BaseIO (Internal.CPyBaseResult α) :=
+@[inline] def toBaseIOUnsafe (x : CPyBaseIO α) : BaseIO (CPyBaseResult α) :=
   x
 
 /-- Constructs a {lean}`CPyBaseIO` using the result of {lean}`x`. -/
@@ -260,17 +262,17 @@ consumed and uses must not outlive the returned Lean object.
 -/
 -- the resulting object keeps `env` alive
 @[extern "nerodia_mk_object"]
-opaque PyEnvironment.mkObjectUnsafe (env : @& PyEnvironment) (o : Internal.CPyBaseResult α) : α :=
+opaque PyEnvironment.mkObjectUnsafe (env : @& PyEnvironment) (o : CPyBaseResult α) : α :=
   Classical.choice o.nonempty
 
 @[extern "nerodia_mk_object", inherit_doc PyEnvironment.mkObjectUnsafe]
-abbrev PyContext.mkObjectUnsafe (ctx : @& PyContext) (o : Internal.CPyBaseResult α) : α :=
+abbrev Internal.PyContext.mkObjectUnsafe (ctx : @& PyContext) (o : CPyBaseResult α) : α :=
   Classical.choice o.nonempty
 
 @[inline, inherit_doc PyEnvironment.mkObjectUnsafe]
 def ofBaseResultUnsafe
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
-  (r : Internal.CPyBaseResult α)
+  (r : CPyBaseResult α)
 : m α := return (← getPyContextUnsafe).mkObjectUnsafe r
 
 namespace CPyBaseIO
@@ -439,17 +441,17 @@ This creates a new temporary Python context for the call.
 
 @[expose] -- for codegen
 public def PyResultIO (α : Type) :=
-  PyBaseIO (Internal.CPyResult α)
+  PyBaseIO (CPyResult α)
 
 namespace PyResultIO
 
-@[inline] def ofPyBaseIOUnsafe (x : PyBaseIO (Internal.CPyResult α)) : PyResultIO α :=
+@[inline] def ofPyBaseIOUnsafe (x : PyBaseIO (CPyResult α)) : PyResultIO α :=
   x
 
-@[inline] def toPyBaseIOUnsafe (x : PyResultIO α) : PyBaseIO (Internal.CPyResult α) :=
+@[inline] def toPyBaseIOUnsafe (x : PyResultIO α) : PyBaseIO (CPyResult α) :=
   x
 
-@[inline] def runUnsafe (ctx : PyContext) (x : PyResultIO α) : BaseIO (Internal.CPyResult α) :=
+@[inline] def runUnsafe (ctx : PyContext) (x : PyResultIO α) : BaseIO (CPyResult α) :=
   x.toPyBaseIOUnsafe.runUnsafe ctx
 
 /-- Constructs a {lean}`PyResultIO` that returns {lean}`o`. -/
@@ -504,10 +506,10 @@ end PyResultIO
 
 /-- Clears the current exception. Does nothing if there is none. -/
 @[extern "nerodia_py_context_clear_error"]
-public opaque PyContext.clearError (ctx : @& PyContext) : BaseIO Unit
+opaque Internal.PyContext.clearError (ctx : @& PyContext) : BaseIO Unit
 
-@[inline, inherit_doc PyContext.clearError]
-public def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
+@[inline, inherit_doc Internal.PyContext.clearError]
+def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
   getPyContextUnsafe >>= (·.clearError)
 
 /--
@@ -515,13 +517,14 @@ Constructs a {lit}`SystemError` with the string {lean}`msg`.
 Panics if the construction fails (e.g., due to lack of memeory).
 -/
 @[extern "nerodia_py_context_system_error"]
-opaque PyContext.systemError! (msg : @& String) (ctx : @& PyContext) : PySystemError
+opaque Internal.PyContext.systemError!
+  (msg : @& String) (ctx : @& PyContext) : PySystemError
 
 /-- The exception used when when no other exception is set. -/
-@[inline] opaque PyContext.unsetException (ctx : PyContext) : PySystemError :=
+@[inline] opaque Internal.PyContext.unsetException (ctx : PyContext) : PySystemError :=
   ctx.systemError! "no exception was set"
 
-@[inline, inherit_doc PyContext.unsetException]
+@[inline, inherit_doc Internal.PyContext.unsetException]
 def getUnsetException  [Functor m] [MonadPy m] : m PyBaseException :=
   (·.unsetException) <$> getPyContextUnsafe
 
@@ -538,8 +541,9 @@ If none, instead returns {name}`getUnsetException`.
 : m PyBaseException := getCRaisedException.tryCatchUnsafe getUnsetException
 
 /-- Returns the currently raised exception or {name}`unsetException` if none. -/
-@[inline] protected def PyContext.getRaisedException (ctx : PyContext) : BaseIO PyBaseException :=
-  PyBaseIO.runUnsafe ctx getRaisedException
+@[inline] protected def Internal.PyContext.getRaisedException
+  (ctx : PyContext)
+: BaseIO PyBaseException := PyBaseIO.runUnsafe ctx getRaisedException
 
 /--
 Sets the currently raised exception to {lean}`e`.
@@ -558,7 +562,7 @@ Sets the currently raised exception to {lean}`e`, stealing its reference.
 -/
 @[extern "nerodia_set_exception_result"]
 opaque setExceptionResultUnsafe
-  (e : Internal.CPyBaseResult PyBaseException) : BaseIO Unit
+  (e : CPyBaseResult PyBaseException) : BaseIO Unit
 
 /-- Raises the error returned by {lean}`x`. -/
 @[inline] public def Internal.raiseNew
