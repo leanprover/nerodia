@@ -15,13 +15,19 @@ namespace Nerodia
 
 /-! ### PyObject -/
 
-@[inline, expose] public def TypeExpr.object : TypeExpr :=
+/--
+The ultimate Python base class, [{lit}`object`][1].
+
+[1]: https://docs.python.org/3/library/functions.html#object
+-/
+@[inline, expose] public def object : TypeConst :=
   ⟨"object"⟩
 
-public instance : ToTypeExpr .object := ⟨.object⟩
+public instance : CoeDep TypeConst object TypePred := ⟨.object⟩
+public instance : ToTypeExpr object := ⟨object⟩
 
 /-- Any Python object. That is, an instance of {lit}`object`. -/
-public abbrev PyObject := Py .object
+public abbrev PyObject := Py object
 
 @[inline] public def PyObject.mk (o : Py.Raw) : PyObject :=
   Py.mk o .object
@@ -29,7 +35,7 @@ public abbrev PyObject := Py .object
 @[simp, grind =] public theorem PyObject.raw_mk : (mk o).raw = o := by rfl
 
 /-- Shorthand for {lean}`ToPy .object α` -/
-public abbrev ToPyObject := ToPy .object
+public abbrev ToPyObject := ToPy object
 
 namespace ToPyObject
 
@@ -62,12 +68,17 @@ end PyObjectView
 /-! ### PyAny -/
 
 /--
-Any Python object.
+A special indicator signifying any acceptable value.
+This is analgous to Python's [{lit}`Any`][1].
 
-This is propositionally equivalent to {lean}`object`, but
-it has different type class instances.
+As a type predicate, this is propositionally equivalent to {lean}`object`,
+but it has different type class instances.
+
+[1]: https://typing.python.org/en/latest/spec/special-types.html#any
 -/
 @[irreducible] public def TypePred.any : TypePred := .object
+
+export TypePred (any)
 
 @[simp, grind =] public theorem TypePred.any_eq_object : any = object := by
   unfold any; rfl
@@ -81,19 +92,19 @@ it has different type class instances.
 /--
 A Python object of unknown type. This is analgous to Python's {lit}`Any`.
 
-In parameters, {lean}`PyObject` should generally be perferred.
-{lean}`PyAny` is primarily used to annotate a function that returns
-an object of unknown type (e.g., {lit}`Nerodia.import`).
+In parameters, {lean}`PyObject` should generally be perferred. {lean}`PyAny`
+is primarily used to annotate a function that returns an object of unknown type
+(e.g., {name (scope := "Nerodia.Data.Module.Basic")}`Nerodia.import`).
 -/
-public abbrev PyAny := PyObjectView (Py .any)
+public abbrev PyAny := PyObjectView <| Py any
 
 @[inline] public def PyAny.mk (o : Py.Raw) : PyAny :=
   Py.mk o .any
 
 @[simp, grind =] public theorem PyAny.raw_mk : (mk o).raw = o := by rfl
 
-/-- Shorthand for {lean}`ToPy .any α` -/
-public abbrev ToPyAny := ToPy .any
+/-- Shorthand for {lean}`ToPy any α` -/
+public abbrev ToPyAny := ToPy any
 
 namespace ToPyAny
 
@@ -183,8 +194,16 @@ public instance : ToPy (.hint ty) (Py T)  := ⟨(HPy.mk ·.raw ty)⟩
 
 /-! ### Buffer -/
 
-public def TypeExpr.buffer : TypeExpr := ⟨"Buffer"⟩
-public abbrev TypePred.buffer : TypePred := .hint .buffer
+/--
+The abstract base class [{lit}`Buffer`][1].
+
+[1]: https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer
+-/
+@[inline, expose] public def buffer : TypeConst :=
+  ⟨"Buffer"⟩
+
+public instance : CoeDep TypeConst buffer TypePred := ⟨.hint buffer⟩
+public instance : ToTypeExpr buffer := ⟨buffer⟩
 
 /--
 A weakly typed instance of [{lit}`collections.abc.Buffer`][2].
@@ -194,10 +213,10 @@ That is, a Python object which implements the [Buffer Protocol][1].
 [1]: https://docs.python.org/3/c-api/buffer.html#bufferobjects
 [2]: https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer
 -/
-public abbrev PyBuffer := HPy .buffer
+public abbrev PyBuffer := HPy buffer
 
-/-- Shorthand for {lean}`ToPy .buffer α` -/
-public abbrev ToPyBuffer := ToPy .buffer
+/-- Shorthand for {lean}`ToPy buffer α` -/
+public abbrev ToPyBuffer := ToPy buffer
 
 /-- Equips {lean}`α` with the dot notation methods of a {lean}`PyBuffer`. -/
 public abbrev PyBufferView (α : Type u) := α
@@ -277,10 +296,20 @@ theorem NonemptyPy.of_kind : NonemptyPy (.kind k) :=
 
 /-! ### type -/
 
-public def TypePred.type : TypePred :=
+/--
+The ultimate base class of Python types, [{lit}`type`][1].
+
+[1]: https://docs.python.org/3/library/functions.html#type
+-/
+@[inline, expose] public def type : TypeConst :=
+  ⟨"Buffer"⟩
+
+public protected def TypePred.type : TypePred :=
   .kind .type
 
-public instance : NonemptyPy .type := .of_kind
+public instance : CoeDep TypeConst type TypePred := ⟨.type⟩
+public instance : NonemptyPy type := .of_kind
+public instance : ToTypeExpr type := ⟨type⟩
 
 /--
 A Python type object.
@@ -290,7 +319,7 @@ Equivalently, a [{lit}`PyTypeObject`][1] pointer managed by Lean.
 
 [1]: https://docs.python.org/3/c-api/type.html#c.PyTypeObject
 -/
-public abbrev PyType := PyObjectView <| Py .type
+public abbrev PyType := PyObjectView <| Py type
 
 /-- Returns whether this type is an instance of {lit}`type`. -/
 @[extern "nerodia_py_object_is_type_instance", view_method]
@@ -302,18 +331,23 @@ public def PyObject.isTypeInstance (self : @& PyObject) : Bool :=
 
 /-! ### BaseException -/
 
-public def TypePred.baseException : TypePred :=
-  .kind .baseException
+/--
+The ultimate base class of Python excpetions, [{lit}`BaseException`][1].
 
-public instance : NonemptyPy .baseException := .of_kind
-
-@[inline, expose] public def TypeExpr.baseException : TypeExpr :=
+[1]: https://docs.python.org/3/library/exceptions.html#BaseException
+-/
+@[inline, expose] public def baseException : TypeConst :=
   ⟨"BaseException"⟩
 
-public instance : ToTypeExpr .baseException := ⟨.baseException⟩
+public protected def TypePred.baseException : TypePred :=
+  .kind .baseException
+
+public instance : CoeDep TypeConst baseException TypePred := ⟨.baseException⟩
+public instance : ToTypeExpr baseException := ⟨baseException⟩
+public instance : NonemptyPy baseException := .of_kind
 
 /-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
-public abbrev PyBaseException := PyObjectView <| Py .baseException
+public abbrev PyBaseException := PyObjectView <| Py baseException
 
 /-- Shorthand for {lean}`ToPy .baseException α` -/
 public abbrev ToPyBaseException := ToPy .baseException
@@ -351,18 +385,23 @@ public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
 
 /-! ### str -/
 
-public def TypePred.str : TypePred :=
-  .kind .str
+/--
+The Python string type, [{lit}`str`][1].
 
-public instance : NonemptyPy .str := .of_kind
-
-@[inline, expose] public def TypeExpr.str : TypeExpr :=
+[1]: https://docs.python.org/3/library/stdtypes.html#str
+-/
+@[inline, expose] public def str : TypeConst :=
   ⟨"str"⟩
 
-public instance : ToTypeExpr .str := ⟨.str⟩
+public protected def TypePred.str : TypePred :=
+  .kind .str
+
+public instance : CoeDep TypeConst str TypePred := ⟨.str⟩
+public instance : NonemptyPy str := .of_kind
+public instance : ToTypeExpr str := ⟨str⟩
 
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
-public abbrev PyStr := PyObjectView <| Py .str
+public abbrev PyStr := PyObjectView <| Py str
 
 /-- Returns whether this type is an instance of {lit}`str`. -/
 @[extern "nerodia_py_object_is_str_instance", view_method]
@@ -374,18 +413,23 @@ public def PyObject.isStrInstance (self : @& PyObject) : Bool :=
 
 /-! ### bytes -/
 
-public def TypePred.bytes : TypePred :=
+/--
+The immutable Python byte array type, [{lit}`bytes`][1].
+
+[1]: https://docs.python.org/3/library/stdtypes.html#bytes
+-/
+@[inline, expose] public def bytes : TypeConst :=
+  ⟨"bytes"⟩
+
+public protected def TypePred.bytes : TypePred :=
   .kind .bytes
 
-public instance : NonemptyPy .bytes := .of_kind
-
-@[inline, expose] public def TypeExpr.bytes : TypeExpr :=
-  ⟨"str"⟩
-
-public instance : ToTypeExpr .bytes := ⟨.bytes⟩
+public instance : CoeDep TypeConst bytes TypePred := ⟨.bytes⟩
+public instance : NonemptyPy bytes := .of_kind
+public instance : ToTypeExpr bytes := ⟨bytes⟩
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
-public abbrev PyBytes := PyBufferView <| PyObjectView <| Py .bytes
+public abbrev PyBytes := PyBufferView <| PyObjectView <| Py bytes
 
 /-- Returns whether this type is an instance of {lit}`bytes`. -/
 @[extern "nerodia_py_object_is_bytes_instance", view_method]
@@ -395,15 +439,25 @@ public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
 @[inline] public def PyBytes.mk (o : PyObject) (h : o.isBytesInstance) : PyBytes :=
   ⟨o.raw, .of_isOfKind h⟩
 
-/-! ### types.ModuleType -/
+/-! ### ModuleType -/
 
-public def TypePred.module : TypePred :=
+/--
+The ultimate base class of Python modules, [{lit}`types.ModuleType`][1].
+
+[1]: https://docs.python.org/3/library/types.html#types.ModuleType
+-/
+@[inline, expose] public def moduleType : TypeConst :=
+  ⟨"ModuleType"⟩
+
+public protected def TypePred.moduleType : TypePred :=
   .kind .module
 
-public instance : NonemptyPy .module := .of_kind
+public instance : CoeDep TypeConst moduleType TypePred := ⟨.moduleType⟩
+public instance : ToTypeExpr moduleType := ⟨moduleType⟩
+public instance : NonemptyPy moduleType := .of_kind
 
 /-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
-public abbrev PyModule := PyObjectView <| Py .module
+public abbrev PyModule := PyObjectView <| Py moduleType
 
 /-- Returns whether this type is an instance of {lit}`types.ModuleType`. -/
 @[extern "nerodia_py_object_is_module_instance", view_method]
@@ -422,27 +476,48 @@ As such, instances of these subtypes are weakly typed.
 -/
 
 open TypePred in
-public instance : NonemptyPy (.baseException ∩ .hint ty) :=
+public instance : NonemptyPy (baseException ∩ .hint ty) :=
   .intro (.cast ty (.ofKind .baseException)) <| by
-    simp [mem_inter_iff_and, baseException]
+    simp [mem_inter_iff_and, TypePred.baseException]
 
 public instance : ToTypeExpr (.baseException ∩ (.hint ty)) := ⟨ty⟩
 
-/-- An instance of {lit}`BaseException` that is weakly typed as {lit}`ty`. -/
-public abbrev HPyBaseException (ty : TypeExpr) :=
-  PyBaseExceptionView <| Py <| .baseException ∩ .hint ty
+/-- The type predicate for the {lit}`BaseException` subtype, {lean}`ty`. -/
+public abbrev TypePred.except (ty : TypeConst) : TypePred :=
+  baseException ∩ hint ty
+
+/-- An instance of {lit}`BaseException` that is weakly typed as {lean}`ty`. -/
+public abbrev EPy (ty : TypeConst) :=
+  PyBaseExceptionView <| Py <| .except ty
 
 /-! ### Exception -/
 
-public def TypeExpr.exception : TypeExpr := ⟨"Exception"⟩
+/--
+The base class of non-exiting Python exceptions, [{lit}`Exception`][1].
 
-public abbrev TypePred.exception : TypePred :=
-  baseException ∩ hint .exception
+[1]: https://docs.python.org/3/library/exceptions.html#Exception
+-/
+@[inline, expose] public def exception : TypeConst :=
+  ⟨"Exception"⟩
+
+public instance : CoeDep TypeConst exception TypePred := ⟨.except exception⟩
+public instance : ToTypeExpr exception := ⟨exception⟩
 
 /-- A weakly typed instance of {lit}`Exception`. -/
-public abbrev PyException := HPyBaseException .exception
+public abbrev PyException := EPy exception
 
 /-! ### EOFError -/
+
+/--
+The Python end-of-file exception, [{lit}`EOFError`][1].
+
+[1]: https://docs.python.org/3/library/exceptions.html#EOFError
+-/
+@[inline, expose] public def eofError : TypeConst :=
+  ⟨"EOFError"⟩
+
+public instance : CoeDep TypeConst eofError TypePred := ⟨.except eofError⟩
+public instance : ToTypeExpr eofError := ⟨eofError⟩
 
 public def TypeExpr.eofError : TypeExpr := ⟨"EOFError"⟩
 
@@ -450,24 +525,36 @@ public abbrev TypePred.eofError : TypePred :=
   baseException ∩ hint .eofError
 
 /-- A weakly typed instance of {lit}`EOFError`. -/
-public abbrev PyEOFError := HPyBaseException .eofError
+public abbrev PyEOFError := EPy eofError
 
 /-! ### SystemError -/
 
-public def TypeExpr.systemError : TypeExpr := ⟨"SystemError"⟩
+/--
+The type of internal Python errors, [{lit}`SystemError`][1].
 
-public abbrev TypePred.systemError : TypePred :=
-  baseException ∩ hint .systemError
+[1]: https://docs.python.org/3/library/exceptions#SystemError
+-/
+@[inline, expose] public def systemError : TypeConst :=
+  ⟨"SystemError"⟩
+
+public instance : CoeDep TypeConst systemError TypePred := ⟨.except systemError⟩
+public instance : ToTypeExpr systemError := ⟨systemError⟩
 
 /-- A weakly typed instance of {lit}`SystemError`. -/
-public abbrev PySystemError := HPyBaseException .systemError
+public abbrev PySystemError := EPy systemError
 
 /-! ### TypeError -/
 
-public def TypeExpr.typeError : TypeExpr := ⟨"TypeError"⟩
+/--
+The Python typing exception, [{lit}`TypeError`][1].
 
-public abbrev TypePred.typeError : TypePred :=
-  baseException ∩ hint .typeError
+[1]: https://docs.python.org/3/library/exceptions#TypeError
+-/
+@[inline, expose] public def typeError : TypeConst :=
+  ⟨"TypeError"⟩
+
+public instance : CoeDep TypeConst typeError TypePred := ⟨.except typeError⟩
+public instance : ToTypeExpr typeError := ⟨typeError⟩
 
 /-- A weakly typed instance of {lit}`TypeError`. -/
-public abbrev PyTypeError := HPyBaseException .typeError
+public abbrev PyTypeError := EPy typeError

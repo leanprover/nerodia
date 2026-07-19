@@ -14,6 +14,8 @@ namespace Nerodia
 @[inline, expose] public def TypeExpr.none : TypeExpr :=
   ⟨"None"⟩
 
+public instance : CoeDep (Option α) none TypeExpr := ⟨.none⟩
+
 noncomputable opaque PyEnvironment.noneAddr (env : PyEnvironment) : Addr
 
 open Internal in
@@ -24,17 +26,26 @@ open Internal in
 public def TypePred.none : TypePred :=
   ofFn fun o => o = o.toModel.env.noneRaw
 
+public instance : CoeDep (Option α) none TypePred := ⟨.none⟩
+public instance : ToTypeExpr none := ⟨none⟩
+
 theorem PyEnvironment.noneRaw_mem_none {env} : noneRaw env ∈ TypePred.none := by
   simp [PyEnvironment.noneRaw, TypePred.none]
 
-public instance : ToTypeExpr .none := ⟨.none⟩
-
 open PyEnvironment in
-public instance : NonemptyPy .none :=
+public instance : NonemptyPy none :=
   .intro (noneRaw Classical.ofNonempty) noneRaw_mem_none
 
+/--
+The type of the Python {lit}`None` constant, [{lit}`types.NoneType`][1].
+
+[1]: https://docs.python.org/3/library/types.html#types.NoneType
+-/
+@[inline, expose] public def noneType : TypeConst :=
+  ⟨"NoneType"⟩
+
 /-- A Python {lit}`None` constant. -/
-public abbrev PyNone := PyObjectView (Py .none)
+public abbrev PyNone := PyObjectView <| Py none
 
 open Classical in
 /-- Equivalent to the Python {lit}`self is None`. -/

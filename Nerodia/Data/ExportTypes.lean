@@ -160,7 +160,7 @@ public def PyMethO :=
 /-- The type of a Python module initialization function. -/
 @[expose] -- for codegen
 public def PyModuleInit :=
-  (mod : CPyArg .module) → CPyUnitIO
+  (mod : CPyArg moduleType) → CPyUnitIO
 
 @[inline] public def PyModuleInit.ofPyIO
   (x : PyModule → PyIO Unit)

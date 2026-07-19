@@ -7,8 +7,25 @@ module
 
 namespace Nerodia
 
+/-- An identifier of a Python type constant (e.g., {lean}`"str"`). -/
+public structure TypeConst where
+  ofString ::
+    protected toString : String
+    deriving Nonempty, DecidableEq
+
+public instance : ToString TypeConst := ⟨TypeConst.toString⟩
+
 /-- A Python type expression. -/
 public structure TypeExpr where
   ofString ::
     protected toString : String
     deriving Nonempty, DecidableEq
+
+namespace TypeExpr
+
+public instance : ToString TypeExpr := ⟨TypeExpr.toString⟩
+
+@[inline, expose] public def ofTypeConst (n : TypeConst) : TypeExpr :=
+  ⟨n.toString⟩
+
+public instance : Coe TypeConst TypeExpr := ⟨ofTypeConst⟩

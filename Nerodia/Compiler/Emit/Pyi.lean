@@ -17,6 +17,7 @@ public def writePyiFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
     pyi.putStr doc.quote
     pyi.putStr "\n"
   pyi.putStr "\
+    from types import *\n\
     from typing import *\n\
     from collections.abc import *\n\
     \n"
