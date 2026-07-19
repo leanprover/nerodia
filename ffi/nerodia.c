@@ -394,9 +394,14 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_system_error(b_lean_obj_arg msg, b_l
   nerodia_exception_panic();
 }
 
-/* none : @& PyEnvironment|PyContext -> PyObject */
-LEAN_EXPORT lean_obj_res nerodia_none(b_lean_obj_arg env_or_ctx) {
-  return nerodia_of_immortal_object(Py_None, env_or_ctx);
+/* none : @& PyEnvironment -> CPyIO PyNone */
+LEAN_EXPORT lean_obj_res nerodia_py_environment_none(b_lean_obj_arg env) {
+  return nerodia_of_immortal_object(Py_None, env);
+}
+
+/* getPyNone : CPyBaseIO PyNone */
+LEAN_EXPORT size_t nerodia_get_py_none() {
+  return (size_t)Py_None;
 }
 
 /* isNone : @& PyObject -> Bool */

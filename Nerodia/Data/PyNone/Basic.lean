@@ -50,21 +50,14 @@ public theorem PyObject.isNone_iff_mem : isNone o ↔ o.raw ∈ TypePred.none :=
   simp [PyObject.isNone_iff_mem]
 
 /-- Returns a reference to the {lit}`None` constant. -/
-@[extern "nerodia_none"]
+@[extern "nerodia_py_environment_none"]
 public def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
   ⟨env.noneRaw, noneRaw_mem_none⟩
 
-@[extern "nerodia_none", inherit_doc PyEnvironment.none]
-public abbrev PyContext.none (ctx : @& PyContext) : PyNone :=
-  ctx.env.none
-
 /-- Returns the {lit}`None` constant of the Python environment. -/
-@[inline] public def getPyNone [Functor m] [MonadPyEnv m] : m PyNone :=
-  (·.none) <$> getPyEnvironment
-
-/-- Returns the {lit}`None` constant of the Python environment. -/
-@[inline] public def getCPyNone : CPyBaseIO PyNone :=
-  PyBaseIO.toCPyBaseIO getPyNone
+@[extern "nerodia_get_py_none"]
+public def getPyNone : CPyBaseIO PyNone :=
+  PyBaseIO.toCPyBaseIO do (·.none) <$> getPyEnvironment
 
 public instance : MkCResult PUnit .none where
-  mkCResult _ := getCPyNone
+  mkCResult _ := getPyNone
