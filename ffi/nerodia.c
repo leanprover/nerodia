@@ -369,6 +369,11 @@ LEAN_EXPORT lean_obj_res nerodia_set_exception_result(size_t e) {
   return lean_box(0);
 }
 
+/* mkPyEOFError : CPyIO PyEOFError */
+LEAN_EXPORT size_t nerodia_mk_py_eof_error() {
+  return (size_t)PyObject_CallNoArgs(PyExc_EOFError);
+}
+
 /* @& String -> CPyIO PyTypeError */
 LEAN_EXPORT size_t nerodia_mk_py_type_error(b_lean_obj_arg msg) {
   PyObject* msg_obj = PyUnicode_FromStringAndSize(
@@ -381,12 +386,6 @@ LEAN_EXPORT size_t nerodia_mk_py_type_error(b_lean_obj_arg msg) {
   } else {
     return (size_t)NULL;
   }
-}
-
-/* @& String -> BaseIO α */
-LEAN_EXPORT lean_obj_res nerodia_set_py_type_error(b_lean_obj_arg msg) {
-  PyErr_SetString(PyExc_TypeError, lean_string_cstr(msg));
-  return lean_box(0);
 }
 
 LEAN_NORETURN void nerodia_exception_panic(void) {
@@ -442,7 +441,7 @@ LEAN_EXPORT int32_t nerodia_py_module_add_by_string
     lean_string_cstr(name), nerodia_to_object(val));
 }
 
-/* getAttrByString : @& String -> CPyIO PyObject */
+/* getAttrByString : @& PyAny -> @& String -> CPyIO PyObject */
 LEAN_EXPORT size_t nerodia_py_object_get_attr_by_string(b_lean_obj_arg self, b_lean_obj_arg attr_name) {
   return (size_t)PyObject_GetAttrString(nerodia_to_object(self), lean_string_cstr(attr_name));
 }

@@ -65,3 +65,7 @@ wow
   let sys ← Nerodia.import "sys"
   let val ← sys.getAttrByString "bogus"
   val.str
+
+/-- error: EOFError -/
+#guard_msgs in
+#eval raisePyEOFError (α := Empty)

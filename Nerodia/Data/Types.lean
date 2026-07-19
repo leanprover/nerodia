@@ -442,6 +442,16 @@ public abbrev TypePred.exception : TypePred :=
 /-- A weakly typed instance of {lit}`Exception`. -/
 public abbrev PyException := HPyBaseException .exception
 
+/-! ### EOFError -/
+
+public def TypeExpr.eofError : TypeExpr := ⟨"EOFError"⟩
+
+public abbrev TypePred.eofError : TypePred :=
+  baseException ∩ hint .eofError
+
+/-- A weakly typed instance of {lit}`EOFError`. -/
+public abbrev PyEOFError := HPyBaseException .eofError
+
 /-! ### SystemError -/
 
 public def TypeExpr.systemError : TypeExpr := ⟨"SystemError"⟩
