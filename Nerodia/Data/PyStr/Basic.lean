@@ -8,6 +8,7 @@ public import Nerodia.Data.Codec
 public import Nerodia.Data.Types
 public import Nerodia.Data.OfPyArg
 public import Nerodia.Data.MkResult
+public import Nerodia.Data.Exceptions
 public import Nerodia.Control.CPyIO
 meta import Nerodia.ViewMethod
 

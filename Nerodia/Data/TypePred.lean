@@ -108,6 +108,12 @@ public theorem Subset.mem_of_mem
   {T U : TypePred} (h : T ⊆ U) (ho : o ∈ T)
 : o ∈ U := subset_iff_forall.mp h o ho
 
+public theorem Subset.inter_left {T U : TypePred} : T ∩ U ⊆ T :=
+  subset_iff_forall.mpr fun _ h => h.left
+
+public theorem Subset.inter_right {T U : TypePred} : T ∩ U ⊆ U :=
+  subset_iff_forall.mpr fun _ h => h.right
+
 /-- Python {lit}`object`. The top (⊤) element of type predicates. -/
 public def object : TypePred :=
   ofFn fun _ => True

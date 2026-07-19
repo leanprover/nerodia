@@ -7,6 +7,7 @@ module
 import Nerodia.Data.CPtr
 public import Nerodia.Data.Types
 public import Nerodia.Data.OfPyArg
+public import Nerodia.Data.Exceptions
 public import Nerodia.Control.CPyIO
 
 /-!

@@ -502,13 +502,6 @@ end PyResultIO
 
 /-! ## Exception Handling -/
 
-@[extern "nerodia_set_py_type_error"]
-opaque setPyTypeErrorUnsafe (msg : @& String) : BaseIO Unit
-
-/-- Raises a {lean}`PyTypeError` with the given message {lean}`msg`. -/
-@[inline] public def raisePyTypeError (msg : String) : CPyIO α :=
-  .ofBind (setPyTypeErrorUnsafe msg) fun _ => .failureUnsafe
-
 /-- Clears the current exception. Does nothing if there is none. -/
 @[extern "nerodia_py_context_clear_error"]
 public opaque PyContext.clearError (ctx : @& PyContext) : BaseIO Unit
@@ -555,6 +548,26 @@ Sets the currently raised exception to {lean}`e`.
 -/
 @[extern "nerodia_set_raised_exception"]
 opaque setRaisedExceptionUnsafe (e : @& PyBaseException) : BaseIO Unit
+
+/--
+Sets the currently raised exception to {lean}`e`, stealing its reference.
+
+**Safety**
+* **Memory:** {lean}`e` must not be used after this call.
+* **Correctness:** Must ensure the exception is handled or signaled.
+-/
+@[extern "nerodia_set_exception_result"]
+opaque setExceptionResultUnsafe
+  (e : Internal.CPyBaseResult PyBaseException) : BaseIO Unit
+
+/-- Raises the error returned by {lean}`x`. -/
+@[inline] public def Internal.raiseNew
+  (x : CPyIO PyBaseException)
+: CPyIO α := .ofBaseIOUnsafe do
+  let e ← x.toBaseIOUnsafe
+  if h : ¬ e.IsFailure then
+    setExceptionResultUnsafe (e.toCPyBaseResultUnsafe h)
+  return .failureUnsafe
 
 namespace PyIO
 

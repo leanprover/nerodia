@@ -8,6 +8,7 @@ public import Nerodia.Data.Addr
 public import Nerodia.Data.Codec
 public import Nerodia.Data.Context
 public import Nerodia.Data.CPtr
+public import Nerodia.Data.Exceptions
 public import Nerodia.Data.ExportTypes
 public import Nerodia.Data.MkResult
 public import Nerodia.Data.OfPyArg

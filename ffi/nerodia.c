@@ -357,10 +357,30 @@ LEAN_EXPORT size_t nerodia_get_raised_exception(void) {
   return (size_t)PyErr_GetRaisedException();
 }
 
-/* PyBaseException -> BaseIO Unit */
+/* setRaisedExceptionUnsafe : PyBaseException -> BaseIO Unit */
 LEAN_EXPORT lean_obj_res nerodia_set_raised_exception(b_lean_obj_arg e) {
   PyErr_SetRaisedException((PyObject*)Py_NewRef(nerodia_to_object(e)));
   return lean_box(0);
+}
+
+/* setExceptionResultUnsafe : CPyBaseResult PyBaseException -> BaseIO Unit */
+LEAN_EXPORT lean_obj_res nerodia_set_exception_result(size_t e) {
+  PyErr_SetRaisedException((PyObject*)e);
+  return lean_box(0);
+}
+
+/* @& String -> CPyIO PyTypeError */
+LEAN_EXPORT size_t nerodia_mk_py_type_error(b_lean_obj_arg msg) {
+  PyObject* msg_obj = PyUnicode_FromStringAndSize(
+    lean_string_cstr(msg), lean_string_size(msg)-1);
+  if (msg_obj != NULL) {
+    PyObject* ex = PyObject_CallFunctionObjArgs(
+      PyExc_TypeError, msg_obj, NULL);
+    Py_DECREF(msg_obj);
+    return (size_t)ex;
+  } else {
+    return (size_t)NULL;
+  }
 }
 
 /* @& String -> BaseIO α */
