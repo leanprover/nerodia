@@ -18,7 +18,7 @@ public opaque mkPyStr (s : @& String) : CPyIO PyStr
 /-- Decodes a Lean {name}`ByteArray` into a Python string. -/
 @[extern "nerodia_decode"]
 public opaque decode (bytes : @& ByteArray)
-  (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyStr
+  (encoding : @& CodecEncoding) (errors : @& CodecErrors := .strict) : CPyIO PyStr
 
 namespace PyStr
 
@@ -42,7 +42,7 @@ This is equivalent to the Python {lit}`str.encode(self, encoding, errors)`.
 -/
 @[extern "nerodia_py_str_encode"]
 public opaque encode (self : @& PyStr)
-  (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyBytes
+  (encoding : @& CodecEncoding) (errors : @& CodecErrors := .strict) : CPyIO PyBytes
 
 /--
 Returns the UTF-8-encoded value of the string as bytes.

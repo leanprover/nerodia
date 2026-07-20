@@ -20,7 +20,7 @@ This is equivalent to the Python {lit}`str(self, encoding, errors)`.
 -/
 @[extern "nerodia_py_object_decode", view_method]
 public opaque decode (self : @& PyBuffer)
-  (encoding : @& Codec) (errors : @& CodecErrors := .strict) : CPyIO PyStr
+  (encoding : @& CodecEncoding) (errors : @& CodecErrors := .strict) : CPyIO PyStr
 
 /--
 Decodes bytes as a UTF-8-encoded string.

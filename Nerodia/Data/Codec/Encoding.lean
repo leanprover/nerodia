@@ -10,13 +10,13 @@ module
 namespace Nerodia
 
 /-- Identifier of a registered Python encoding. -/
-public structure Codec where
+public structure CodecEncoding where
   ofString ::
     protected toString : String
 
-namespace Codec
+namespace CodecEncoding
 
-public instance : ToString Codec := ⟨Codec.toString⟩
+public instance : ToString CodecEncoding := ⟨CodecEncoding.toString⟩
 
 /-!
 ## Standard Python Encodings
@@ -24,18 +24,18 @@ public instance : ToString Codec := ⟨Codec.toString⟩
 The Lean names of these Python identifiers follow Lean naming conventions
 (i.e., lower camel case).
 
-See the [Python documentation][1] for a for a full list of codecs and
+See the [Python documentation][1] for a for a full list of encodings and
 what languages they support.
 
 [1]: https://docs.python.org/3/library/codecs.html#standard-encodings
 -/
 
-public abbrev ascii : Codec := ⟨"ascii"⟩
-public abbrev latin1 : Codec := ⟨"latin_1"⟩
-public abbrev utf8 : Codec := ⟨"utf-8"⟩
-public abbrev utf16 : Codec := ⟨"utf-16"⟩
-public abbrev utf16LE : Codec := ⟨"utf-16-le"⟩
-public abbrev utf16BE : Codec := ⟨"utf-16-be"⟩
-public abbrev utf32 : Codec := ⟨"utf-32"⟩
-public abbrev utf32LE : Codec := ⟨"utf-32-le"⟩
-public abbrev utf32BE : Codec := ⟨"utf-32-be"⟩
+public abbrev ascii : CodecEncoding := ⟨"ascii"⟩
+public abbrev latin1 : CodecEncoding := ⟨"latin_1"⟩
+public abbrev utf8 : CodecEncoding := ⟨"utf-8"⟩
+public abbrev utf16 : CodecEncoding := ⟨"utf-16"⟩
+public abbrev utf16LE : CodecEncoding := ⟨"utf-16-le"⟩
+public abbrev utf16BE : CodecEncoding := ⟨"utf-16-be"⟩
+public abbrev utf32 : CodecEncoding := ⟨"utf-32"⟩
+public abbrev utf32LE : CodecEncoding := ⟨"utf-32-le"⟩
+public abbrev utf32BE : CodecEncoding := ⟨"utf-32-be"⟩
