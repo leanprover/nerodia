@@ -69,3 +69,16 @@ wow
 /-- error: EOFError -/
 #guard_msgs in
 #eval raisePyEOFError (α := Empty)
+
+/-- info: -1 -/
+#guard_msgsin #eval mkPyInt (-1)
+/-- info: 13 -/
+#guard_msgs in #eval mkPyInt 13
+/-- info: 420 -/
+#guard_msgs in #eval mkPyInt 420
+/-- info: -420 -/
+#guard_msgs in  #eval mkPyInt (-420)
+/-- info: 36893488147419103232 -/
+#guard_msgs in  #eval mkPyInt (2^65)
+ /-- info: -36893488147419103232 -/
+#guard_msgs in #eval mkPyInt (-(2^65))

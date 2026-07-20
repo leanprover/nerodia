@@ -473,6 +473,11 @@ LEAN_EXPORT uint8_t nerodia_py_object_is_bytes_instance(b_lean_obj_arg self) {
   return PyBytes_Check(nerodia_to_object(self));
 }
 
+/* isIntInstance : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_int_instance(b_lean_obj_arg self) {
+  return PyLong_Check(nerodia_to_object(self));
+}
+
 /* isModuleInstance : @& PyObject -> Bool */
 LEAN_EXPORT uint8_t nerodia_py_object_is_module_instance(b_lean_obj_arg self) {
   return PyModule_Check(nerodia_to_object(self));
@@ -590,4 +595,46 @@ LEAN_EXPORT lean_obj_res nerodia_py_bytes_to_byte_array(b_lean_obj_arg self) {
   lean_object* r = lean_alloc_sarray(1, sz, sz);
   memcpy(lean_sarray_cptr(r), PyBytes_AsString(o), sz);
   return r;
+}
+
+/** ### Integers */
+
+/* mkPyIntLE : @& ByteArray -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_int_le(b_lean_obj_arg bs) {
+  return (size_t)PyLong_FromNativeBytes(
+      (const char *)lean_sarray_cptr(bs),
+      lean_sarray_size(bs), Py_ASNATIVEBYTES_LITTLE_ENDIAN);
+}
+
+size_t nerodia_mk_big_py_int(lean_obj_arg n);
+
+/* mkPyInt : Int -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_int(b_lean_obj_arg n) {
+  if (lean_is_scalar(n)) {
+    return (size_t)PyLong_FromInt64(lean_scalar_to_int64(n));
+  } else {
+    lean_inc_ref(n);
+    return nerodia_mk_big_py_int(n);
+  }
+}
+
+static inline lean_obj_res py_int_to_byte_array(b_lean_obj_arg self, int flags) {
+  PyObject *v = nerodia_to_object(self);
+  assert(PyLong_Check(v));
+  Py_ssize_t n_bytes = PyLong_AsNativeBytes(v, NULL, 0, flags);
+  assert(n_bytes != -1);
+  lean_object* r = lean_alloc_sarray(1, n_bytes, n_bytes);
+  n_bytes = PyLong_AsNativeBytes(v, lean_sarray_cptr(r), n_bytes, flags);
+  assert(n_bytes != -1);
+  return r;
+}
+
+/* toByteArrayLE : @& PyInt -> ByteArray */
+LEAN_EXPORT lean_obj_res nerodia_py_int_to_byte_array_le(b_lean_obj_arg self) {
+  return py_int_to_byte_array(self, Py_ASNATIVEBYTES_LITTLE_ENDIAN);
+}
+
+/* toByteArrayBE : @& PyInt -> ByteArray */
+LEAN_EXPORT lean_obj_res nerodia_py_int_to_byte_array_be(b_lean_obj_arg self) {
+  return py_int_to_byte_array(self, Py_ASNATIVEBYTES_BIG_ENDIAN);
 }

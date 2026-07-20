@@ -11,6 +11,11 @@ open Nerodia
 /-- A Lean-to-Python test module. -/
 py_module "testmodule"
 
+/-- Add two integers using Lean. -/
+@[py_module_fn "my_add"]
+def myAdd (a b : Int) : Int :=
+  a + b
+
 /-- Return a standard greeting. -/
 @[py_module_fn]
 def greet : String :=

@@ -19,6 +19,7 @@ public inductive Py.Kind
 | baseException
 | str
 | bytes
+| int
 | module
 | other
 deriving Nonempty, DecidableEq

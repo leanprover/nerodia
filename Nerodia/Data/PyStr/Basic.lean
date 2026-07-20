@@ -8,6 +8,8 @@ public import Nerodia.Data.Codec
 public import Nerodia.Data.Types
 public import Nerodia.Data.OfPyArg
 public import Nerodia.Data.MkResult
+public import Nerodia.Data.Py.Ops
+public import Nerodia.Data.PyType.Basic
 public import Nerodia.Data.Exceptions
 public import Nerodia.Control.CPyIO
 meta import Nerodia.ViewMethod
@@ -18,7 +20,7 @@ namespace Nerodia
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
-public instance : MkCResult String .str := ⟨mkPyStr⟩
+public instance : MkCResult String str := ⟨mkPyStr⟩
 
 /-- Decodes a Lean {name}`ByteArray` into a Python string. -/
 @[extern "nerodia_decode"]
@@ -38,11 +40,17 @@ public opaque PyStr.toString (self : @& PyStr) : String
 
 public instance : ToString PyStr := ⟨PyStr.toString⟩
 
-public instance : OfPyArg String .str where
-  ofPyArg fn i o :=
-    if h : o.isStrInstance then
-      return (PyStr.mk o h).toString
-    else raisePyTypeError s!"{fn} argument {i} must be str"
+@[inline] public def raiseArgTypeMismatch
+  (fn : String) (i : Nat ) (arg : PyObject) (expected : TypeExpr)
+: PyIO α := do
+  let actual ← (← arg.getType).getQualName
+  raisePyTypeError s!"{fn} argument {i} must be {expected}, got {actual}"
+
+public instance : OfPyArg String str where
+  ofPyArg fn i arg :=
+    if h : arg.isStrInstance then
+      return (PyStr.mk arg h).toString
+    else raiseArgTypeMismatch fn i arg str
 
 /--
 Returns the string encoded as bytes.

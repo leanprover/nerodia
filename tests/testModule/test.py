@@ -6,10 +6,17 @@ import testmodule
 
 # TODO: Set `__all__` in `__init__.py` and check it
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
-expected = ["greet", "greet2", "greetUser", "greeting", "greeting_for", "setUser"]
+expected = [
+  "greet", "greet2", "greetUser", "greeting",
+  "greeting_for", "my_add", "setUser"
+]
 assert exports == expected, exports
 
 assert testmodule.__doc__ == "A Lean-to-Python test module."
+
+assert testmodule.my_add.__doc__ == "Add two integers using Lean."
+
+assert testmodule.my_add(13, 42) == 55
 
 assert testmodule.greet() == "Hello!"
 
@@ -42,7 +49,7 @@ try:
   testmodule.greeting_for(0) # type: ignore[ty:invalid-argument-type]
   raise AssertionError('expected TypeError')
 except TypeError as e:
-  assert str(e) == "testmodule.greeting_for() argument 1 must be str"
+  assert str(e) == "testmodule.greeting_for() argument 1 must be str, got int"
 
 try:
   testmodule.greeting_for() # type: ignore[ty:missing-argument]

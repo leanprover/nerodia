@@ -439,6 +439,34 @@ public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
 @[inline] public def PyBytes.mk (o : PyObject) (h : o.isBytesInstance) : PyBytes :=
   ⟨o.raw, .of_isOfKind h⟩
 
+/-! ### int -/
+
+/--
+The Python integer type, [{lit}`int`][1].
+
+[1]: https://docs.python.org/3/library/functions.html#int
+-/
+@[inline, expose] public def int : TypeConst :=
+  ⟨"int"⟩
+
+public protected def TypePred.int : TypePred :=
+  .kind .int
+
+public instance : CoeDep TypeConst int TypePred := ⟨.int⟩
+public instance : NonemptyPy int := .of_kind
+public instance : ToTypeExpr int := ⟨int⟩
+
+/-- A Python long object. That is, an instance of {lit}`int`. -/
+public abbrev PyInt := PyObjectView <| Py int
+
+/-- Returns whether this type is an instance of {lit}`int`. -/
+@[extern "nerodia_py_object_is_int_instance", view_method]
+public def PyObject.isIntInstance (self : @& PyObject) : Bool :=
+  self.raw.isOfKind .int
+
+@[inline] public def PyInt.mk (o : PyObject) (h : o.isIntInstance) : PyInt :=
+  ⟨o.raw, .of_isOfKind h⟩
+
 /-! ### ModuleType -/
 
 /--
