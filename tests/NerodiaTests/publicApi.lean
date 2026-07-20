@@ -467,9 +467,9 @@ Nerodia.PyIO.instMonadPy
 Nerodia.PyIO.instMonadRaise
 Nerodia.PyIO.instOrElse
 Nerodia.PyIO.instPure
-Nerodia.PyInt.instOfPyArgIntInt
 Nerodia.PyInt.instToString
 Nerodia.PyObjectView.instCoeOutPyObjectOfToPyObject
+Nerodia.PyStr.instToString
 Nerodia.ToPy.instPy
 Nerodia.ToPy.instPyInterTypePred
 Nerodia.ToPy.instPyInterTypePred_1
@@ -541,10 +541,10 @@ Nerodia.instNonemptyPyUnionTypePred
 Nerodia.instNonemptyPyUnionTypePred_1
 Nerodia.instNonemptyTypeConst
 Nerodia.instNonemptyTypeExpr
+Nerodia.instOfPyArgIntInt
 Nerodia.instOfPyArgStringStr
 Nerodia.instToPyHintPy
 Nerodia.instToStringMethodFlags
-Nerodia.instToStringPyStr
 Nerodia.instToStringTypeConst
 Nerodia.instToTypeExprBaseException
 Nerodia.instToTypeExprBytes

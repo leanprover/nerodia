@@ -5,9 +5,6 @@ Authors: Mac Malone
 -/
 module
 public import Nerodia.Data.Types
-public import Nerodia.Data.OfPyArg
-public import Nerodia.Data.MkPyResult
-public import Nerodia.Data.PyStr.Basic
 public import Nerodia.Control.CPyIO
 
 namespace Nerodia
@@ -36,8 +33,6 @@ where
 /-- Creates a Python integer from a Lean integer. -/
 @[extern "nerodia_mk_py_int"]
 public opaque mkPyInt (n : @& Int) : CPyIO PyInt
-
-public instance : MkCPyResult Int int := ⟨mkPyInt⟩
 
 namespace PyInt
 
@@ -77,12 +72,6 @@ where ofByteArrayBE (bs : ByteArray) (h : 0 < bs.size) := Id.run do
   for h : i in 1...bs.size do
     n := n * 256 + bs[i].toNat
   return n
-
-public instance : OfPyArg Int int where
-  ofPyArg fn i arg :=
-    if h : arg.isIntInstance then
-      return (PyInt.mk arg h).toInt
-    else raiseArgTypeMismatch fn i arg int
 
 @[inline] public protected def toString (self : PyInt) : String :=
   toString self.toInt
