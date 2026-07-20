@@ -7,14 +7,13 @@ module
 import Lean
 public import Lean.Elab.Command
 public import Lean.DocString.Extension
-public meta import Nerodia.Compiler.ModuleConfig
-public meta import Nerodia.Compiler.ModuleConfig.Extension
+public meta import Nerodia.Compiler.Meta.Extension
 
 /-! # Nerodiac Commands -/
 
 open Lean Elab Command
 
-namespace Nerodia
+namespace Nerodia.Compiler
 
 /--
 Declares this Lean module to define a Python module with the specified name.

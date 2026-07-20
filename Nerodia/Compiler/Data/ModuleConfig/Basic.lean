@@ -9,7 +9,7 @@ module
 
 open Lean
 
-namespace Nerodia
+namespace Nerodia.Compiler
 
 public structure AttrDef where
   name : String

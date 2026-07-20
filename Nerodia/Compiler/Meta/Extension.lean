@@ -5,13 +5,13 @@ Authors: Mac Malone
 -/
 module
 public import Lean.Compiler.ModPkgExt
-public import Nerodia.Compiler.ModuleConfig.Basic
+public import Nerodia.Compiler.Data.ModuleConfig.Basic
 
 /-! # Nerodiac Configuration Extension -/
 
 open Lean
 
-namespace Nerodia
+namespace Nerodia.Compiler
 
 public abbrev ModuleConfigExtension := ModuleEnvExtension (Option ModuleConfig)
 

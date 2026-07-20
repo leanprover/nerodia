@@ -4,4 +4,5 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
-public import Nerodia.Compiler.ModuleConfig.Basic
+public import Nerodia.Compiler.Emit.C
+public import Nerodia.Compiler.Emit.Pyi

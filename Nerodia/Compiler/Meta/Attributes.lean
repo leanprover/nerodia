@@ -12,13 +12,13 @@ import Lean.Meta.DecLevel
 import Lean.AddDecl
 import Lean.DocString
 import Lean.Meta.ReduceEval
-import Nerodia.Compiler.ModuleConfig.Extension
+import Nerodia.Compiler.Meta.Extension
 
 /-! # Nerodiac Attributes -/
 
 open Lean Meta
 
-namespace Nerodia
+namespace Nerodia.Compiler
 
 /-! ## Utilities -/
 

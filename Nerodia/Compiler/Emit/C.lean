@@ -4,11 +4,11 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
-public import Nerodia.Compiler.ModuleConfig.Basic
+public import Nerodia.Compiler.Data.ModuleConfig.Basic
 
 open System (FilePath)
 
-namespace Nerodia
+namespace Nerodia.Compiler
 
 public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   let c ← IO.FS.Handle.mk path .write

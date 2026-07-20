@@ -17,17 +17,12 @@ open Lean
 
 /--
 info:
+# Constants (356)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
 Nerodia.Addr.toNullableAddr
 Nerodia.Addr.toNullableAddr_inj
-Nerodia.AttrDef
-Nerodia.AttrDef.cSym
-Nerodia.AttrDef.doc?
-Nerodia.AttrDef.mk
-Nerodia.AttrDef.name
-Nerodia.AttrDef.ty?
 Nerodia.CPyArg
 Nerodia.CPyArgs
 Nerodia.CPyBaseIO
@@ -59,16 +54,6 @@ Nerodia.CPyUnitIO.run'
 Nerodia.CPyUnitIO.toEIO
 Nerodia.CPyUnitIO.toExceptT
 Nerodia.CPyUnitIO.toPyIO
-Nerodia.CallConv
-Nerodia.CallConv.cSig
-Nerodia.CallConv.fastCall
-Nerodia.CallConv.flags
-Nerodia.CallConv.method
-Nerodia.CallConv.noArgs
-Nerodia.CallConv.o
-Nerodia.CallConv.pySig
-Nerodia.CallConv.toString
-Nerodia.CallConv.varArgs
 Nerodia.Codec
 Nerodia.Codec.ascii
 Nerodia.Codec.latin1
@@ -98,37 +83,12 @@ Nerodia.HPy.mk
 Nerodia.IsPy
 Nerodia.IsPy.of_py
 Nerodia.IsPy.of_raw
-Nerodia.MethodDef
-Nerodia.MethodDef.cSig
-Nerodia.MethodDef.cSym
-Nerodia.MethodDef.callConv
-Nerodia.MethodDef.coexist
-Nerodia.MethodDef.doc?
-Nerodia.MethodDef.flags
-Nerodia.MethodDef.mk
-Nerodia.MethodDef.name
-Nerodia.MethodDef.pySig
-Nerodia.MethodFlags
-Nerodia.MethodFlags.toString
 Nerodia.MkCPyResult
 Nerodia.MkCPyResult.mk
 Nerodia.MkCPyResult.mkCPyResult
 Nerodia.MkPyResult
 Nerodia.MkPyResult.mk
 Nerodia.MkPyResult.mkPyResult
-Nerodia.ModuleConfig
-Nerodia.ModuleConfig.attrs
-Nerodia.ModuleConfig.doc?
-Nerodia.ModuleConfig.inits
-Nerodia.ModuleConfig.methods
-Nerodia.ModuleConfig.mk
-Nerodia.ModuleConfig.name
-Nerodia.ModuleConfigExtension
-Nerodia.ModuleDef
-Nerodia.ModuleDef.config
-Nerodia.ModuleDef.leanInit
-Nerodia.ModuleDef.leanModule
-Nerodia.ModuleDef.mk
 Nerodia.MonadPy
 Nerodia.MonadPy.getPyContextUnsafe
 Nerodia.MonadPy.mk
@@ -394,25 +354,18 @@ Nerodia.baseException
 Nerodia.buffer
 Nerodia.bytes
 Nerodia.decode
-Nerodia.elabPyModuleCmd
 Nerodia.eofError
 Nerodia.exception
 Nerodia.getPyNone
-Nerodia.hasModuleConfig
 Nerodia.import
 Nerodia.int
 Nerodia.mkPyBytes
 Nerodia.mkPyEOFError
 Nerodia.mkPyInt
 Nerodia.mkPyStr
-Nerodia.modCfgExt
-Nerodia.modifyModuleConfig
 Nerodia.moduleType
 Nerodia.noneType
 Nerodia.object
-Nerodia.pyModuleCmd
-Nerodia.py_module_attr
-Nerodia.py_module_fn
 Nerodia.raise
 Nerodia.raiseArgTypeMismatch
 Nerodia.raisePyEOFError
@@ -422,7 +375,7 @@ Nerodia.systemError
 Nerodia.type
 Nerodia.typeError
 
-Instances:
+# Instances (131)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -435,7 +388,6 @@ Nerodia.CPyIO.instMonadRaise
 Nerodia.CPyIO.instNonempty
 Nerodia.CPyUnitIO.instCoePyIOUnit
 Nerodia.CPyUnitIO.instNonempty
-Nerodia.CallConv.instToString
 Nerodia.Codec.instToString
 Nerodia.CodecErrors.instToString
 Nerodia.IsPy.instPy
@@ -498,16 +450,12 @@ Nerodia.instCoeDepTypeConstTypeErrorTypePred
 Nerodia.instCoeDepTypeConstTypeTypePred
 Nerodia.instDecidableEqAddr
 Nerodia.instDecidableEqAddr.decEq
-Nerodia.instDecidableEqCallConv
-Nerodia.instDecidableEqCallConv.decEq
 Nerodia.instDecidableEqNullableAddr
 Nerodia.instDecidableEqNullableAddr.decEq
 Nerodia.instDecidableEqTypeConst
 Nerodia.instDecidableEqTypeConst.decEq
 Nerodia.instDecidableEqTypeExpr
 Nerodia.instDecidableEqTypeExpr.decEq
-Nerodia.instInhabitedModuleConfig
-Nerodia.instInhabitedModuleConfig.default
 Nerodia.instInhabitedPyModuleInit
 Nerodia.instMkCPyResultBaseIO
 Nerodia.instMkCPyResultIntInt
@@ -525,7 +473,6 @@ Nerodia.instMkPyResultPyIO
 Nerodia.instMonadPyEnvOfFunctorOfMonadPy
 Nerodia.instMonadPyEnvOfMonadLift
 Nerodia.instMonadPyOfMonadLift
-Nerodia.instNonemptyCallConv
 Nerodia.instNonemptyPyBaseException
 Nerodia.instNonemptyPyBytes
 Nerodia.instNonemptyPyEnvironment
@@ -544,7 +491,6 @@ Nerodia.instNonemptyTypeExpr
 Nerodia.instOfPyArgIntInt
 Nerodia.instOfPyArgStringStr
 Nerodia.instToPyHintPy
-Nerodia.instToStringMethodFlags
 Nerodia.instToStringTypeConst
 Nerodia.instToTypeExprBaseException
 Nerodia.instToTypeExprBytes
@@ -581,6 +527,7 @@ Nerodia.instToTypeExprType
   for (name, info) in env.constants.toList do
     unless (`Nerodia).isPrefixOf name do continue
     if (`Nerodia.Internal).isPrefixOf name then continue
+    if (`Nerodia.Compiler).isPrefixOf name then continue
     -- Skip auto-generated auxiliaries (e.g., `casesOn`, `noConfusion`)
     if info matches .recInfo _ then continue
     if name.isInternalDetail || isAuxRecursor env name || isNoConfusion env name then
@@ -594,9 +541,9 @@ Nerodia.instToTypeExprType
       insts := insts.push name
     else
       defs := defs.push name
-  IO.print "\n"
+  IO.print s!"\n# Constants ({defs.size})\n"
   for name in defs.qsort (·.toString < ·.toString) do
     IO.println name
-  IO.println "\nInstances:"
+  IO.print s!"\n# Instances ({insts.size})\n"
   for name in insts.qsort (·.toString < ·.toString) do
     IO.println name

@@ -6,68 +6,76 @@ Authors: Mac Malone
 module
 import Lean.Environment
 import Lean.Compiler.NameMangling
+import Lean.Data.Json.FromToJson
 import Nerodia.Compiler.Emit.C
 import Nerodia.Compiler.Emit.Pyi
-import Nerodia.Compiler.ModuleConfig.Extension
-public import Lean.Data.Json.FromToJson
+import Nerodia.Compiler.Meta.Extension
+-- some public Lean.* import is required to esnure Lean is initialized
+public import Lean.Data.Name
 
 open System (FilePath)
 open Lean (Json ToJson FromJson toJson fromJson?)
 
-namespace Nerodia
+namespace Nerodia.Compiler
 
-public structure CompilerConfig where
+structure Config where
   leanModule : Lean.Name
   cFile : FilePath
   pyiFile : FilePath
   deriving ToJson, FromJson
 
-public structure CompilerOutput where
+structure Output where
   name : String
   deriving ToJson, FromJson
 
-namespace Compiler
-
-public def readConfig (path : FilePath) : IO CompilerConfig := do
+def readConfig (path : FilePath) : IO Config := do
   let contents ← IO.FS.readFile path
   match Json.parse contents >>= fromJson? with
-  | .ok (cfg : CompilerConfig) => return cfg
+  | .ok (cfg : Config) => return cfg
   | .error e =>
     throw <| IO.userError s!"invalid configuration: {e}"
 
-public def run (cfg : CompilerConfig) : IO CompilerOutput := do
+def extractPyModule (leanModule : Lean.Name) : IO ModuleDef := do
   unsafe Lean.enableInitializersExecution
   Lean.initSearchPath (← Lean.findSysroot)
-  let env ← Lean.importModules #[cfg.leanModule] .empty
-    (leakEnv := true) (loadExts := true)
-  let modIdx := env.getModuleIdx? cfg.leanModule |>.get!
+  let env ← Lean.importModules #[leanModule] .empty
+    (leakEnv := true) (loadExts := true) (level := .private)
+  let modIdx := env.getModuleIdx? leanModule |>.get!
   let some modCfg := modCfgExt.getStateByIdx? env modIdx |>.join
     | throw <| IO.userError "module lacks a Nerodia configuration"
-  let mod : ModuleDef := {
-    config := modCfg
-    leanInit := Lean.mkModuleInitializationFunctionName cfg.leanModule (env.getModulePackageByIdx? modIdx)
-    leanModule := cfg.leanModule
-  }
-  writeCFile cfg.cFile mod
-  writePyiFile cfg.pyiFile mod
   return {
-    name := modCfg.name
+    config := modCfg
+    leanInit := Lean.mkModuleInitializationFunctionName leanModule (env.getModulePackageByIdx? modIdx)
+    leanModule := leanModule
   }
 
+def run
+  (cfgFile : FilePath) (outFile? : Option FilePath := none)
+: IO Unit := do
+  let cfg ← readConfig cfgFile
+  let mod ← extractPyModule cfg.leanModule
+  writeCFile cfg.cFile mod
+  writePyiFile cfg.pyiFile mod
+  let out := {name := mod.name : Output}
+  let outJson := (toJson out).pretty
+  if let some outFile := outFile? then
+    IO.FS.writeFile outFile outJson
+  else
+    IO.print outJson
+
+/-- The main function of the {lit}`nerodiac` executable. -/
 public def main (args : List String) : IO UInt32 := do
   try
     match args with
     | [cfgFile] =>
-      let out ← run (← readConfig cfgFile)
-      IO.print (toJson out).pretty
+      run cfgFile
       return (0 : UInt32)
     | [cfgFile, outFile] =>
-      let out ← run (← readConfig cfgFile)
-      IO.FS.writeFile outFile (toJson out).pretty
+      run cfgFile outFile
       return 0
     | _ =>
       IO.eprintln "USAGE: nerodiac <config.json> [<out.json>]"
       return 1
   catch e =>
-    IO.eprintln e
+    IO.eprintln s!"error: {e}"
     return 1
