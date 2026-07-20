@@ -37,7 +37,7 @@ public instance : MkCPyResult (Py T) T where
   mkCPyResult o := CPyBaseIO.pure o
 
 public instance : MkPyResult (Py T) T where
-  mkPyResult o := PyResultIO.pure o
+  mkPyResult o := PyCResultIO.pure o
 
 /-! ## IO -/
 

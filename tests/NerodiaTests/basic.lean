@@ -55,6 +55,7 @@ wow
 #guard_msgs in
 #eval PyIO.toIO do (← getPyNone).repr
 
+open Internal Nerodia in
 /-- error: SystemError: no exception was set -/
 #guard_msgs in
 #eval PyIO.failureUnsafe (α := Empty)

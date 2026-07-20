@@ -21,10 +21,10 @@ namespace Nerodia
 
 /-- Type class used to construct Python return values from Lean objects. -/
 public class MkPyResult (α : Type u) (T : outParam TypePred) where
-  mkPyResult : α → PyResultIO (Py T)
+  mkPyResult : α → PyCResultIO (Py T)
 
 /-- Internal function for {lit}`@[py_module_fn]` -/
-@[inline] public def Internal.mkPyResult {α} {T} [MkPyResult α T] (a : α) : PyResultIO Py.Raw :=
+@[inline] public def Internal.mkPyResult {α} {T} [MkPyResult α T] (a : α) : PyCResultIO Py.Raw :=
   MkPyResult.mkPyResult a |>.raw
 
 /--
@@ -46,4 +46,4 @@ public instance (priority := low) [MkCPyResult α T] : MkPyResult α T where
   mkPyResult x := CPyIO.toPyResultIO (MkCPyResult.mkCPyResult x)
 
 public instance (priority := low) [MkPyResult α T] : MkCPyResult α T where
-  mkCPyResult x := PyResultIO.toCPyIO (MkPyResult.mkPyResult x)
+  mkCPyResult x := PyCResultIO.toCPyIO (MkPyResult.mkPyResult x)

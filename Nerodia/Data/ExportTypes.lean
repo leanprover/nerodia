@@ -75,11 +75,17 @@ open Internal (getPyContextUnsafe)
 
 /-! ### PyMethNoArgs -/
 
-/-- The type of a Python method with no arguments. -/
-@[expose] -- for codegen
+/--
+The type of a Python method with no arguments.
+
+**API Caveat:** The definition of {name}`PyMethNoArgs` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+-/
+@[irreducible, expose] -- for codegen
 public def PyMethNoArgs :=
   (self : CPyArg) → Null → CPyIO Py.Raw
 
+unseal PyMethNoArgs in
 @[inline] public def PyMethNoArgs.ofPyIO
   (x : (self : PyObject) → PyIO PyAny)
 : PyMethNoArgs := fun self _ => PyIO.toCPyIO do
@@ -91,6 +97,7 @@ public def PyMethNoArgs :=
   (x : PyIO PyAny)
 : PyMethNoArgs := ofPyIO fun _ => x
 
+unseal PyMethNoArgs in
 @[inline] public def PyMethNoArgs.ofCPyIO
   [IsPy α] (x : CPyIO α)
 : PyMethNoArgs := fun _ _ => x.raw
@@ -102,11 +109,17 @@ public def PyMethNoArgs :=
 
 /-! ### PyMethFastCall -/
 
-/-- The type of a Python method with a single positional argument. -/
-@[expose] -- for codegen
+/--
+The type of a Python method with a single positional argument.
+
+**API Caveat:** The definition of {name}`PyMethFastCall` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+-/
+@[irreducible, expose] -- for codegen
 public def PyMethFastCall :=
   (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO Py.Raw
 
+unseal PyMethFastCall in
 @[inline] public def PyMethFastCall.ofPyIO
   (x : (self : PyObject) → (args : Array PyObject) → PyIO (Py T))
 : PyMethFastCall := fun self args nargs => PyIO.toCPyIO do
@@ -119,10 +132,11 @@ public def PyMethFastCall :=
 @[inline] def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α :=
   raisePyTypeError s!"{fn} takes exactly {expected} arguments ({given} given)"
 
+unseal PyMethFastCall in
 /-- Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethFastCallUnsafe
   (fn : String) (arity : USize)
-  (x : (args : CPyArgs) → PyResultIO Py.Raw)
+  (x : (args : CPyArgs) → PyCResultIO Py.Raw)
 : PyMethFastCall := fun _ args nargs =>
   if nargs = arity then
     x args |>.toCPyIO.raw
@@ -131,11 +145,17 @@ public def PyMethFastCall :=
 
 /-! ### PyMethO -/
 
-/-- The type of a Python method with a single positional argument. -/
-@[expose] -- for codegen
+/--
+The type of a Python method with a single positional argument.
+
+**API Caveat:** The definition of {name}`PyMethO` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+-/
+@[irreducible, expose] -- for codegen
 public def PyMethO :=
   (self : CPyArg) → (arg : CPyArg) → CPyIO Py.Raw
 
+unseal PyMethO in
 @[inline] public def PyMethO.ofPyIO
   (x : (self : PyObject) → (arg : PyObject) → PyIO (Py T))
 : PyMethO := fun self arg => PyIO.toCPyIO do
@@ -148,34 +168,49 @@ public def PyMethO :=
   (x : (arg : PyObject) → PyIO (Py T))
 : PyMethO := ofPyIO fun _ => x
 
+unseal PyMethO in
 /-- Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethO
-  (x : (arg : PyObject) → PyResultIO Py.Raw)
+  (x : (arg : PyObject) → PyCResultIO Py.Raw)
 : PyMethO := fun _ arg =>
-  PyResultIO.toCPyIO <| PyBaseIO.bindPyResultIO getPyContextUnsafe fun ctx =>
+  PyCResultIO.toCPyIO <| PyBaseIO.bindPyResultIO getPyContextUnsafe fun ctx =>
     x (ctx.mkArgUnsafe arg)
 
 /-! ## PyModuleInit -/
 
-/-- The type of a Python module initialization function. -/
-@[expose] -- for codegen
+/--
+The type of a Python module initialization function.
+
+**API Caveat:** The definition of {name}`PyModuleInit` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+-/
+@[irreducible, expose] -- for codegen
 public def PyModuleInit :=
   (mod : CPyArg moduleType) → CPyUnitIO
 
+unseal PyModuleInit in
 @[inline] public def PyModuleInit.ofPyIO
   (x : PyModule → PyIO Unit)
 : PyModuleInit := fun mod => PyIO.toCPyUnitIO do
   let ctx ← getPyContextUnsafe
   x (ctx.mkArgUnsafe mod)
 
-public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ _ => return⟩
+public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ => return⟩
 
 /-! ## PyAttrInit -/
 
-@[expose] -- for codegen
+/--
+The type of a Python module attribute initialization function.
+
+**API Caveat:** The definition of {name}`PyAttrInit` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+-/
+@[irreducible, expose] -- for codegen
 public def PyAttrInit :=
   CPyIO Py.Raw
+  deriving Nonempty
 
+unseal PyAttrInit in
 @[inline] public def PyAttrInit.ofCPyIO (x : CPyIO α) : PyAttrInit :=
   x.raw
 

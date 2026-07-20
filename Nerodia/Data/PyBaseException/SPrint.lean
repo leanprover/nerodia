@@ -26,18 +26,17 @@ public def PyBaseException.sprint (e : PyBaseException) : PyBaseIO String := do
   -- https://github.com/python/cpython/blob/v3.14.5/Python/pythonrun.c#L965
   -- TODO: include traceback & module name
   let ename ← id do
-    let some n ← (← e.getType).getQualName.run?
+    let some n ← (← e.getType).getQualName.toM?
       | return "<unknown>"
     return n.toString
   let estr ← id do
-    let some s ← e.str.run?
+    let some s ← e.str.toM?
       | return "<exception str() failed>"
     return s.toString
   return if estr.isEmpty then ename else s!"{ename}: {estr}"
 
 namespace PyIO
 
-open Internal in
 /--
 Runs the {lean}`PyIO` function in {lean}`IO`.
 
@@ -59,12 +58,9 @@ def main : IO Unit := do
   IO.println pyVer
 ```
 -/
-@[inline] public def toIO (x : PyIO α) : IO α := do
-  let ctx ← PyContext.getOrInit
-  have {m} [Monad m] : MonadPy (ReaderT PyContext m) := ⟨read⟩
-  ReaderT.run (r := ctx) <| x.tryCatch fun e => do
-    let e ← e.sprint.runUnsafe (← read)
-    throw (IO.userError e)
+@[inline] public def toIO (x : PyIO α) : IO α :=
+  PyContextT.run' <| x.tryCatchM fun e => do
+    throw (IO.userError (← e.sprint.toM))
 
 public instance : MonadEval PyIO IO := ⟨toIO⟩
 

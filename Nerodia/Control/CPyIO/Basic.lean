@@ -153,23 +153,30 @@ open Internal (PyContext CPyBaseResult CPyResult getPyContextUnsafe)
 
 /-! ## C Monad Types -/
 
+/-! ### CPyIO -/
+
 /--
 Return context for external CPython functions that return an object
 and may raise an exception.
 
 Not a monad itself, but lifts into monads equipped with a Python context.
+
+**API Caveat:** The definition of {name}`CPyIO` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
 -/
-@[expose] -- for codegen
+@[irreducible, expose] -- for codegen
 public def CPyIO (α) :=
   BaseIO (CPyResult α)
 
 
 namespace CPyIO
 
+unseal CPyIO in
 /-- Constructs a {lean}`CPyIO` function from its definition.  -/
 @[inline] def ofBaseIOUnsafe (x : BaseIO (CPyResult α)) : CPyIO α :=
   x
 
+unseal CPyIO in
 /--
 Runs the {lean}`CPyIO` function, returning the raw, unmanaged pointer.
 
@@ -194,7 +201,7 @@ public instance : Nonempty (CPyIO α) := ⟨failureUnsafe⟩
 
 /-- Constructs a {lean}`CPyIO` using the result of {lean}`x`. -/
 @[inline] public def ofBind (x : BaseIO α) (f : α → CPyIO β) : CPyIO β :=
-  ofBaseIOUnsafe do f (← x)
+  ofBaseIOUnsafe do f (← x) |>.toBaseIOUnsafe
 
 set_option linter.unusedVariables.funArgs false in
 /--
@@ -202,34 +209,41 @@ Converts a {lean}`CPyIO` returning a
 typed Python object to one returning its supertype.
 -/
 @[inline] public def cast (x : CPyIO (Py T)) (h : T ⊆ U) : CPyIO (Py U) :=
-  x.map (·.cast h)
+  ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.cast h)
 
 /--
 Converts a {lean}`CPyIO` returning a
 arbitrary type to one returning {lean}`Py.Raw`.
 -/
 @[inline] public def raw (x : CPyIO α) : CPyIO Py.Raw :=
-  x.map (·.raw)
+  ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.raw)
 
 public instance : CoeOut (CPyIO (Py T)) (CPyIO Py.Raw) := ⟨CPyIO.raw⟩
 
 end CPyIO
+
+/-! ### CPyBaseIO -/
 
 /--
 Return context for external CPython functions that return an object
 and cannot raise an exception.
 
 Not a monad itself, but lifts into monads equipped with a Python context.
+
+**API Caveat:** The definition of {name}`CPyBaseIO` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
 -/
-@[expose] -- for codegen
+@[irreducible, expose] -- for codegen
 public def CPyBaseIO (α) :=
   BaseIO (CPyBaseResult α)
 
 namespace CPyBaseIO
 
+unseal CPyBaseIO in
 @[inline] def ofBaseIOUnsafe (x : BaseIO (CPyBaseResult α)) : CPyBaseIO α :=
   x
 
+unseal CPyBaseIO in
 /--
 Runs the {lean}`CPyBaseIO` function, returning the raw, unmanaged pointer.
 
@@ -243,15 +257,155 @@ and that it  does not outlive the enviroment.
 
 /-- Constructs a {lean}`CPyBaseIO` using the result of {lean}`x`. -/
 @[inline] public def ofBind (x : BaseIO α) (f : α → CPyBaseIO β) : CPyBaseIO β :=
-  ofBaseIOUnsafe do f (← x)
+  ofBaseIOUnsafe do f (← x) |>.toBaseIOUnsafe
 
-/-- Lifts a {lean}`CPyBaseIO` into a successful {lean}`CPyIO`. -/
+/-- Lifts a {lean}`CPyBaseIO` action into a successful {lean}`CPyIO`. -/
 @[inline] public def toCPyIO (x : CPyBaseIO α) : CPyIO α :=
   .ofBaseIOUnsafe <| x.toBaseIOUnsafe.map .ofCPyBaseResultUnsafe
 
 public instance : MonadLift CPyBaseIO CPyIO := ⟨CPyBaseIO.toCPyIO⟩
 
 end CPyBaseIO
+
+/-! ### CPyUnitIO -/
+
+/--
+Return type for external CPython functions that may error but do not return
+a Python object.
+
+Not a monad itself, but lifts into monads equipped with a Python context.
+
+**API Caveat:** The definition of {name}`CPyUnitIO` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+-/
+@[irreducible, expose] -- for codegen
+public def CPyUnitIO :=
+  BaseIO Int32
+
+namespace CPyUnitIO
+
+unseal CPyUnitIO in
+/--
+Constructs a {lean}`CPyUnitIO` function from its definition.
+
+**Safety:** Users should esnure that an exception is set on error.
+-/
+@[inline] def ofBaseIOUnsafe (x : BaseIO Int32) : CPyUnitIO :=
+  x
+
+unseal CPyUnitIO in
+/--
+Runs the {lean}`CPyUnitIO` function.
+
+**Safety:** Users must ensure that a set exception is handled.
+-/
+@[inline] def toBaseIOUnsafe (x : CPyUnitIO) : BaseIO Int32 :=
+  x
+
+/-- Constructs a {lean}`CPyUnitIO` that succeeds. -/
+@[inline] public def ok : CPyUnitIO :=
+  ofBaseIOUnsafe <| pure 0
+
+public instance : Nonempty CPyUnitIO := ⟨ok⟩
+
+/--
+Constructs a {lean}`CPyUnitIO` that fails.
+
+**Safety:** Users should ensure that an exception is set.
+-/
+@[inline] def failureUnsafe : CPyUnitIO :=
+  ofBaseIOUnsafe <| pure (-1)
+
+open Internal in
+/--
+Lifts the {lean}`CPyUnitIO` function into {lean}`PyIO`,
+reusing its Python context.
+-/
+@[inline] public def toPyIO (x : CPyUnitIO) : PyIO Unit := do
+  if (← x.toBaseIOUnsafe) < 0 then
+    .failureUnsafe
+
+public instance : Coe CPyUnitIO (PyIO Unit) := ⟨toPyIO⟩
+
+end CPyUnitIO
+
+open Internal in
+/--
+Runs a {lean}`PyIO` action producing nothing in {lean}`CPyUnitIO`.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def PyIO.toCPyUnitIO (x : PyIO Unit) : CPyUnitIO := .ofBaseIOUnsafe do
+  let ctx ← PyContext.getOrInit
+  match ( ← x.runUnsafe? ctx) with
+  | some _ => CPyUnitIO.ok.toBaseIOUnsafe
+  | none => CPyUnitIO.failureUnsafe.toBaseIOUnsafe
+
+/-! ### PyCResultIO -/
+
+@[irreducible, expose] -- for codegen
+public def PyCResultIO (α : Type) :=
+  PyBaseIO (CPyResult α)
+
+namespace PyCResultIO
+
+unseal PyCResultIO in
+@[inline] def ofPyBaseIOUnsafe (x : PyBaseIO (CPyResult α)) : PyCResultIO α :=
+  x
+
+unseal PyCResultIO in
+@[inline] def toPyBaseIOUnsafe (x : PyCResultIO α) : PyBaseIO (CPyResult α) :=
+  x
+
+open Internal in
+@[inline] def runUnsafe (ctx : PyContext) (x : PyCResultIO α) : BaseIO (CPyResult α) :=
+  x.toPyBaseIOUnsafe.runUnsafe ctx
+
+/--
+Runs a {lean}`PyCResultIO` action producing a Python object in {lean}`CPyIO`.
+
+This creates a new temporary Python context for the call.
+-/
+@[inline] public def toCPyIO (x : PyCResultIO α) : CPyIO α := .ofBaseIOUnsafe do
+  x.runUnsafe (← PyContext.getOrInit)
+
+/--
+Converts a {lean}`PyCResultIO` returning a
+arbitrary type to one returning {lean}`Py.Raw`.
+-/
+@[inline] public def raw (x : PyCResultIO α) : PyCResultIO Py.Raw :=
+  .ofPyBaseIOUnsafe do return (← x.toPyBaseIOUnsafe).raw
+
+end PyCResultIO
+
+/-- Lifts a {lean}`CPyIO` action into {lean}`toPyResultIO`. -/
+@[inline] public def CPyIO.toPyResultIO
+  (x : CPyIO α)
+: PyCResultIO α := .ofPyBaseIOUnsafe do
+  let r ← x.toBaseIOUnsafe
+  Runtime.hold (← getPyContextUnsafe)
+  return r
+
+/-- Sequences a {lean}`PyCResultIO` action after a {lean}`PyBaseIO` action. -/
+@[inline] public def PyBaseIO.bindPyResultIO
+  (x : PyBaseIO α) (f : α → PyCResultIO β)
+: PyCResultIO β := .ofPyBaseIOUnsafe do f (← x) |>.toPyBaseIOUnsafe
+
+open Internal in
+/-- Sequences a {lean}`PyCResultIO` action after a {lean}`PyIO` action. -/
+@[inline] public def PyIO.bindPyResultIO
+  (x : PyIO α) (f : α → PyCResultIO β)
+: PyCResultIO β := .ofPyBaseIOUnsafe do
+  match ← x.toPyBaseIOUnsafe? with
+  | some a => f a |>.toPyBaseIOUnsafe
+  | none => return .failureUnsafe
+
+/-- Internal function for {lit}`@[py_module_fn]` -/
+@[inline] public def Internal.pyBind
+  {α : Type} (x : PyIO α) (f : α → PyCResultIO Py.Raw)
+: PyCResultIO Py.Raw := x.bindPyResultIO f
+
+/-! ## Result Hnadling -/
 
 /--
 Wraps a strong Python object reference into a memory-managed Lean object,
@@ -277,9 +431,14 @@ def ofBaseResultUnsafe
 
 namespace CPyBaseIO
 
-/-- Lifts a {lean}`CPyBaseIO` into {lean}`PyBaseIO`. -/
+/-- Runs the {lean}`CPyBaseIO` function in a supporting monad. -/
+@[inline] public def toM {m α}
+  [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyBaseIO α)
+: m α := do ofBaseResultUnsafe (← x.toBaseIOUnsafe)
+
+/-- Lifts a {lean}`CPyBaseIO` action into {lean}`PyBaseIO`. -/
 @[inline] public def toPyBaseIO (x : CPyBaseIO α) : PyBaseIO α := do
-  ofBaseResultUnsafe (← x.toBaseIOUnsafe)
+  x.toM
 
 public instance : MonadLift CPyBaseIO PyBaseIO := ⟨toPyBaseIO⟩
 
@@ -290,16 +449,25 @@ Runs {lean}`e` if {lean}`x` has set an exception.
 
 **Safety:** {lean}`e` must handle the set exception (i.e., at least clear it).
 -/
-@[inline] public def CPyIO.tryCatchUnsafe
+@[inline] def CPyIO.tryCatchUnsafe
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
   (x : CPyIO α) (e : m α)
 : m α := do
   let res ← x.toBaseIOUnsafe
   if h : res.IsFailure then
-    -- Other branch ensure context is held until here
     e
   else
     ofBaseResultUnsafe (res.toCPyBaseResultUnsafe h)
+
+/--
+Runs {lean}`e` if {lean}`x` has set an exception.
+
+**Safety:** {lean}`e` must handle the set exception (i.e., at least clear it).
+-/
+@[inline] def CPyUnitIO.tryCatchUnsafe
+  [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
+  (x : CPyUnitIO) (e : m PUnit)
+: m PUnit := do if (← x.toBaseIOUnsafe) < 9 then e
 
 /-- Returns a new strong reference to Python object's raw unmanaged C pointer. -/
 @[extern "nerodia_py_object_new_ref"]
@@ -319,10 +487,7 @@ public instance [IsPy α] [Nonempty α] : Nonempty (CPyBaseIO α) :=
 
 end CPyBaseIO
 
-/-- Constructs a successful {lean}`CPyIO` that returns {lean}`o`. -/
-@[inline] public protected abbrev CPyIO.pure (o : Py T) : CPyIO (Py T) :=
-  CPyBaseIO.pure o |>.toCPyIO
-
+open Internal in
 /--
 Sequences a {lean}`CPyBaseIO` action after a {lean}`PyBaseIO` action.
 
@@ -332,7 +497,7 @@ This creates a new temporary Python context for the call.
   (x : PyBaseIO α) (f : α → CPyBaseIO β)
 : CPyBaseIO β := .ofBaseIOUnsafe do
   let ctx ← PyContext.getOrInit
-  f (← x.runUnsafe ctx)
+  f (← x.runUnsafe ctx) |>.toBaseIOUnsafe
 
 /--
 Runs a {lean}`PyBaseIO` action producing a Python object in {lean}`CPyBaseIO`.
@@ -342,6 +507,7 @@ This creates a new temporary Python context for the call.
 @[inline] public def PyBaseIO.toCPyBaseIO (x : PyBaseIO (Py T)) : CPyBaseIO (Py T) :=
   x.bindCPyBaseIO CPyBaseIO.pure
 
+open Internal in
 /--
 Sequences a {lean}`CPyIO` action after a {lean}`PyBaseIO` action.
 
@@ -351,8 +517,13 @@ This creates a new temporary Python context for the call.
   (x : PyBaseIO α) (f : α → CPyIO β)
 : CPyIO β := .ofBaseIOUnsafe do
   let ctx ← PyContext.getOrInit
-  f (← x.runUnsafe ctx)
+  f (← x.runUnsafe ctx) |>.toBaseIOUnsafe
 
+/-- Constructs a successful {lean}`CPyIO` that returns {lean}`o`. -/
+@[inline] public protected abbrev CPyIO.pure (o : Py T) : CPyIO (Py T) :=
+  CPyBaseIO.pure o |>.toCPyIO
+
+open Internal in
 /--
 Sequences a {lean}`CPyIO` action after a {lean}`PyIO` action.
 
@@ -361,8 +532,8 @@ This creates a new temporary Python context for the call.
 @[inline] public def PyIO.bindCPyIO (x : PyIO α) (f : α → CPyIO β) : CPyIO β := .ofBaseIOUnsafe do
   let ctx ← PyContext.getOrInit
   match (← x.runUnsafe? ctx) with
-  | some a => f a
-  | none => CPyIO.failureUnsafe
+  | some a => f a |>.toBaseIOUnsafe
+  | none => CPyIO.failureUnsafe.toBaseIOUnsafe
 
 /--
 Runs a {lean}`PyIO` action producing a Python object in {lean}`CPyIO`.
@@ -372,135 +543,13 @@ This creates a new temporary Python context for the call.
 @[inline] public def PyIO.toCPyIO (x : PyIO (Py T)) : CPyIO (Py T) :=
   x.bindCPyIO CPyIO.pure
 
-/--
-Return type for external CPython functions that may error but do not return
-a Python object.
-
-Not a monad itself, but lifts into monads equipped with a Python context.
--/
-@[expose] -- for codegen
-public def CPyUnitIO :=
-  BaseIO Int32
-
-namespace CPyUnitIO
-
-/--
-Constructs a {lean}`CPyUnitIO` function from its definition.
-
-**Safety:** Users should esnure that an exception is set on error.
--/
-@[inline] def mkUnsafe (x : BaseIO Int32) : CPyUnitIO :=
-  x
-
-/--
-Runs the {lean}`CPyUnitIO` function.
-
-**Safety:** Users must ensure that a set exception is handled.
--/
-@[inline] def runUnsafe (x : CPyUnitIO) : BaseIO Int32 :=
-  x
-
-/-- Constructs a {lean}`CPyUnitIO` that succeeds. -/
-@[inline] public def ok : CPyUnitIO :=
-  mkUnsafe <| pure 0
-
-public instance : Nonempty CPyUnitIO := ⟨ok⟩
-
-/--
-Constructs a {lean}`CPyUnitIO` that fails.
-
-**Safety:** Users should ensure that an exception is set.
--/
-@[inline] def failureUnsafe : CPyUnitIO :=
-  mkUnsafe <| pure (-1)
-
-  /--
-Lifts the {lean}`CPyUnitIO` function into {lean}`PyIO`,
-reusing its Python context.
--/
-@[inline] public def toPyIO (x : CPyUnitIO) : PyIO Unit := do
-  if (← x.runUnsafe) < 0 then
-    .failureUnsafe
-
-public instance : Coe CPyUnitIO (PyIO Unit) := ⟨toPyIO⟩
-
-end CPyUnitIO
-
-/--
-Runs a {lean}`PyIO` action producing nothing in {lean}`CPyUnitIO`.
-
-This creates a new temporary Python context for the call.
--/
-@[inline] public def PyIO.toCPyUnitIO (x : PyIO Unit) : CPyUnitIO := .mkUnsafe do
-  let ctx ← PyContext.getOrInit
-  match ( ← x.runUnsafe? ctx) with
-  | some _ => CPyUnitIO.ok
-  | none => CPyUnitIO.failureUnsafe
-
-/-! ## PyResultIO -/
-
-@[expose] -- for codegen
-public def PyResultIO (α : Type) :=
-  PyBaseIO (CPyResult α)
-
-namespace PyResultIO
-
-@[inline] def ofPyBaseIOUnsafe (x : PyBaseIO (CPyResult α)) : PyResultIO α :=
-  x
-
-@[inline] def toPyBaseIOUnsafe (x : PyResultIO α) : PyBaseIO (CPyResult α) :=
-  x
-
-@[inline] def runUnsafe (ctx : PyContext) (x : PyResultIO α) : BaseIO (CPyResult α) :=
-  x.toPyBaseIOUnsafe.runUnsafe ctx
-
-/-- Constructs a {lean}`PyResultIO` that returns {lean}`o`. -/
-@[inline] public protected def pure (o : Py T) : PyResultIO (Py T) :=
-  .ofPyBaseIOUnsafe <| .ofBaseIO do
+open Internal in
+/-- Constructs a {lean}`PyCResultIO` that returns {lean}`o`. -/
+@[inline] public protected def PyCResultIO.pure (o : Py T) : PyCResultIO (Py T) :=
+  .ofPyBaseIOUnsafe <| liftM (m := BaseIO) do
     -- `newRef` does not require an attached thread state,
     -- so we do not need to keep hold of the context (via `Runetime.hold`)
     return .ofCPyBaseResultUnsafe (← o.newRef.toBaseIOUnsafe)
-
-/--
-Runs a {lean}`PyResultIO` action producing a Python object in {lean}`CPyIO`.
-
-This creates a new temporary Python context for the call.
--/
-@[inline] public def toCPyIO (x : PyResultIO α) : CPyIO α := .ofBaseIOUnsafe do
-  x.runUnsafe (← PyContext.getOrInit)
-
-/--
-Converts a {lean}`PyResultIO` returning a
-arbitrary type to one returning {lean}`Py.Raw`.
--/
-@[inline] public def raw (x : PyResultIO α) : PyResultIO Py.Raw :=
-  .ofPyBaseIOUnsafe do return (← x.toPyBaseIOUnsafe).raw
-
-end PyResultIO
-
-@[inline] public def CPyIO.toPyResultIO (x : CPyIO α) : PyResultIO α := .mk fun ctx => do
-  let r ← x.toBaseIOUnsafe
-  Runtime.hold ctx
-  return r
-
-/-- Sequences a {lean}`PyResultIO` action after a {lean}`PyBaseIO` action. -/
-@[inline] public def PyBaseIO.bindPyResultIO
-  (x : PyBaseIO α) (f : α → PyResultIO β)
-: PyResultIO β := .mk fun ctx => do
-  f (← x.runUnsafe ctx) |>.runUnsafe ctx
-
-/-- Sequences a {lean}`PyResultIO` action after a {lean}`PyIO` action. -/
-@[inline] public def PyIO.bindPyResultIO
-  (x : PyIO α) (f : α → PyResultIO β)
-: PyResultIO β := .mk fun ctx => do
-  match (← x.runUnsafe? ctx) with
-  | some a => f a |>.runUnsafe ctx
-  | none => pure .failureUnsafe
-
-/-- Internal function for {lit}`@[py_module_fn]` -/
-@[inline] public def Internal.pyBind
-  {α : Type} (x : PyIO α) (f : α → PyResultIO Py.Raw)
-: PyResultIO Py.Raw := x.bindPyResultIO f
 
 /-! ## Exception Handling -/
 
@@ -540,6 +589,7 @@ If none, instead returns {name}`getUnsetException`.
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
 : m PyBaseException := getCRaisedException.tryCatchUnsafe getUnsetException
 
+open Internal Nerodia in
 /-- Returns the currently raised exception or {name}`unsetException` if none. -/
 @[inline] protected def Internal.PyContext.getRaisedException
   (ctx : PyContext)
@@ -575,31 +625,21 @@ opaque setExceptionResultUnsafe
 
 namespace PyIO
 
-/--
-Runs the {lean}`PyIO` function in {lean}`EIO`.
-
-This creates a new temporary Python context for the call.
-As such, it should only be used when another Python context is not available.
-Otherwise, lift {lean}`x` into a supporting monad.
--/
-@[inline] public def toEIO (x : PyIO α) : EIO PyBaseException α := do
-  let ctx ← PyContext.getOrInit
-  (← x.runUnsafe? ctx).getDM do
-    throw (← ctx.getRaisedException)
-
+open Internal in
 /-- Raises the exception {lean}`e`. -/
 @[inline] public protected def raise (e : PyBaseException) : PyIO α := do
   setRaisedExceptionUnsafe e
-  PyIO.failureUnsafe
+  .failureUnsafe
 
 public instance : MonadRaise PyIO := ⟨PyIO.raise⟩
 
+open Internal in
 /--
 Runs the {name}`PyIO` action {name}`x`.
 If {name}`x` raises an exception {given}`e`, catches it and runs {lean}`f e`.
 Exceptions in {name}`f` are not caught.
 -/
-@[inline] public protected def tryCatch
+@[inline] public def tryCatchM
   [Monad m] [MonadLiftT BaseIO m] [MonadPy m]
   (x : PyIO α) (f : PyBaseException → m α)
 : m α := do
@@ -609,8 +649,19 @@ Exceptions in {name}`f` are not caught.
 
 public instance : MonadExceptOf PyBaseException PyIO where
   throw := PyIO.raise
-  tryCatch := PyIO.tryCatch
+  tryCatch := PyIO.tryCatchM
 
+/--
+Runs the {lean}`PyIO` function in {lean}`EIO`.
+
+This creates a new temporary Python context for the call.
+As such, it should only be used when another Python context is not available.
+Otherwise, lift {lean}`x` into a supporting monad.
+-/
+@[inline] public def toEIO (x : PyIO α) : EIO PyBaseException α := do
+  PyContextT.run' <| x.tryCatchM throw
+
+open Internal in
 /--
 Runs the {name}`PyIO` action {name}`x`,
 encursing some other action always happens afterwards.
@@ -619,7 +670,7 @@ If {name}`x` raises an exception, catches it, runs {lean}`f none`, and then
 re-reaises the exception. Otherwise, if {name}`x` succeeds and returns
 {given}`a : α`, runs {lean}`f (some a)`.
 -/
-@[inline] public protected def tryFinally'
+@[inline] public protected def tryFinallyM'
   [Monad m] [MonadLiftT BaseIO m] [MonadPy m] [MonadRaise m]
   (x : PyIO α) (f : Option α → m β)
 : m (α × β) := do
@@ -633,24 +684,23 @@ re-reaises the exception. Otherwise, if {name}`x` succeeds and returns
     let _ ← f none
     raise e
 
-public instance : MonadFinally PyIO := ⟨PyIO.tryFinally'⟩
+public instance : MonadFinally PyIO := ⟨PyIO.tryFinallyM'⟩
 
+open Internal in
 /--
 Runs the {name}`PyIO` action {name}`x`.
 If {name}`x` raises an exception, clears it and runs {lean}`f ()`.
 -/
-@[inline] public protected def orElse
+@[inline] public protected def orElseM
   [Monad m] [MonadLiftT BaseIO m] [MonadPy m]
   (x : PyIO α) (f : Unit → m α)
 : m α := do
   let ctx ← getPyContextUnsafe
-  if let some a ← x.runUnsafe? ctx then
-    return a
-  else
-    ctx.clearError
+  (← x.runUnsafe? ctx).getDM do
+    clearError
     f ()
 
-public instance : OrElse (PyIO α) := ⟨PyIO.orElse⟩
+public instance : OrElse (PyIO α) := ⟨PyIO.orElseM⟩
 
 end PyIO
 
@@ -660,7 +710,7 @@ namespace CPyIO
 Runs the {lean}`CPyIO` function in a supporting monad.
 If a Python error occurs, it is raised via {name}`throw`.
 -/
-@[inline] public def run
+@[inline] public def toM {m α}
   [Monad m] [MonadPy m]
   [MonadExcept PyBaseException m] [MonadLiftT BaseIO m]
   (x : CPyIO α)
@@ -672,8 +722,9 @@ If a Python error occurs, it is set as the exception.
 -/
 public abbrev toExceptT
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
-: ExceptT PyBaseException m α := x.run
+: ExceptT PyBaseException m α := x.toM
 
+open Internal in
 /-- Lifts the {lean}`CPyIO` function into {lean}`PyIO`, reusing its Python context. -/
 @[inline] public def toPyIO (x : CPyIO α) : PyIO α :=
   x.tryCatchUnsafe .failureUnsafe
@@ -685,7 +736,7 @@ Runs the {lean}`CPyIO` function in {lean}`EIO`.
 
 This creates a new temporary Python context for the call.
 As such, it should only be used when a Python context is not available.
-Otherwise, run {lean}`x` via {name}`run` or lift it into {lean}`PyIO`
+Otherwise, run {lean}`x` via {name}`toM` or lift it into {lean}`PyIO`
 (via {lean}`toPyIO`) and run it from there.
 -/
 @[inline] public def toEIO (x : CPyIO α) : EIO PyBaseException α :=
@@ -695,12 +746,12 @@ Otherwise, run {lean}`x` via {name}`run` or lift it into {lean}`PyIO`
 Runs the {lean}`CPyIO` function in a supporting monad.
 If a Python error occurs, it is cleared and {name}`failure` is called.
 -/
-@[inline] public def run'
+@[inline] public def toAlternative
   [Monad m] [MonadPy m]
   [Alternative m] [MonadLiftT BaseIO m]
   (x : CPyIO α)
 : m α := x.tryCatchUnsafe do
-  (← getPyContextUnsafe).clearError
+  clearError
   failure
 
 /--
@@ -709,24 +760,26 @@ If a Python error occurs, it is cleared and {lean}`none` is set.
 -/
 public abbrev toOptionT
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
-: OptionT m α := x.run'
+: OptionT m α := x.toAlternative
 
 /--
 Runs the {lean}`CPyIO` function in a supporting monad.
 If a Python error occurs, it is cleared and {lean}`none` is returned.
 -/
-public abbrev run?
+public abbrev toM?
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
 : m (Option α) := x.toOptionT.run
 
 /-- Raises the exception {lean}`e`.  -/
-@[inline] public protected def raise (e : PyBaseException) : CPyIO α := .ofBaseIOUnsafe do
+@[inline] public protected def raise
+  (e : PyBaseException)
+: CPyIO α := .ofBaseIOUnsafe do
   setRaisedExceptionUnsafe e
-  CPyIO.failureUnsafe
+  CPyIO.failureUnsafe.toBaseIOUnsafe
 
 public instance : MonadRaise CPyIO := ⟨CPyIO.raise⟩
 
-@[inline] public protected def tryCatch
+@[inline] public protected def tryCatchM
   [Monad m] [MonadLiftT BaseIO m] [MonadPy m]
   (x : CPyIO α) (f : PyBaseException → m α)
 : m α := x.tryCatchUnsafe do f (← getRaisedException)
@@ -739,14 +792,11 @@ namespace CPyUnitIO
 Runs the {lean}`CPyIO` function in a supporting monad.
 If a Python error occurs, it is raised via {name}`throw`.
 -/
-@[inline] public def run
+@[inline] public def toM
   [Monad m] [MonadPy m]
   [MonadExcept PyBaseException m] [MonadLiftT BaseIO m]
   (x : CPyUnitIO)
-: m PUnit := do
-  let ctx ← getPyContextUnsafe
-  if (← x.runUnsafe) < 0 then
-    throw (← ctx.getRaisedException)
+: m PUnit := x.tryCatchUnsafe do throw (← getRaisedException)
 
 /--
 Runs the {lean}`CPyUnitIO` function in a supporting monad
@@ -754,14 +804,14 @@ If a Python error occurs, it is set as the exception.
 -/
 public abbrev toExceptT
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyUnitIO)
-: ExceptT PyBaseException m PUnit := x.run
+: ExceptT PyBaseException m PUnit := x.toM
 
 /--
 Runs the {lean}`CPyUnitIO` function in {lean}`EIO`.
 
 This creates a new temporary Python context for the call.
 As such, it should only be used when a Python context is not available.
-Otherwise, run {lean}`x` via {name}`run` or lift it into {lean}`PyIO`
+Otherwise, run {lean}`x` via {name}`toM` or lift it into {lean}`PyIO`
 (via {lean}`toPyIO`) and run it from there.
 -/
 @[inline] public def toEIO (x : CPyUnitIO) : EIO PyBaseException Unit :=
@@ -771,14 +821,10 @@ Otherwise, run {lean}`x` via {name}`run` or lift it into {lean}`PyIO`
 Runs the {lean}`CPyUnitIO` function in a supporting monad.
 If a Python error occurs, it is cleared and {name}`failure` is called.
 -/
-@[inline] public def run'
+@[inline] public def toAlternative
   [Monad m] [MonadPy m]
   [Alternative m] [MonadLiftT BaseIO m]
   (x : CPyUnitIO)
-: m PUnit := do
-  let ctx ← getPyContextUnsafe
-  if (← x.runUnsafe) < 0 then
-    ctx.clearError
-    failure
+: m PUnit := x.tryCatchUnsafe do clearError; failure
 
 end CPyUnitIO
