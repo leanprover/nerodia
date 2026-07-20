@@ -7,7 +7,7 @@ module
 public import Nerodia.Data.Codec
 public import Nerodia.Data.Types
 public import Nerodia.Data.OfPyArg
-public import Nerodia.Data.MkResult
+public import Nerodia.Data.MkPyResult
 public import Nerodia.Data.Py.Ops
 public import Nerodia.Data.PyType.Basic
 public import Nerodia.Data.Exceptions
@@ -20,7 +20,7 @@ namespace Nerodia
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr
 
-public instance : MkCResult String str := ⟨mkPyStr⟩
+public instance : MkCPyResult String str := ⟨mkPyStr⟩
 
 /-- Decodes a Lean {name}`ByteArray` into a Python string. -/
 @[extern "nerodia_decode"]

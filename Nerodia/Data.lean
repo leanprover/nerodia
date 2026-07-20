@@ -10,7 +10,7 @@ public import Nerodia.Data.Context
 public import Nerodia.Data.CPtr
 public import Nerodia.Data.Exceptions
 public import Nerodia.Data.ExportTypes
-public import Nerodia.Data.MkResult
+public import Nerodia.Data.MkPyResult
 public import Nerodia.Data.OfPyArg
 public import Nerodia.Data.Py
 public import Nerodia.Data.PyBaseException

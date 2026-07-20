@@ -76,7 +76,7 @@ def mkHint (p : Expr) : MetaM (Option String) := do
   else
     return none
 
-def mkResultCore
+def mkPyResultCore
   (className mkName : Name) (ty : Expr) (x : Expr)
 : MetaM (Expr × Option String) := do
   let u ← getDecLevel ty
@@ -88,11 +88,11 @@ def mkResultCore
   let hint? ← mkHint predExpr
   return (x, hint?)
 
-@[inline] def mkResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) :=
-  mkResultCore `Nerodia.MkResult `Nerodia.Internal.mkResult ty x
+@[inline] def mkPyResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) :=
+  mkPyResultCore `Nerodia.MkPyResult `Nerodia.Internal.mkPyResult ty x
 
-@[inline] def mkCResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) :=
-  mkResultCore `Nerodia.MkCResult `Nerodia.Internal.mkCResult ty x
+@[inline] def mkCPyResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) :=
+  mkPyResultCore `Nerodia.MkCPyResult `Nerodia.Internal.mkCPyResult ty x
 
 def mkArgCore
   (fnName : Name)
@@ -217,7 +217,7 @@ initialize
             pySig := pySigD callConv.pySig
           }
         else MetaM.run' do
-          let (val, pyRet?) ← mkCResult decl.type declConst
+          let (val, pyRet?) ← mkCPyResult decl.type declConst
           let val := mkApp (mkConst `Nerodia.Internal.mkPyMethNoArgs) val
           let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
           let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
@@ -231,13 +231,13 @@ initialize
           unless allExplicit do
             throwError "All parameters of a `@[py_module_fn]` definition must be explicit."
           if as.size = 0 then
-            let (rx, pyRet?) ← mkCResult rTy (mkAppN declConst as)
+            let (rx, pyRet?) ← mkCPyResult rTy (mkAppN declConst as)
             let val := mkApp (mkConst `Nerodia.Internal.mkPyMethNoArgs) rx
             let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
             let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
             addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
           else
-            let (rx, pyRet?) ← mkResult rTy (mkAppN declConst as)
+            let (rx, pyRet?) ← mkPyResult rTy (mkAppN declConst as)
             let pySigD params := pySigD <|
               pyRet?.elim params (s!"{params} -> {·}")
             if h : as.size = 1 then
@@ -299,7 +299,7 @@ initialize
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
       MetaM.run' do
       let us := decl.levelParams.map .param
-      let (val, pyTy?) ← mkCResult decl.type (mkConst declName us)
+      let (val, pyTy?) ← mkCPyResult decl.type (mkConst declName us)
       let val := mkApp (mkConst `Nerodia.Internal.mkPyAttrInit) val
       let cSym ← mkAuxSym `_pyAttr decl.isUnsafe decl.levelParams `Nerodia.PyAttrInit val
       let df : AttrDef := {

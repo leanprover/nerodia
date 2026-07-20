@@ -110,12 +110,12 @@ Nerodia.MethodDef.name
 Nerodia.MethodDef.pySig
 Nerodia.MethodFlags
 Nerodia.MethodFlags.toString
-Nerodia.MkCResult
-Nerodia.MkCResult.mk
-Nerodia.MkCResult.mkCResult
-Nerodia.MkResult
-Nerodia.MkResult.mk
-Nerodia.MkResult.mkResult
+Nerodia.MkCPyResult
+Nerodia.MkCPyResult.mk
+Nerodia.MkCPyResult.mkCPyResult
+Nerodia.MkPyResult
+Nerodia.MkPyResult.mk
+Nerodia.MkPyResult.mkPyResult
 Nerodia.ModuleConfig
 Nerodia.ModuleConfig.attrs
 Nerodia.ModuleConfig.doc?
@@ -509,19 +509,19 @@ Nerodia.instDecidableEqTypeExpr.decEq
 Nerodia.instInhabitedModuleConfig
 Nerodia.instInhabitedModuleConfig.default
 Nerodia.instInhabitedPyModuleInit
-Nerodia.instMkCResultBaseIO
-Nerodia.instMkCResultIntInt
-Nerodia.instMkCResultOfMkResult
-Nerodia.instMkCResultPUnitNone
-Nerodia.instMkCResultPy
-Nerodia.instMkCResultPyBaseIO
-Nerodia.instMkCResultPyIO
-Nerodia.instMkCResultStringStr
-Nerodia.instMkResultBaseIO
-Nerodia.instMkResultOfMkCResult
-Nerodia.instMkResultPy
-Nerodia.instMkResultPyBaseIO
-Nerodia.instMkResultPyIO
+Nerodia.instMkCPyResultBaseIO
+Nerodia.instMkCPyResultIntInt
+Nerodia.instMkCPyResultOfMkPyResult
+Nerodia.instMkCPyResultPUnitNone
+Nerodia.instMkCPyResultPy
+Nerodia.instMkCPyResultPyBaseIO
+Nerodia.instMkCPyResultPyIO
+Nerodia.instMkCPyResultStringStr
+Nerodia.instMkPyResultBaseIO
+Nerodia.instMkPyResultOfMkCPyResult
+Nerodia.instMkPyResultPy
+Nerodia.instMkPyResultPyBaseIO
+Nerodia.instMkPyResultPyIO
 Nerodia.instMonadPyEnvOfFunctorOfMonadPy
 Nerodia.instMonadPyEnvOfMonadLift
 Nerodia.instMonadPyOfMonadLift
@@ -594,6 +594,7 @@ Nerodia.instToTypeExprType
       insts := insts.push name
     else
       defs := defs.push name
+  IO.print "\n"
   for name in defs.qsort (·.toString < ·.toString) do
     IO.println name
   IO.println "\nInstances:"

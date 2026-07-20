@@ -5,7 +5,7 @@ Authors: Mac Malone
 -/
 module
 public import Nerodia.Data.Types
-public import Nerodia.Data.MkResult
+public import Nerodia.Data.MkPyResult
 public import Nerodia.Control.CPyIO
 meta import Nerodia.ViewMethod
 
@@ -70,5 +70,5 @@ public def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
 public def getPyNone : CPyBaseIO PyNone :=
   PyBaseIO.toCPyBaseIO do (·.none) <$> getPyEnvironment
 
-public instance : MkCResult PUnit .none where
-  mkCResult _ := getPyNone
+public instance : MkCPyResult PUnit .none where
+  mkCPyResult _ := getPyNone

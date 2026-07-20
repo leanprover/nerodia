@@ -6,7 +6,7 @@ Authors: Mac Malone
 module
 public import Nerodia.Data.Types
 public import Nerodia.Data.OfPyArg
-public import Nerodia.Data.MkResult
+public import Nerodia.Data.MkPyResult
 public import Nerodia.Data.PyStr.Basic
 public import Nerodia.Control.CPyIO
 
@@ -37,7 +37,7 @@ where
 @[extern "nerodia_mk_py_int"]
 public opaque mkPyInt (n : @& Int) : CPyIO PyInt
 
-public instance : MkCResult Int int := ⟨mkPyInt⟩
+public instance : MkCPyResult Int int := ⟨mkPyInt⟩
 
 namespace PyInt
 
