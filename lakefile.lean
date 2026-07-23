@@ -459,9 +459,10 @@ def testModule
   discard <| withRegisterJob s!"{testName} ty" do
     editableJob.mapM fun _ =>
       testTypeCheck editableVEnv modDir
-  discard <| withRegisterJob s!"{testName} lpl" do
-    editableJob.mapM fun _ =>
-      testLPL editableVEnv modDir
+  if ← (modDir / "lpl.lean").pathExists then
+    discard <| withRegisterJob s!"{testName} lpl" do
+      editableJob.mapM fun _ =>
+        testLPL editableVEnv modDir
 
 def getLocalSetuptoolsLean? : IO (Option FilePath) := OptionT.run do
   IO.FS.realPath (← OptionT.mk <| IO.getEnv "SETUPTOOLS_LEAN")
@@ -485,7 +486,6 @@ script test do
     -- Python extension module tests
     libJob.bindM (sync := true) fun _ =>
     nerodiacJob.mapM fun _ => do
-      let testName := "simple"
-      let testModuleDir := pkgDir / "tests" / "lean2py" / testName
-      testModule s!"lean2py/{testName}" testModuleDir localSetuptoolsLean?
+      for e in ← pkgDir / "tests" / "lean2py" |>.readDir do
+        testModule s!"lean2py/{e.fileName}" e.path localSetuptoolsLean?
   return 0
