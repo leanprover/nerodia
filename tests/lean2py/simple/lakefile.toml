@@ -3,7 +3,7 @@ defaultTargets = ["Test"]
 
 [[require]]
 name = "nerodia"
-path = "../.."
+path = "../../.."
 
 [[lean_lib]]
 name = "Test"

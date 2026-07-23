@@ -8,9 +8,10 @@ import Nerodia
 
 open Nerodia
 
+/- Mirrors the example in `PyIO.toIO`'s docustring. -/
 public def main : IO Unit := do
   let pyVer ← PyIO.toIO do
     let sys ← Nerodia.import "sys"
     let ver ← sys.getAttrByString "version"
-    ver.str
-  IO.println pyVer.toString
+    return (← ver.str).toString
+  IO.println pyVer

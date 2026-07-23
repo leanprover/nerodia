@@ -274,7 +274,7 @@ lean_lib NerodiaTests where
   globs := #[`NerodiaTests.+]
   precompileModules := true
 
-lean_exe testExe where
+lean_exe pyInExe where
   srcDir := "tests"
   -- The Lean toolchain's sysroot may have an older glibc than the
   -- Python library, causing lld to reject unresolved versioned symbols.
@@ -437,29 +437,29 @@ def testLPL (venvDir modDir : FilePath) : JobM Unit := do
   validateOutput "Hello!" out
 
 def testModule
-  (modDir : FilePath) (localSetuptoolsLean? : Option FilePath)
+  (testName : String) (modDir : FilePath) (localSetuptoolsLean? : Option FilePath)
 : FetchM Unit := do
   let editableVEnv := modDir / ".venv"
   let nonEditableVEnv := modDir / ".lake" / "dist-venv"
   -- The editable and non-editable installs cannot be run in parallel.
   -- Neither uv or setuptools ensure thread safe access to `*.egg-info`.
-  let editableJob ← withRegisterJob "testModule editable install" <| Job.async do
+  let editableJob ← withRegisterJob s!"{testName} editable install" <| Job.async do
     installPyPkg "test" modDir editableVEnv
       (editable := true) localSetuptoolsLean?
-  let nonEditableJob ← withRegisterJob "testModule non-editable install" do
+  let nonEditableJob ← withRegisterJob s!"{testName} non-editable install" do
     editableJob.mapM fun _ =>
       installPyPkg "test" modDir nonEditableVEnv
         (editable := false) localSetuptoolsLean?
-  discard <| withRegisterJob "testModule test (editable)" do
+  discard <| withRegisterJob s!"{testName} test (editable)" do
     editableJob.mapM fun _ =>
       testEditable editableVEnv modDir
-  discard <| withRegisterJob "testModule test (non-editable)" do
+  discard <| withRegisterJob s!"{testName} test (non-editable)" do
     nonEditableJob.mapM fun _ => do
       testNonEditable nonEditableVEnv modDir
-  discard <| withRegisterJob "testModule ty" do
+  discard <| withRegisterJob s!"{testName} ty" do
     editableJob.mapM fun _ =>
       testTypeCheck editableVEnv modDir
-  discard <| withRegisterJob "testModule lpl" do
+  discard <| withRegisterJob s!"{testName} lpl" do
     editableJob.mapM fun _ =>
       testLPL editableVEnv modDir
 
@@ -476,8 +476,8 @@ script test do
     let nerodiacJob ← nerodiac.fetch
     -- Lean tests
     discard <| NerodiaTests.fetch
-    discard <| withRegisterJob "testExe test" do
-      let exeJob ← testExe.fetch
+    discard <| withRegisterJob "pyInExe test" do
+      let exeJob ← pyInExe.fetch
       pyJob.bindM (sync := true) fun py =>
       exeJob.mapM fun exeFile => do
         let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
@@ -485,6 +485,7 @@ script test do
     -- Python extension module tests
     libJob.bindM (sync := true) fun _ =>
     nerodiacJob.mapM fun _ => do
-      let testModuleDir := pkgDir / "tests" / "testModule"
-      testModule testModuleDir localSetuptoolsLean?
+      let testName := "simple"
+      let testModuleDir := pkgDir / "tests" / "lean2py" / testName
+      testModule s!"lean2py/{testName}" testModuleDir localSetuptoolsLean?
   return 0
