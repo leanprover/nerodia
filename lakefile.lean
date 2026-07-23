@@ -463,8 +463,13 @@ def testModule
     editableJob.mapM fun _ =>
       testLPL editableVEnv modDir
 
+def getLocalSetuptoolsLean? : IO (Option FilePath) := OptionT.run do
+  IO.FS.realPath (← OptionT.mk <| IO.getEnv "SETUPTOOLS_LEAN")
+
 @[test_driver]
 script test do
+  let pkgDir := __dir__
+  let localSetuptoolsLean? ← getLocalSetuptoolsLean?
   runBuild do
     let pyJob ← pyconfig.fetch
     let libJob ← Nerodia.fetch
@@ -478,12 +483,8 @@ script test do
         let out ← captureProc {cmd := exeFile.toString, env := ← getPyEnv py}
         validateOutput py.version out
     -- Python extension module tests
-    let localSetuptoolsLean? :=
-      match (← IO.getEnv "LOCAL_SETUPTOOLS_LEAN").bind envToBool? with
-      | some true => some <| __dir__ / "setuptools-lean"
-      | _ => none
     libJob.bindM (sync := true) fun _ =>
     nerodiacJob.mapM fun _ => do
-      let testModuleDir := __dir__ / "tests" / "testModule"
+      let testModuleDir := pkgDir / "tests" / "testModule"
       testModule testModuleDir localSetuptoolsLean?
   return 0
