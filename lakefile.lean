@@ -41,13 +41,19 @@ target pyconfig : PyConfig := do
     | .error e =>
       error s!"configuration script produced unexpect output; {e}:\n{out}"
 
-target libpython3 : Dynlib := do
-  return (← pyconfig.fetch).map (sync := true) fun py =>
-    {name := py.lib3.1, path := py.lib3.2}
-
 target libpython3x : Dynlib := do
   return (← pyconfig.fetch).map (sync := true) fun py =>
     {name := py.lib3x.1, path := py.lib3x.2}
+
+target libpython3 : Dynlib := do
+  let cfgJob ← pyconfig.fetch
+  let lib3xJob ← libpython3x.fetch
+  lib3xJob.bindM (sync := true) fun lib3x => do
+  return cfgJob.map (sync := true) fun py =>
+    if py.lib3.1 == lib3x.name then
+      {name := py.lib3.1, path := py.lib3.2}
+    else -- Windows
+      {name := py.lib3.1, path := py.lib3.2, runtimeOnlyDeps := #[lib3x]}
 
 /-! ## Nerodia FFI -/
 
@@ -121,58 +127,6 @@ structure CompilerOutput where
   name : String
   deriving ToJson, FromJson
 
-def ForLake.leanSharedDynlibs (lean : LeanInstall) : Array Dynlib :=
-  -- libLake_shared links against the split libs on all platforms,
-  -- so they must be included in the bundle even when they are empty stubs.
-  if System.Platform.isWindows then
-    -- On Windows, libraries are in `bin` and link to one another
-    let init := {name := "Init_shared", path := lean.initSharedLib}
-    let lean1 := {name := "leanshared_1", path := lean.binDir / s!"libleanshared_1.{sharedLibExt}", deps := #[init]}
-    let lean2 := {name := "leanshared_2", path := lean.binDir / s!"libleanshared_2.{sharedLibExt}", deps := #[lean1, init]}
-    let lean := {name := "leanshared", path := lean.sharedLib, deps := #[lean2, lean1, init]}
-    #[lean, lean2, lean1, init]
-  else
-    -- On Unix, libraries are in `lean/lib` and are independent
-    let init := {name := "Init_shared", path := lean.initSharedLib}
-    let lean1 := {name := "leanshared_1", path := lean.leanLibDir / s!"libleanshared_1.{sharedLibExt}"}
-    let lean2 := {name := "leanshared_2", path := lean.leanLibDir / s!"libleanshared_2.{sharedLibExt}"}
-    let lean := {name := "leanshared", path := lean.sharedLib}
-    #[lean, lean2, lean1, init]
-
--- Copied from `LeaneExe.recBuildExe`
-def modLinks
-  (mod : Module) (shouldExport : Bool)
-: JobM (Array (Job FilePath) × Array (Job Dynlib)) := do
-  /-
-  Remark: We must build the root before we fetch the transitive imports
-  so that errors in the import block of transitive imports will not kill this
-  job before the root is built.
-  -/
-  let mut objJobs := #[]
-  let mut libJobs := #[]
-  for facet in mod.nativeFacets shouldExport do
-    objJobs := objJobs.push <| ← facet.fetch mod
-  let .ok imports _ ← (← mod.transImports.fetch).wait
-    | error s!"bad imports (see the '{mod.name.toString}' job for details)"
-  for mod in imports do
-    for facet in mod.nativeFacets shouldExport do
-      objJobs := objJobs.push <| ← facet.fetch mod
-  for link in mod.lib.moreLinkObjs do
-    objJobs := objJobs.push <| ← link.fetchIn mod.pkg
-  let libs := imports.foldl (·.insert ·.lib) OrdHashSet.empty |>.toArray
-  for lib in libs do
-    for link in lib.moreLinkObjs do
-      objJobs := objJobs.push <| ← link.fetchIn lib.pkg
-    for link in lib.moreLinkLibs do
-      libJobs := libJobs.push <| ← link.fetchIn lib.pkg
-  for link in mod.lib.moreLinkLibs do
-    libJobs := libJobs.push <| ← link.fetchIn mod.pkg
-  let deps := (← (← mod.pkg.transDeps.fetch).await).push mod.pkg
-  for dep in deps do
-    for lib in dep.externLibs do
-      objJobs := objJobs.push <| ← lib.static.fetch
-  return (objJobs, libJobs)
-
 module_facet nerodiacOut (mod) : NerodiacOutput := do
   let cFile := mod.irPath "nerodia.c"
   let pyiFile := mod.irPath "nerodia.pyi"
@@ -234,39 +188,46 @@ module_facet nerodia (mod) : NerodiaConfig := do
   let oJob ← mod.facet `nerodia.o |>.fetch
   let outJob ← mod.facet `nerodiacOut |>.fetch
   let libPyJob ← libpython3.fetch
-  let (objJobs, libJobs) ← modLinks mod (shouldExport := true)
-  -- Link extension
-  let traceArgs :=
-    -- macOS requires `-undefined dynamic_lookup` so that Python C API symbols
-    -- (provided by the interpreter at load time) don't cause link errors.
-    if System.Platform.isOSX then #["-undefined", "dynamic_lookup"] else #[]
-  -- Set RPATH so the extension finds bundled Lean shared libs in `.libs/`.
-  let traceArgs :=
-    if System.Platform.isWindows then traceArgs
-    else if System.Platform.isOSX then traceArgs.push "-Wl,-rpath,@loader_path/.libs"
-    else traceArgs.push "-Wl,-rpath,$ORIGIN/.libs"
+  let linksJob ← mod.linkInfoExport.fetch
+  oJob.bindM (sync := true) fun oFile => do
   outJob.bindM (sync := true) fun out => do
-    let objs := #[oJob] ++ objJobs
-    let lakeDynlib := (← getLakeInstall).sharedDynlib
-    let leanDynlibs := ForLake.leanSharedDynlibs (← getLeanInstall)
-    let libs := libJobs ++ leanDynlibs.map Job.pure
+  libPyJob.bindM (sync := true) fun pyLib => do
+  linksJob.mapM fun info => do
+    let objs := info.objs.push oFile
+    let lakeDynlib ← getLakeSharedDynlib
+    let leanDynlibs ← getLeanSharedDynlibs
+    let libs := info.libs ++ leanDynlibs
+    /-
+    Extension-specific linker arguments:
+    * Unix needs RPATH set so the extension finds bundled Lean shared libs
+    in `.libs/`, whereas Windows uses dll directories set in the extension's
+    `__init__.py`.
+    * MacOS requires `-undefined dynamic_lookup` so that Python C API symbols
+    (provided by the interpreter at load time) don't cause link errors.
+    -/
+    let extArgs :=
+      if System.Platform.isWindows then
+        #[]
+      else if System.Platform.isOSX then
+        #["-undefined", "dynamic_lookup", "-Wl,-rpath,@loader_path/.libs"]
+      else
+        #["-Wl,-rpath,$ORIGIN/.libs"]
+    addPureTrace extArgs "extArgs"
+    let args := info.args ++ extArgs
     /-
     On Windows, all symbols must be resolved at link time.
     On Unix, Python symbols are provided by the interpreter at load time.
     Thus, on Unix, we need to exclude Python from the dependencies.
-
-    TODO: Address trnasitive dependence on Python. As `libs` already flattens
-    Lean libraries and their extra link dependencies, this can only happen if
-    a extra link dependency itself depends on Python (via `Dynlib.deps`).
     -/
-    let libs := if System.Platform.isWindows then libs else libs.filter fun job =>
-      -- `ptrEq` works because Lake jobs are memoized
-      ! unsafe ptrEq job libPyJob
-    let libJob ← buildLeanSharedLib out.name libFile objs libs #[] traceArgs
+    let libs ← id do
+      if System.Platform.isWindows then
+        return libs
+      else
+        -- eagerly flatten dep tree to exclude trans deps
+        return (← mkLinkOrder libs).filter fun lib => lib.name != pyLib.name
+    let libFile ← buildLeanSharedLibSync out.name libFile objs libs args
       (linkDeps := true) -- extension should load deps when loaded in Python
-    oJob.bindM (sync := true) fun oFile =>
-    libJob.bindM (sync := true) fun libFile =>
-    return (Job.collectArray libs).map (sync := true) fun libs => {
+    return {
       name := out.name
       c := out.c.path
       o := oFile
@@ -312,10 +273,6 @@ lean_lib NerodiaTests where
   srcDir := "tests"
   globs := #[`NerodiaTests.+]
   precompileModules := true
-  dynlibs :=
-    -- On non-Windows, libpython3 = libpython3x
-    if System.Platform.isWindows then #[libpython3x]
-    else #[]
 
 lean_exe testExe where
   srcDir := "tests"
