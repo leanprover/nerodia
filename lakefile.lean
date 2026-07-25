@@ -23,7 +23,11 @@ input_file pyconfigSrc where
   text := true
   path := "pyconfig.py"
 
+-- These must be kept in sync
+def pyTag : String := "cp314" -- CPython Limited API 3.14
+def abiTag : String := "abi3" -- Stable ABI (not free-threaded)
 def minHexVersion : Nat := 0x030E00A0 -- 3.14 (a0)
+def minPyVer : Nat := 14
 
 target pyconfig : PyConfig := do
   (← pyconfigSrc.fetch).mapM fun srcFile => do
@@ -34,7 +38,7 @@ target pyconfig : PyConfig := do
     match Json.parse out >>= fromJson? with
     | .ok py =>
       unless py.hexVersion ≥ minHexVersion do
-        error s!"Nerodia requires Python 3.14+, got {py.version}"
+        error s!"Nerodia requires Python 3.{minPyVer}+, got {py.version}"
       setTrace <| .ofHash
         (pureHash py.lib3.1) s!"pyconfig: {py.lib3.1}"
       return py
@@ -106,26 +110,15 @@ structure NerodiacOutput where
   c : Artifact
   pyi : Artifact
 
-structure NerodiaConfig where
-  name : String
-  c : FilePath
-  o : FilePath
-  pyi : FilePath
-  lib : FilePath
-  libs : Array FilePath
-  deriving ToJson
-
-instance : QueryText NerodiaConfig := ⟨(toJson · |>.compress)⟩
-
 structure CompilerConfig where
   leanModule : Lean.Name
   cFile : FilePath
   pyiFile : FilePath
-  deriving ToJson, FromJson
+  deriving ToJson
 
 structure CompilerOutput where
   name : String
-  deriving ToJson, FromJson
+  deriving FromJson
 
 module_facet nerodiacOut (mod) : NerodiacOutput := do
   let cFile := mod.irPath "nerodia.c"
@@ -183,7 +176,16 @@ module_facet nerodia.o (mod) : FilePath := do
       compileO oFile out.c.path args cc
     return art.path
 
-module_facet nerodia (mod) : NerodiaConfig := do
+structure ExtBuild where
+  name : String
+  pyi : FilePath
+  lib : FilePath
+  libs : Array FilePath
+  deriving ToJson
+
+instance : QueryText ExtBuild := ⟨(toJson · |>.compress)⟩
+
+module_facet nerodiaExt (mod) : ExtBuild := do
   let libFile := mod.irPath s!"nerodia.{sharedLibExt}"
   let oJob ← mod.facet `nerodia.o |>.fetch
   let outJob ← mod.facet `nerodiacOut |>.fetch
@@ -229,8 +231,6 @@ module_facet nerodia (mod) : NerodiaConfig := do
       (linkDeps := true) -- extension should load deps when loaded in Python
     return {
       name := out.name
-      c := out.c.path
-      o := oFile
       pyi := out.pyi.path
       lib := libFile
       -- Lake is linked implicitly on an "as-needed" basis.
@@ -238,33 +238,77 @@ module_facet nerodia (mod) : NerodiaConfig := do
       libs := (libs ++ leanDynlibs |>.push lakeDynlib).map (·.path)
     }
 
+structure BackendConfig where
+  schemaVersion : String -- not yet used
+  minSchemaVersion? : Option String
+  pyTag : String
+  abiTag : String
+  platformTag : String -- unused
+  modules : Array String
+  build : Bool
+  deriving FromJson
+
+def nerodiaSchemaVersion : Date :=
+  {year := 2026, month := 07, day := 24}
+
+structure ExtBDist where
+  pyTag : String
+  abiTag : String
+  builds : Array ExtBuild
+  deriving ToJson
+
 /--
 Generates and builds Python extension modules from Lean modules.
 
 USAGE:
-  lake script run nerodia/buildExt <module-name>...
+  lake script run nerodia/buildExt
 
-Generates the C code and `.pyi` type stub for each extension using `nerodiac`,
-builds the Python extension shared library, and outputs a JSON description of
-the results (a JSON object per line for each module). These descriptions can
-then be used by `setuptools-lean` to bundle the extensions for distribution.
+Receives a JSON configuration through standard input, generates the C code
+and the `.pyi` type stub for each extension using `nerodiac`, builds the Python
+extension shared library, and outputs a JSON description of the results.
+
+The Python plugin `setuptools-lean` uses this script to build and bundle the
+extensions for distribution.
 -/
-script buildExt (args : List String) do
-  if args.isEmpty then
-    IO.println "USAGE: lake script run nerodia/buildExt <module-name>..."
-    return 0
-  let mods ← args.toArray.mapM fun modStr => do
+script buildExt do
+  let input ← (← IO.getStdin).readToEnd
+  let cfg ← id do
+    match Json.parse input >>= fromJson? with
+    | .ok (cfg : BackendConfig) => return cfg
+    | .error e => error s!"invalid configuration; {e}:\n{input}"
+  if let some minVer := cfg.minSchemaVersion? then
+    if let some date := Date.ofString? minVer then
+      if nerodiaSchemaVersion < date then
+        error s!"configuration requires schema version {minVer}, \
+          but this version of Nerodia only supports up to {nerodiaSchemaVersion}"
+    else
+      error s!"unknown minimum configuration schema: {minVer}"
+  if let some cpVer := cfg.pyTag.dropPrefix? "cp3" >>= (·.toNat?) then
+    if cpVer < minPyVer then
+      error s!"Nerodia requires CPython 3.{minPyVer}+, got 3.{cpVer}"
+  else
+    error s!"Nerodia requires CPython 3.{minPyVer}+, got {cfg.pyTag}"
+  if let some cpVer := cfg.abiTag.dropPrefix? "cp3" >>= (·.toNat?) then
+    if cpVer < minPyVer then
+      error s!"Nerodia requires Limited API 3.{minPyVer}+, got 3.{cpVer}"
+  else if cfg.abiTag != "abi3" then
+    error s!"Nerodia requires Limited API 3.{minPyVer}+, got {cfg.abiTag}"
+  -- always validate module names, even if no build occurs
+  let mods ← cfg.modules.mapM fun modStr => do
     let modName := modStr.toName
     if modName.isAnonymous then
       error s!"invalid module name '{modStr}'"
     let some mod ← findModule? modName
       | error s!"unknown module '{modName}'"
     return mod
-  let cfgs ← runBuild do
-    Job.collectArray <$> mods.mapM fun mod =>
-      mod.facet `nerodia |>.fetch
-  for cfg in cfgs do
-    IO.println (toJson cfg).compress
+  let builds ← id do
+    if cfg.build then
+      runBuild <| Job.collectArray <$> mods.mapM fun mod =>
+        mod.facet `nerodiaExt |>.fetch
+    else
+      return #[]
+  let bdist : ExtBDist := {pyTag, abiTag, builds}
+  IO.println (toJson bdist).compress
   return 0
 
 /-! ## Nerodia Tests -/
