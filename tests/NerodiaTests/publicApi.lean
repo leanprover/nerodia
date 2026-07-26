@@ -21,102 +21,102 @@ info:
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
-Nerodia.Addr.toNullableAddr
+Nerodia.Addr.toNullableAddr (proj)
 Nerodia.Addr.toNullableAddr_inj
 Nerodia.BaseIO.toPyBaseIO
 Nerodia.BaseIO.toPyIO
 Nerodia.CPyArg
 Nerodia.CPyArgs
-Nerodia.CPyBaseIO
+Nerodia.CPyBaseIO (irreducible)
 Nerodia.CPyBaseIO.ofBind
 Nerodia.CPyBaseIO.pure
 Nerodia.CPyBaseIO.toCPyIO
 Nerodia.CPyBaseIO.toM
 Nerodia.CPyBaseIO.toPyBaseIO
-Nerodia.CPyIO
+Nerodia.CPyIO (irreducible)
 Nerodia.CPyIO.cast
 Nerodia.CPyIO.ofBind
-Nerodia.CPyIO.pure
+Nerodia.CPyIO.pure (exposed)
 Nerodia.CPyIO.raise
 Nerodia.CPyIO.raw
 Nerodia.CPyIO.toAlternative
 Nerodia.CPyIO.toEIO
-Nerodia.CPyIO.toExceptT
+Nerodia.CPyIO.toExceptT (exposed)
 Nerodia.CPyIO.toIO
 Nerodia.CPyIO.toM
-Nerodia.CPyIO.toM?
-Nerodia.CPyIO.toOptionT
+Nerodia.CPyIO.toM? (exposed)
+Nerodia.CPyIO.toOptionT (exposed)
 Nerodia.CPyIO.toPyIO
 Nerodia.CPyIO.toPyResultIO
 Nerodia.CPyIO.tryCatchM
-Nerodia.CPyUnitIO
+Nerodia.CPyUnitIO (irreducible)
 Nerodia.CPyUnitIO.ok
 Nerodia.CPyUnitIO.toAlternative
 Nerodia.CPyUnitIO.toEIO
-Nerodia.CPyUnitIO.toExceptT
+Nerodia.CPyUnitIO.toExceptT (exposed)
 Nerodia.CPyUnitIO.toM
 Nerodia.CPyUnitIO.toPyIO
 Nerodia.CodecEncoding
-Nerodia.CodecEncoding.ascii
-Nerodia.CodecEncoding.latin1
+Nerodia.CodecEncoding.ascii (exposed)
+Nerodia.CodecEncoding.latin1 (exposed)
 Nerodia.CodecEncoding.ofString
-Nerodia.CodecEncoding.toString
-Nerodia.CodecEncoding.utf16
-Nerodia.CodecEncoding.utf16BE
-Nerodia.CodecEncoding.utf16LE
-Nerodia.CodecEncoding.utf32
-Nerodia.CodecEncoding.utf32BE
-Nerodia.CodecEncoding.utf32LE
-Nerodia.CodecEncoding.utf8
+Nerodia.CodecEncoding.toString (proj)
+Nerodia.CodecEncoding.utf16 (exposed)
+Nerodia.CodecEncoding.utf16BE (exposed)
+Nerodia.CodecEncoding.utf16LE (exposed)
+Nerodia.CodecEncoding.utf32 (exposed)
+Nerodia.CodecEncoding.utf32BE (exposed)
+Nerodia.CodecEncoding.utf32LE (exposed)
+Nerodia.CodecEncoding.utf8 (exposed)
 Nerodia.CodecErrors
-Nerodia.CodecErrors.backslashReplace
-Nerodia.CodecErrors.ignore
-Nerodia.CodecErrors.nameReplace
+Nerodia.CodecErrors.backslashReplace (exposed)
+Nerodia.CodecErrors.ignore (exposed)
+Nerodia.CodecErrors.nameReplace (exposed)
 Nerodia.CodecErrors.ofString
-Nerodia.CodecErrors.replace
-Nerodia.CodecErrors.strict
-Nerodia.CodecErrors.surrogateEscape
-Nerodia.CodecErrors.surrogatePass
-Nerodia.CodecErrors.toString
-Nerodia.CodecErrors.xmlCharRefReplace
-Nerodia.EPy
-Nerodia.HPy
+Nerodia.CodecErrors.replace (exposed)
+Nerodia.CodecErrors.strict (exposed)
+Nerodia.CodecErrors.surrogateEscape (exposed)
+Nerodia.CodecErrors.surrogatePass (exposed)
+Nerodia.CodecErrors.toString (proj)
+Nerodia.CodecErrors.xmlCharRefReplace (exposed)
+Nerodia.EPy (exposed)
+Nerodia.HPy (exposed)
 Nerodia.HPy.mk
 Nerodia.IsPy
 Nerodia.IsPy.of_py
 Nerodia.IsPy.of_raw
 Nerodia.MkCPyResult
 Nerodia.MkCPyResult.mk
-Nerodia.MkCPyResult.mkCPyResult
+Nerodia.MkCPyResult.mkCPyResult (proj)
 Nerodia.MkPyResult
 Nerodia.MkPyResult.mk
-Nerodia.MkPyResult.mkPyResult
+Nerodia.MkPyResult.mkPyResult (proj)
 Nerodia.MonadPy
-Nerodia.MonadPy.getPyContextUnsafe
+Nerodia.MonadPy.getPyContextUnsafe (proj)
 Nerodia.MonadPy.mk
 Nerodia.MonadPyEnv
-Nerodia.MonadPyEnv.getPyEnvironment
+Nerodia.MonadPyEnv.getPyEnvironment (proj)
 Nerodia.MonadPyEnv.mk
 Nerodia.MonadRaise
 Nerodia.MonadRaise.mk
-Nerodia.MonadRaise.raise
-Nerodia.NonemptyPy
+Nerodia.MonadRaise.raise (proj)
+Nerodia.NonemptyPy (exposed)
 Nerodia.NonemptyPy.intro
 Nerodia.Null
-Nerodia.Null.addr
+Nerodia.Null.addr (proj)
 Nerodia.Null.addr_inj
 Nerodia.Null.isNull_addr
 Nerodia.Null.mk
 Nerodia.Null.null
 Nerodia.NullableAddr
-Nerodia.NullableAddr.IsNull
+Nerodia.NullableAddr.IsNull (exposed)
 Nerodia.NullableAddr.isNull_null
 Nerodia.NullableAddr.null
-Nerodia.NullableAddr.toNat
-Nerodia.NullableAddr.toUSize
+Nerodia.NullableAddr.toNat (exposed)
+Nerodia.NullableAddr.toUSize (proj)
 Nerodia.OfPyArg
 Nerodia.OfPyArg.mk
-Nerodia.OfPyArg.ofPyArg
+Nerodia.OfPyArg.ofPyArg (proj)
 Nerodia.Py
 Nerodia.Py.Raw
 Nerodia.Py.Raw.addr
@@ -125,31 +125,31 @@ Nerodia.Py.Raw.cast_mem_hint
 Nerodia.Py.Raw.decEq
 Nerodia.Py.left
 Nerodia.Py.mk
-Nerodia.Py.raw
+Nerodia.Py.raw (proj)
 Nerodia.Py.raw_left
 Nerodia.Py.raw_mem
 Nerodia.Py.raw_right
 Nerodia.Py.right
-Nerodia.PyAny
+Nerodia.PyAny (exposed)
 Nerodia.PyAny.getAttrByString
 Nerodia.PyAny.mk
 Nerodia.PyAny.raw_mk
-Nerodia.PyAnyView
+Nerodia.PyAnyView (exposed)
 Nerodia.PyAnyView.getAttrByString
 Nerodia.PyAnyView.getAttrByString_spec
 Nerodia.PyAnyView.toPyAny
 Nerodia.PyAnyView.toPyAny_eq_toPy
-Nerodia.PyAttrInit
+Nerodia.PyAttrInit (irreducible)
 Nerodia.PyAttrInit.ofCPyIO
-Nerodia.PyBaseException
+Nerodia.PyBaseException (exposed)
 Nerodia.PyBaseException.mk
 Nerodia.PyBaseException.sprint
-Nerodia.PyBaseExceptionView
+Nerodia.PyBaseExceptionView (exposed)
 Nerodia.PyBaseExceptionView.sprint
 Nerodia.PyBaseExceptionView.sprint_spec
 Nerodia.PyBaseExceptionView.toPyBaseException
 Nerodia.PyBaseExceptionView.toPyBaseException_eq_toPy
-Nerodia.PyBaseIO
+Nerodia.PyBaseIO (irreducible)
 Nerodia.PyBaseIO.bindCPyBaseIO
 Nerodia.PyBaseIO.bindCPyIO
 Nerodia.PyBaseIO.bindPyResultIO
@@ -158,18 +158,18 @@ Nerodia.PyBaseIO.toBaseIO
 Nerodia.PyBaseIO.toCPyBaseIO
 Nerodia.PyBaseIO.toM
 Nerodia.PyBaseIO.toPyIO
-Nerodia.PyBuffer
+Nerodia.PyBuffer (exposed)
 Nerodia.PyBuffer.decode
 Nerodia.PyBuffer.decodeUTF8
 Nerodia.PyBuffer.decodeUTF8_eq_decode
-Nerodia.PyBufferView
+Nerodia.PyBufferView (exposed)
 Nerodia.PyBufferView.decode
 Nerodia.PyBufferView.decodeUTF8
 Nerodia.PyBufferView.decodeUTF8_spec
 Nerodia.PyBufferView.decode_spec
 Nerodia.PyBufferView.toPyBuffer
 Nerodia.PyBufferView.toPyBuffer_eq_toPy
-Nerodia.PyBytes
+Nerodia.PyBytes (exposed)
 Nerodia.PyBytes.mk
 Nerodia.PyBytes.size
 Nerodia.PyBytes.sizeImpl
@@ -177,20 +177,20 @@ Nerodia.PyBytes.size_eq
 Nerodia.PyBytes.toByteArray
 Nerodia.PyBytes.usize
 Nerodia.PyBytes.usize_eq
-Nerodia.PyCResultIO
+Nerodia.PyCResultIO (irreducible)
 Nerodia.PyCResultIO.pure
 Nerodia.PyCResultIO.raw
 Nerodia.PyCResultIO.toCPyIO
-Nerodia.PyContextT
+Nerodia.PyContextT (irreducible)
 Nerodia.PyContextT.run
 Nerodia.PyContextT.run'
 Nerodia.PyContextT.toM
-Nerodia.PyEOFError
+Nerodia.PyEOFError (exposed)
 Nerodia.PyEnvironment
 Nerodia.PyEnvironment.getOrInit
 Nerodia.PyEnvironment.none
-Nerodia.PyException
-Nerodia.PyIO
+Nerodia.PyException (exposed)
+Nerodia.PyIO (irreducible)
 Nerodia.PyIO.bindCPyIO
 Nerodia.PyIO.bindPyResultIO
 Nerodia.PyIO.orElseM
@@ -201,7 +201,7 @@ Nerodia.PyIO.toEIO
 Nerodia.PyIO.toIO
 Nerodia.PyIO.tryCatchM
 Nerodia.PyIO.tryFinallyM'
-Nerodia.PyInt
+Nerodia.PyInt (exposed)
 Nerodia.PyInt.mk
 Nerodia.PyInt.size_toByteArrayBE_pos
 Nerodia.PyInt.size_toByteArrayLE_pos
@@ -209,23 +209,23 @@ Nerodia.PyInt.toByteArrayBE
 Nerodia.PyInt.toByteArrayLE
 Nerodia.PyInt.toInt
 Nerodia.PyInt.toString
-Nerodia.PyMethFastCall
+Nerodia.PyMethFastCall (irreducible)
 Nerodia.PyMethFastCall.ofPyIO
-Nerodia.PyMethNoArgs
+Nerodia.PyMethNoArgs (irreducible)
 Nerodia.PyMethNoArgs.ofCPyIO
 Nerodia.PyMethNoArgs.ofPyIO
 Nerodia.PyMethNoArgs.ofPyIO'
-Nerodia.PyMethO
+Nerodia.PyMethO (irreducible)
 Nerodia.PyMethO.ofPyIO
 Nerodia.PyMethO.ofPyIO'
-Nerodia.PyModule
+Nerodia.PyModule (exposed)
 Nerodia.PyModule.addByString
 Nerodia.PyModule.mk
-Nerodia.PyModuleInit
+Nerodia.PyModuleInit (irreducible)
 Nerodia.PyModuleInit.ofPyIO
-Nerodia.PyNone
+Nerodia.PyNone (exposed)
 Nerodia.PyNone.isNone_eq_true
-Nerodia.PyObject
+Nerodia.PyObject (exposed)
 Nerodia.PyObject.getType
 Nerodia.PyObject.isBaseExceptionInstance
 Nerodia.PyObject.isBaseExceptionInstance_iff_mem
@@ -240,7 +240,7 @@ Nerodia.PyObject.mk
 Nerodia.PyObject.raw_mk
 Nerodia.PyObject.repr
 Nerodia.PyObject.str
-Nerodia.PyObjectView
+Nerodia.PyObjectView (exposed)
 Nerodia.PyObjectView.getType
 Nerodia.PyObjectView.getType_spec
 Nerodia.PyObjectView.isBaseExceptionInstance
@@ -263,42 +263,42 @@ Nerodia.PyObjectView.str
 Nerodia.PyObjectView.str_spec
 Nerodia.PyObjectView.toPyObject
 Nerodia.PyObjectView.toPyObject_eq_toPy
-Nerodia.PyStr
+Nerodia.PyStr (exposed)
 Nerodia.PyStr.encode
-Nerodia.PyStr.encodeUTF8
+Nerodia.PyStr.encodeUTF8 (exposed)
 Nerodia.PyStr.mk
 Nerodia.PyStr.toString
-Nerodia.PySystemError
-Nerodia.PyType
+Nerodia.PySystemError (exposed)
+Nerodia.PyType (exposed)
 Nerodia.PyType.getQualName
 Nerodia.PyType.mk
-Nerodia.PyTypeError
+Nerodia.PyTypeError (exposed)
 Nerodia.ToPy
 Nerodia.ToPy.mk
-Nerodia.ToPy.toPy
+Nerodia.ToPy.toPy (proj)
 Nerodia.ToPy.toPy_eq_left
 Nerodia.ToPy.toPy_eq_right
 Nerodia.ToPy.toPy_eq_self
 Nerodia.ToPy.toPy_eq_toPy_raw
-Nerodia.ToPyAny
+Nerodia.ToPyAny (exposed)
 Nerodia.ToPyAny.toPy_eq_mk
-Nerodia.ToPyBaseException
-Nerodia.ToPyBuffer
-Nerodia.ToPyObject
+Nerodia.ToPyBaseException (exposed)
+Nerodia.ToPyBuffer (exposed)
+Nerodia.ToPyObject (exposed)
 Nerodia.ToPyObject.toPy_eq_mk
 Nerodia.ToTypeExpr
 Nerodia.ToTypeExpr.mk
-Nerodia.ToTypeExpr.toTypeExpr
+Nerodia.ToTypeExpr.toTypeExpr (proj)
 Nerodia.TypeConst
 Nerodia.TypeConst.ofString
-Nerodia.TypeConst.toString
+Nerodia.TypeConst.toString (proj)
 Nerodia.TypeExpr
 Nerodia.TypeExpr.eofError
-Nerodia.TypeExpr.none
+Nerodia.TypeExpr.none (exposed)
 Nerodia.TypeExpr.ofString
-Nerodia.TypeExpr.ofTypeConst
-Nerodia.TypeExpr.toString
-Nerodia.TypePred
+Nerodia.TypeExpr.ofTypeConst (exposed)
+Nerodia.TypeExpr.toString (proj)
+Nerodia.TypePred (exposed)
 Nerodia.TypePred.Mem
 Nerodia.TypePred.Mem.any
 Nerodia.TypePred.Mem.left
@@ -316,8 +316,8 @@ Nerodia.TypePred.any
 Nerodia.TypePred.any_eq_object
 Nerodia.TypePred.baseException
 Nerodia.TypePred.bytes
-Nerodia.TypePred.eofError
-Nerodia.TypePred.except
+Nerodia.TypePred.eofError (exposed)
+Nerodia.TypePred.except (exposed)
 Nerodia.TypePred.ext
 Nerodia.TypePred.ext_iff
 Nerodia.TypePred.hint
@@ -345,30 +345,30 @@ Nerodia.TypePred.type
 Nerodia.TypePred.union
 Nerodia.TypePred.union_never
 Nerodia.TypePred.union_object
-Nerodia.baseException
-Nerodia.buffer
-Nerodia.bytes
+Nerodia.baseException (exposed)
+Nerodia.buffer (exposed)
+Nerodia.bytes (exposed)
 Nerodia.decode
-Nerodia.eofError
-Nerodia.exception
+Nerodia.eofError (exposed)
+Nerodia.exception (exposed)
 Nerodia.getPyNone
 Nerodia.import
-Nerodia.int
+Nerodia.int (exposed)
 Nerodia.mkPyBytes
 Nerodia.mkPyEOFError
 Nerodia.mkPyInt
 Nerodia.mkPyStr
-Nerodia.moduleType
-Nerodia.noneType
-Nerodia.object
+Nerodia.moduleType (exposed)
+Nerodia.noneType (exposed)
+Nerodia.object (exposed)
 Nerodia.raise
 Nerodia.raiseArgTypeMismatch
 Nerodia.raisePyEOFError
 Nerodia.raisePyTypeError
-Nerodia.str
-Nerodia.systemError
-Nerodia.type
-Nerodia.typeError
+Nerodia.str (exposed)
+Nerodia.systemError (exposed)
+Nerodia.type (exposed)
+Nerodia.typeError (exposed)
 
 # Instances (136)
 Nerodia.Addr.instCoeNullableAddr
@@ -543,7 +543,15 @@ Nerodia.instToTypeExprType
       defs := defs.push name
   IO.print s!"\n# Constants ({defs.size})\n"
   for name in defs.qsort (·.toString < ·.toString) do
-    IO.println name
+    if env.hasExposedBody name then
+      if getReducibilityStatusCore env name matches .irreducible then
+        IO.println s!"{name} (irreducible)"
+      else if env.isProjectionFn name then
+        IO.println s!"{name} (proj)"
+      else
+        IO.println s!"{name} (exposed)"
+    else
+      IO.println name
   IO.print s!"\n# Instances ({insts.size})\n"
   for name in insts.qsort (·.toString < ·.toString) do
     IO.println name
