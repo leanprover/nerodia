@@ -4,7 +4,7 @@
 
 import testmodule
 
-# TODO: Set `__all__` in `__init__.py` and check it
+# TODO: Generate `__all__` automatically from Nerodia and check it
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
 expected = [
   "greet", "greet2", "greetUser", "greeting",
