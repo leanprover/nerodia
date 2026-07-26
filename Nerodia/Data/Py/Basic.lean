@@ -20,28 +20,22 @@ namespace Py
 
 attribute [simp, grind! .] Py.raw_mem
 
-@[inline] public def left (self : Py (T ∩ U)) : Py T :=
-  mk self.raw self.raw_mem.left
+@[inline] public def promote (self : Py U) [IsSubtypeOf T U] : Py T :=
+  mk self.raw <| infer_subtype.mem_of_mem self.raw_mem
 
-@[simp, grind =] public theorem raw_left : (left o).raw = o.raw := by rfl
-
-@[inline] public def right (self : Py (T ∩ U)) : Py U :=
-  mk self.raw self.raw_mem.right
-
-@[simp, grind =] public theorem raw_right : (right o).raw = o.raw := by rfl
+@[simp, grind =] public theorem raw_promote [IsSubtypeOf T U] :
+  (promote (T := T) (U := U) o).raw = o.raw := by rfl
 
 end Py
 
 /-! ## IsPy -/
 
 public class inductive IsPy : (α : Type) → Prop
-| of_raw : IsPy Py.Raw
-| of_py {T} : IsPy (Py T)
+| private of_raw : IsPy Py.Raw
+| private of_py {T} : IsPy (Py T)
 
-namespace IsPy
 public instance : IsPy Py.Raw := .of_raw
 public instance : IsPy (Py T) := .of_py
-end IsPy
 
 /-! ## NonemptyPy -/
 
@@ -68,26 +62,17 @@ public class ToPy (T : TypePred) (α : Type u)  where
 
 export ToPy (toPy)
 
-namespace ToPy
+public instance [IsSubtypeOf T U] : ToPy T (Py U) := ⟨(·.promote)⟩
+
+@[simp, grind =] public theorem toPy_eq_promote [IsSubtypeOf T U] :
+  toPy o = Py.promote o (T := T) (U := U) := by rfl
 
 public instance : ToPy T (Py T) := ⟨(·)⟩
 
 @[simp, grind =] public theorem toPy_eq_self :
   toPy (o : Py T) = o := by rfl
 
-public instance : ToPy T (Py (T ∩ U)) := ⟨Py.left⟩
-
-@[simp, grind =] public theorem toPy_eq_left  :
-  toPy (o : Py  (T ∩ U)) = o.left := by rfl
-
-public instance : ToPy U (Py (T ∩ U)) := ⟨Py.right⟩
-
-@[simp, grind =] public theorem toPy_eq_right :
-  toPy (o : Py (T ∩ U)) = o.right := by rfl
-
 public instance [ToPy T Py.Raw] : ToPy T (Py U) := ⟨(toPy ·.raw)⟩
 
 @[simp, grind =] public theorem toPy_eq_toPy_raw  [ToPy U Py.Raw] :
   toPy (o : Py T) = toPy (T := U) o.raw := by rfl
-
-end ToPy

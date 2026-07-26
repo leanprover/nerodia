@@ -88,7 +88,7 @@ public def PyMethNoArgs :=
 unseal PyMethNoArgs in
 @[inline] public def PyMethNoArgs.ofPyIO
   (x : (self : PyObject) → PyIO PyAny)
-: PyMethNoArgs := fun self _ => PyIO.toCPyIO do
+: PyMethNoArgs := fun self _ => CPyIO.raw <| PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
   x self
@@ -122,7 +122,7 @@ public def PyMethFastCall :=
 unseal PyMethFastCall in
 @[inline] public def PyMethFastCall.ofPyIO
   (x : (self : PyObject) → (args : Array PyObject) → PyIO (Py T))
-: PyMethFastCall := fun self args nargs => PyIO.toCPyIO do
+: PyMethFastCall := fun self args nargs => CPyIO.raw <| PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
   let args := ctx.mkArgsUnsafe args nargs
@@ -158,7 +158,7 @@ public def PyMethO :=
 unseal PyMethO in
 @[inline] public def PyMethO.ofPyIO
   (x : (self : PyObject) → (arg : PyObject) → PyIO (Py T))
-: PyMethO := fun self arg => PyIO.toCPyIO do
+: PyMethO := fun self arg => CPyIO.raw <| PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
   let arg := ctx.mkArgUnsafe arg

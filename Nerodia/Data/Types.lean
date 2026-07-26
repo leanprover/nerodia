@@ -171,26 +171,23 @@ end Py.Raw
 
 open Internal in
 /-- Type predicate for objects weakly typed as {lean}`ty`. -/
-public def TypePred.hint (ty : TypeExpr) : TypePred :=
+public def typeHint (ty : TypeExpr) : TypePred :=
   .ofFn (·.toModel.hint = ty)
 
-public instance : ToTypeExpr (.hint ty) := ⟨ty⟩
+public instance : ToTypeExpr (typeHint ty) := ⟨ty⟩
 
-@[simp, grind .] public theorem Py.Raw.cast_mem_hint :
-  Py.Raw.cast ty o ∈ TypePred.hint ty
-:= by simp [TypePred.hint, Py.Raw.cast]
+@[simp, grind .] public theorem Py.Raw.cast_mem_typeHint :
+  Py.Raw.cast ty o ∈ typeHint ty
+:= by simp [typeHint, Py.Raw.cast]
 
-public instance : NonemptyPy (.hint ty) :=
-  .intro (.cast ty Classical.ofNonempty) Py.Raw.cast_mem_hint
-
-/-- A Python object weakly typed as {lean}`ty`.-/
-public abbrev HPy (ty : TypeExpr) := Py (.hint ty)
+public instance : NonemptyPy (typeHint ty) :=
+  .intro (.cast ty Classical.ofNonempty) Py.Raw.cast_mem_typeHint
 
 @[inherit_doc Py.Raw.cast]
-public def HPy.mk (o : Py.Raw) (ty : TypeExpr) : HPy ty :=
-  ⟨o.cast ty, Py.Raw.cast_mem_hint⟩
+public def Py.cast (o : Py T) (ty : TypeExpr) : Py (typeHint ty) :=
+  ⟨o.raw.cast ty, Py.Raw.cast_mem_typeHint⟩
 
-public instance : ToPy (.hint ty) (Py T)  := ⟨(HPy.mk ·.raw ty)⟩
+public instance : ToPy (typeHint ty) (Py T)  := ⟨(·.cast ty)⟩
 
 /-! ### Buffer -/
 
@@ -202,7 +199,7 @@ The abstract base class [{lit}`Buffer`][1].
 @[inline, expose] public def buffer : TypeConst :=
   ⟨"Buffer"⟩
 
-public instance : CoeDep TypeConst buffer TypePred := ⟨.hint buffer⟩
+public instance : CoeDep TypeConst buffer TypePred := ⟨typeHint buffer⟩
 public instance : ToTypeExpr buffer := ⟨buffer⟩
 
 /--
@@ -213,7 +210,7 @@ That is, a Python object which implements the [Buffer Protocol][1].
 [1]: https://docs.python.org/3/c-api/buffer.html#bufferobjects
 [2]: https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer
 -/
-public abbrev PyBuffer := HPy buffer
+public abbrev PyBuffer := Py buffer
 
 /-- Shorthand for {lean}`ToPy buffer α` -/
 public abbrev ToPyBuffer := ToPy buffer
@@ -504,19 +501,16 @@ As such, instances of these subtypes are weakly typed.
 -/
 
 open TypePred in
-public instance : NonemptyPy (baseException ∩ .hint ty) :=
+public instance : NonemptyPy (baseException ∩ typeHint ty) :=
   .intro (.cast ty (.ofKind .baseException)) <| by
     simp [mem_inter_iff_and, TypePred.baseException]
 
-public instance : ToTypeExpr (.baseException ∩ (.hint ty)) := ⟨ty⟩
+public instance : ToTypeExpr (.baseException ∩ (typeHint ty)) := ⟨ty⟩
 
-/-- The type predicate for the {lit}`BaseException` subtype, {lean}`ty`. -/
-public abbrev TypePred.except (ty : TypeConst) : TypePred :=
-  baseException ∩ hint ty
-
-/-- An instance of {lit}`BaseException` that is weakly typed as {lean}`ty`. -/
-public abbrev EPy (ty : TypeConst) :=
-  PyBaseExceptionView <| Py <| .except ty
+/-- Type predicate for a {lit}`BaseException` weakly typed as {lean}`ty`. -/
+public def exceptHint (ty : TypeConst) : TypePred :=
+  baseException ∩ typeHint ty
+  deriving NonemptyPy, IsSubtypeOf baseException, IsSubtypeOf (typeHint ty)
 
 /-! ### Exception -/
 
@@ -528,11 +522,11 @@ The base class of non-exiting Python exceptions, [{lit}`Exception`][1].
 @[inline, expose] public def exception : TypeConst :=
   ⟨"Exception"⟩
 
-public instance : CoeDep TypeConst exception TypePred := ⟨.except exception⟩
+public instance : CoeDep TypeConst exception TypePred := ⟨exceptHint exception⟩
 public instance : ToTypeExpr exception := ⟨exception⟩
 
 /-- A weakly typed instance of {lit}`Exception`. -/
-public abbrev PyException := EPy exception
+public abbrev PyException := PyBaseExceptionView <| Py exception
 
 /-! ### EOFError -/
 
@@ -544,16 +538,11 @@ The Python end-of-file exception, [{lit}`EOFError`][1].
 @[inline, expose] public def eofError : TypeConst :=
   ⟨"EOFError"⟩
 
-public instance : CoeDep TypeConst eofError TypePred := ⟨.except eofError⟩
+public instance : CoeDep TypeConst eofError TypePred := ⟨exceptHint eofError⟩
 public instance : ToTypeExpr eofError := ⟨eofError⟩
 
-public def TypeExpr.eofError : TypeExpr := ⟨"EOFError"⟩
-
-public abbrev TypePred.eofError : TypePred :=
-  baseException ∩ hint .eofError
-
 /-- A weakly typed instance of {lit}`EOFError`. -/
-public abbrev PyEOFError := EPy eofError
+public abbrev PyEOFError := PyBaseExceptionView <| Py eofError
 
 /-! ### SystemError -/
 
@@ -565,11 +554,11 @@ The type of internal Python errors, [{lit}`SystemError`][1].
 @[inline, expose] public def systemError : TypeConst :=
   ⟨"SystemError"⟩
 
-public instance : CoeDep TypeConst systemError TypePred := ⟨.except systemError⟩
+public instance : CoeDep TypeConst systemError TypePred := ⟨exceptHint systemError⟩
 public instance : ToTypeExpr systemError := ⟨systemError⟩
 
 /-- A weakly typed instance of {lit}`SystemError`. -/
-public abbrev PySystemError := EPy systemError
+public abbrev PySystemError := PyBaseExceptionView <| Py systemError
 
 /-! ### TypeError -/
 
@@ -581,8 +570,8 @@ The Python typing exception, [{lit}`TypeError`][1].
 @[inline, expose] public def typeError : TypeConst :=
   ⟨"TypeError"⟩
 
-public instance : CoeDep TypeConst typeError TypePred := ⟨.except typeError⟩
+public instance : CoeDep TypeConst typeError TypePred := ⟨exceptHint typeError⟩
 public instance : ToTypeExpr typeError := ⟨typeError⟩
 
 /-- A weakly typed instance of {lit}`TypeError`. -/
-public abbrev PyTypeError := EPy typeError
+public abbrev PyTypeError := PyBaseExceptionView <| Py typeError

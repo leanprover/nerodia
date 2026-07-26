@@ -11,8 +11,13 @@ public import Nerodia.Data.TypeExpr
 
 namespace Nerodia
 
-/-- A Neordia type predicate. -/
-@[expose] -- for Lean/Nerodia codegen
+/--
+ A Neordia type predicate.
+
+**API Caveat:** The definition of {name}`TypePred` is not part of Nerodia's
+public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+-/
+@[irreducible, expose] -- for codegen
 public def TypePred : Type :=
   Py.Raw → Prop
 
@@ -28,50 +33,54 @@ public class ToTypeExpr (T : TypePred) where
 
 namespace TypePred
 
+unseal TypePred in
 public def ofFn (p : Py.Raw → Prop) : TypePred :=
   p
 
+unseal TypePred in
 public def Mem (T : TypePred) (o : Py.Raw) : Prop :=
   T o
 
 public instance : Membership Py.Raw TypePred := ⟨Mem⟩
 
-@[simp, grind =] public theorem mem_ofFn :
+unseal TypePred in
+@[simp, grind =] public theorem mem_ofFn_iff :
   o ∈ ofFn p ↔ p o
 := Iff.intro id id
 
+unseal TypePred in
 @[ext, grind ext] public theorem ext
   {T U : TypePred} (h : ∀ o, o ∈ T ↔ o ∈ U) : T = U
 := funext fun o => propext (h o)
 
-public def union (T : TypePred) (U : TypePred) : TypePred :=
+public protected def union (T : TypePred) (U : TypePred) : TypePred :=
   ofFn fun o => o ∈ T ∨ o ∈ U
 
-public instance : Union TypePred := ⟨union⟩
+public instance : Union TypePred := ⟨TypePred.union⟩
 
 /--
 Constructs the union of two type predicates.
 Written as {lean}`T ∪ U`. Equivalent to the Python `T | U`.
 -/
-add_decl_doc union
+add_decl_doc TypePred.union
 
 @[grind =] public theorem mem_union_iff_or {T U : TypePred} :
   o ∈ T ∪ U ↔ o ∈ T ∨ o ∈ U
-:= Iff.intro id id
+:= by simp only [Union.union, TypePred.union, mem_ofFn_iff]
 
 public theorem Mem.union_left
   {T U : TypePred} (h : o ∈ T) : o ∈ T ∪ U
-:= .inl h
+:= mem_union_iff_or.mpr <| .inl h
 
 public theorem Mem.union_right
   {T U : TypePred} (h : o ∈ U) : o ∈ T ∪ U
-:= .inr h
+:= mem_union_iff_or.mpr <| .inr h
 
 /-- Constructs the union of two type predicates. Equivalent to the Python `T | U`. -/
-public def inter (T : TypePred) (U : TypePred) : TypePred :=
+public protected def inter (T : TypePred) (U : TypePred) : TypePred :=
   ofFn fun o => o ∈ T ∧ o ∈ U
 
-public instance : Inter TypePred := ⟨inter⟩
+public instance : Inter TypePred := ⟨TypePred.inter⟩
 
 /--
 Constructs the intersection of two type predicates. Written as {lean}`T ∩ U`.
@@ -81,19 +90,19 @@ as {lit}`T & U` / {lit}`Intersection[T, U]`.
 
 [1]: https://docs.astral.sh/ty/features/type-system/#intersection-types
 -/
-add_decl_doc inter
+add_decl_doc TypePred.inter
 
 @[grind =] public theorem mem_inter_iff_and {T U : TypePred} :
   o ∈ T ∩ U ↔ o ∈ T ∧ o ∈ U
-:= Iff.intro id id
+:= by simp only [Inter.inter, TypePred.inter, mem_ofFn_iff]
 
 public nonrec theorem Mem.left
   {T U : TypePred} (h : o ∈ T ∩ U) : o ∈ T
-:= h.left
+:= mem_inter_iff_and.mp h |>.left
 
 public nonrec theorem Mem.right
   {T U : TypePred} (h : o ∈ T ∩ U) : o ∈ U
-:= h.right
+:= mem_inter_iff_and.mp h |>.right
 
 public def Subset (T : TypePred) (U : TypePred) : Prop :=
   ∀ o, o ∈ T → o ∈ U
@@ -108,6 +117,12 @@ public theorem Subset.mem_of_mem
   {T U : TypePred} (h : T ⊆ U) (ho : o ∈ T)
 : o ∈ U := subset_iff_forall.mp h o ho
 
+public theorem Subset.refl (T : TypePred) : T ⊆ T :=
+  subset_iff_forall.mpr fun _ => id
+
+public theorem Subset.rfl {T : TypePred} : T ⊆ T :=
+  .refl T
+
 public theorem Subset.inter_left {T U : TypePred} : T ∩ U ⊆ T :=
   subset_iff_forall.mpr fun _ h => h.left
 
@@ -118,7 +133,8 @@ public theorem Subset.inter_right {T U : TypePred} : T ∩ U ⊆ U :=
 public def object : TypePred :=
   ofFn fun _ => True
 
-@[simp, grind .] public theorem Mem.object : o ∈ object := True.intro
+@[simp, grind .] public theorem Mem.object : o ∈ object := by
+  simp only [TypePred.object, mem_ofFn_iff]
 
 -- the below are `@[simp]` only because grind already handles them
 
@@ -160,3 +176,17 @@ public def never : TypePred :=
 
 @[simp] public theorem never_inter : never ∩ T = never := by
   simp [TypePred.ext_iff, mem_inter_iff_and]
+
+end TypePred
+
+/-! ## IsSubtypeOf -/
+
+/-- Type class used to iautomatically infer supertypes. -/
+public class IsSubtypeOf (T U : TypePred) : Prop where
+  infer_subtype : U ⊆ T
+
+export IsSubtypeOf (infer_subtype)
+
+public instance : IsSubtypeOf T T := ⟨.rfl⟩
+public instance : IsSubtypeOf T (T ∩ U) := ⟨.inter_left⟩
+public instance : IsSubtypeOf U (T ∩ U) := ⟨.inter_right⟩

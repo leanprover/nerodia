@@ -120,15 +120,15 @@ sharing the single strong reference between them.
   .ofCPtrUnsafe (.ofNullableCPtr self.toNullableCPtrUnsafe h)
 
 /--
-Casts a {name}`CPyResult` returning a typed Python object to one returning
+Promotes a {name}`CPyResult` returning a typed Python object to one returning
 its supertype, sharing the single strong reference between them.
 
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
-@[inline] protected def cast (x : CPyResult (Py T)) (h : T ⊆ U) : CPyResult (Py U) :=
+@[inline] def promote [IsSubtypeOf U T] (x : CPyResult (Py T)) : CPyResult (Py U) :=
   let cptr := .ofNullableAddrUnsafe x.toNullableCPtrUnsafe.nullableAddr fun h' =>
     let t := Classical.choice <| x.toNullableCPtrUnsafe.nonempty_of_not_isNull h'
-    ⟨Py.mk t.raw (h.mem_of_mem t.raw_mem)⟩
+    ⟨Py.mk t.raw (infer_subtype.mem_of_mem t.raw_mem)⟩
   .ofNullableCPtrUnsafe cptr fun _ => inferInstance
 
 /--
@@ -138,11 +138,8 @@ an untyped object, sharing the single strong reference between them.
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
 @[inline] def raw (x : CPyResult α) : CPyResult Py.Raw :=
-  let cptr := .ofNullableAddrUnsafe x.toNullableCPtrUnsafe.nullableAddr fun h' =>
-    let a := Classical.choice <| x.toNullableCPtrUnsafe.nonempty_of_not_isNull h'
-    match x.isPy_of_not_isNull h', a with
-    | .of_raw, a => ⟨a⟩
-    | .of_py, a => ⟨a.raw⟩
+  let addr := x.toNullableCPtrUnsafe.nullableAddr
+  let cptr := .ofNullableAddrUnsafe  addr fun _ => inferInstance
   .ofNullableCPtrUnsafe cptr fun _ => inferInstance
 
 end CPyResult
@@ -205,20 +202,17 @@ public instance : Nonempty (CPyIO α) := ⟨failureUnsafe⟩
 
 set_option linter.unusedVariables.funArgs false in
 /--
-Converts a {lean}`CPyIO` returning a
+Promotes a {lean}`CPyIO` returning a
 typed Python object to one returning its supertype.
 -/
-@[inline] public def cast (x : CPyIO (Py T)) (h : T ⊆ U) : CPyIO (Py U) :=
-  ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.cast h)
-
+@[inline] public def promote [IsSubtypeOf U T] (x : CPyIO (Py T)) : CPyIO (Py U) :=
+  ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.promote)
 /--
 Converts a {lean}`CPyIO` returning a
 arbitrary type to one returning {lean}`Py.Raw`.
 -/
 @[inline] public def raw (x : CPyIO α) : CPyIO Py.Raw :=
   ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.raw)
-
-public instance : CoeOut (CPyIO (Py T)) (CPyIO Py.Raw) := ⟨CPyIO.raw⟩
 
 end CPyIO
 
