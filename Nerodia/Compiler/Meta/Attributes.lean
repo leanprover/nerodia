@@ -257,7 +257,7 @@ initialize
               let cSym ← mkAuxSym `Nerodia.PyMethO val
               addMethodDef {name, doc?, cSym, pySig, callConv := .o}
             else if lt32 : as.size < UInt32.size then
-              withLocalDeclD `cargs (mkConst `Nerodia.CPyArgs) fun cargs => do
+              withLocalDeclD `cargs (mkConst `Nerodia.Internal.CPyArgs) fun cargs => do
               let (rx, pyParams) ← mkArgChain fn cargs as rx lt32
               let pySig := pySigD pyParams
               let lam ← mkLambdaFVars #[cargs] rx

@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (341)
+# Constants (336)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -25,8 +25,6 @@ Nerodia.Addr.toNullableAddr (proj)
 Nerodia.Addr.toNullableAddr_inj
 Nerodia.BaseIO.toPyBaseIO
 Nerodia.BaseIO.toPyIO
-Nerodia.CPyArg
-Nerodia.CPyArgs
 Nerodia.CPyBaseIO (irreducible)
 Nerodia.CPyBaseIO.ofBind
 Nerodia.CPyBaseIO.pure
@@ -200,12 +198,9 @@ Nerodia.PyInt.toString
 Nerodia.PyMethFastCall (irreducible)
 Nerodia.PyMethFastCall.ofPyIO
 Nerodia.PyMethNoArgs (irreducible)
-Nerodia.PyMethNoArgs.ofCPyIO
 Nerodia.PyMethNoArgs.ofPyIO
-Nerodia.PyMethNoArgs.ofPyIO'
 Nerodia.PyMethO (irreducible)
 Nerodia.PyMethO.ofPyIO
-Nerodia.PyMethO.ofPyIO'
 Nerodia.PyModule (type abbrev)
 Nerodia.PyModule.addByString
 Nerodia.PyModule.mk
