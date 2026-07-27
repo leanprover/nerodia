@@ -138,7 +138,9 @@ public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
 @[irreducible, expose] -- for codegen
 public def PyBaseIO :=
   PyThreadCtxT BaseIO
-  deriving Monad, MonadPy
+
+public instance : Monad PyBaseIO := inferInstanceAs (Monad <| PyThreadCtxT BaseIO)
+public instance : MonadPy PyBaseIO := inferInstanceAs (MonadPy <| PyThreadCtxT BaseIO)
 
 namespace Internal.Nerodia.PyBaseIO
 
@@ -203,7 +205,9 @@ public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
 @[irreducible, expose] -- for codegen
 public def PyIO :=
   OptionT <| PyBaseIO
-  deriving Monad, MonadPy
+
+public instance : Monad PyIO := inferInstanceAs (Monad <| OptionT PyBaseIO)
+public instance : MonadPy PyIO := inferInstanceAs (MonadPy <| OptionT PyBaseIO)
 
 namespace Internal.Nerodia.PyIO
 
