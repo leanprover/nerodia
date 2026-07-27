@@ -6,6 +6,7 @@ Authors: Mac Malone
 module
 public import Nerodia.Data.CPtr
 public import Nerodia.Data.Py.Basic
+public import Nerodia.Data.Py.Raw.Basic
 public import Nerodia.Control.PyIO.Basic
 public import Nerodia.Control.MonadRaise
 

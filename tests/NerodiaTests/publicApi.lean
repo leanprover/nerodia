@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (336)
+# Constants (340)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -77,6 +77,7 @@ Nerodia.CodecErrors.surrogateEscape
 Nerodia.CodecErrors.surrogatePass
 Nerodia.CodecErrors.toString (proj)
 Nerodia.CodecErrors.xmlCharRefReplace
+Nerodia.DecidablePy (type abbrev)
 Nerodia.IsPy
 Nerodia.IsSubtypeOf
 Nerodia.IsSubtypeOf.infer_subtype
@@ -214,11 +215,15 @@ Nerodia.PyObject.getType
 Nerodia.PyObject.isBaseExceptionInstance
 Nerodia.PyObject.isBaseExceptionInstance_iff_mem
 Nerodia.PyObject.isBytesInstance
+Nerodia.PyObject.isBytesInstance_iff_mem
 Nerodia.PyObject.isIntInstance
+Nerodia.PyObject.isIntInstance_iff_mem
 Nerodia.PyObject.isModuleInstance
+Nerodia.PyObject.isModuleInstance_iff_mem
 Nerodia.PyObject.isNone
 Nerodia.PyObject.isNone_iff_mem
 Nerodia.PyObject.isStrInstance
+Nerodia.PyObject.isStrInstance_iff_mem
 Nerodia.PyObject.isTypeInstance
 Nerodia.PyObject.mk
 Nerodia.PyObject.raw_mk
@@ -343,7 +348,6 @@ Nerodia.moduleType (irreducible)
 Nerodia.noneType (irreducible)
 Nerodia.object (irreducible)
 Nerodia.raise
-Nerodia.raiseArgTypeMismatch
 Nerodia.raisePyEOFError
 Nerodia.raisePyTypeError
 Nerodia.str (irreducible)
@@ -355,7 +359,7 @@ Nerodia.type (irreducible)
 Nerodia.typeError (irreducible)
 Nerodia.typeHint
 
-# Instances (139)
+# Instances (150)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -425,6 +429,14 @@ Nerodia.instDecidableEqTypeConst
 Nerodia.instDecidableEqTypeConst.decEq
 Nerodia.instDecidableEqTypeExpr
 Nerodia.instDecidableEqTypeExpr.decEq
+Nerodia.instDecidablePyAny
+Nerodia.instDecidablePyBaseException
+Nerodia.instDecidablePyBytes
+Nerodia.instDecidablePyInt
+Nerodia.instDecidablePyModuleType
+Nerodia.instDecidablePyNone
+Nerodia.instDecidablePyObject
+Nerodia.instDecidablePyStr
 Nerodia.instInhabitedPyModuleInit
 Nerodia.instIsPyPy
 Nerodia.instIsPyRaw
@@ -474,6 +486,9 @@ Nerodia.instNonemptyPyUnionTypePred_1
 Nerodia.instNonemptyTypeConst
 Nerodia.instNonemptyTypeExpr
 Nerodia.instOfPyArgIntInt
+Nerodia.instOfPyArgPyAnyAny
+Nerodia.instOfPyArgPyObjectObject
+Nerodia.instOfPyArgPyOfDecidablePyOfToTypeExpr
 Nerodia.instOfPyArgStringStr
 Nerodia.instToPyPy
 Nerodia.instToPyPyOfIsSubtypeOf

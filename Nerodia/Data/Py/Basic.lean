@@ -20,6 +20,10 @@ namespace Py
 
 attribute [simp, grind! .] Py.raw_mem
 
+/--
+**Type promotion.**
+Casts a Python object from {lean}`U` to its supertype {lean}`T`.
+-/
 @[inline] public def promote (self : Py U) [IsSubtypeOf T U] : Py T :=
   mk self.raw <| infer_subtype.mem_of_mem self.raw_mem
 
@@ -30,6 +34,10 @@ end Py
 
 /-! ## IsPy -/
 
+/--
+{lean}`IsPy α` holds if {lean}`α` is a type
+represented at runtime by a managed Python object pointer.
+-/
 public class inductive IsPy : (α : Type) → Prop
 | private of_raw : IsPy Py.Raw
 | private of_py {T} : IsPy (Py T)
@@ -37,8 +45,20 @@ public class inductive IsPy : (α : Type) → Prop
 public instance : IsPy Py.Raw := .of_raw
 public instance : IsPy (Py T) := .of_py
 
+/-! ## DecidablePy -/
+
+/--
+A type predicate {lean}`T` with a {lean}`DecidablePy T` instance has
+a pure type checking function.
+-/
+public abbrev DecidablePy (T : TypePred) := DecidablePred (· ∈ T)
+
 /-! ## NonemptyPy -/
 
+/--
+A {lean}`NonemptyPy T` instance provides a proof
+that there exists a Python object of type {lean}`T`.
+-/
 public abbrev NonemptyPy (T : TypePred) := Nonempty (Py T)
 
 public theorem NonemptyPy.intro (o : Py.Raw) (h : o ∈ T) : NonemptyPy T :=
@@ -57,6 +77,14 @@ public instance [NonemptyPy U] : NonemptyPy (T ∪ U) :=
 
 /-! ## ToPy -/
 
+/--
+Types which can be trivially converted into Python objects of type {lean}`T`.
+
+This type class is intended to be used to convert between different
+representations of a Python object (e.g., coverting a {lean}`Py T` to a
+{given -show}`U : TypePred` {lean}`Py (T ∩ U)`). It is not meant to be a
+general way to construct Python objects from arbitrary Lean types.
+-/
 public class ToPy (T : TypePred) (α : Type u)  where
   toPy (a : α) : Py T
 

@@ -25,13 +25,32 @@ argumens to Lean objects and Lean returns to Pyton objects.
 
 namespace Nerodia
 
-@[inline] public def raiseArgTypeMismatch
+open OfPyArg (ofPyArg)
+
+@[inline] def raiseArgTypeMismatch
   (fn : String) (i : Nat) (arg : PyObject) (expected : TypeExpr)
 : PyIO α := do
   let actual ← (← arg.getType).getQualName
   raisePyTypeError s!"{fn} argument {i} must be {expected}, got {actual}"
 
+@[inline] def ofPyArgDecidable
+  [DecidablePy T] [ToTypeExpr T]
+  (fn : String) (i : Nat) (arg : PyObject)
+: PyIO (Py T) := do
+  if h : arg.raw ∈ T then
+    return Py.mk arg.raw h
+  else raiseArgTypeMismatch fn i arg (ToTypeExpr.toTypeExpr T)
+
 /-! ## Py  -/
+
+public instance (priority := low) [DecidablePy T] [ToTypeExpr T] : OfPyArg (Py T) T where
+  ofPyArg fn i arg := private ofPyArgDecidable fn i arg
+
+public instance : OfPyArg PyObject object where
+  ofPyArg _ _ arg := private return PyObject.mk arg.raw
+
+public instance : OfPyArg PyAny any where
+  ofPyArg _ _ arg := private return ⟨arg.raw, by simp⟩
 
 public instance : MkCPyResult (Py T) T where
   mkCPyResult o := CPyBaseIO.pure o
@@ -67,19 +86,13 @@ public instance : MkCPyResult PUnit .none where
 /-! ## String -/
 
 public instance : OfPyArg String str where
-  ofPyArg fn i arg :=
-    if h : arg.isStrInstance then
-      return (PyStr.mk arg h).toString
-    else raiseArgTypeMismatch fn i arg str
+  ofPyArg fn i arg := private PyStr.toString <$> ofPyArg fn i arg
 
 public instance : MkCPyResult String str := ⟨mkPyStr⟩
 
 /-! ## Int -/
 
 public instance : OfPyArg Int int where
-  ofPyArg fn i arg :=
-    if h : arg.isIntInstance then
-      return (PyInt.mk arg h).toInt
-    else raiseArgTypeMismatch fn i arg int
+  ofPyArg fn i arg := private PyInt.toInt <$> ofPyArg fn i arg
 
 public instance : MkCPyResult Int int := ⟨mkPyInt⟩

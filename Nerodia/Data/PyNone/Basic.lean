@@ -56,6 +56,9 @@ public def PyObject.isNone (self : PyObject) : Bool :=
 public theorem PyObject.isNone_iff_mem : isNone o ↔ o.raw ∈ TypePred.none := by
   simp [PyObject.isNone]
 
+public instance : DecidablePy none :=
+  Internal.decPy (·.isNone) (·.isNone_iff_mem)
+
 @[simp] public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
   simp [PyObject.isNone_iff_mem]
 

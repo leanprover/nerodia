@@ -46,6 +46,19 @@ public instance : ToPyObject Py.Raw := ⟨PyObject.mk⟩
 
 end ToPyObject
 
+public instance : DecidablePy object := fun _ => isTrue .object
+
+@[inline, implicit_reducible, expose]
+public def Internal.decPy
+  (f : PyObject → Bool) (h : ∀ o, f o ↔ o.raw ∈ T)
+: DecidablePy T := fun o =>
+  have h : f (.mk o) ↔ o ∈ T := by
+    simpa using h (.mk o)
+  if ho :  f (.mk o) then
+    isTrue (h.mp ho)
+  else
+    isFalse ((iff_false_left ho).mp h)
+
 /-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
 public abbrev PyObjectView (α : Type u) := α
 
@@ -82,6 +95,8 @@ export TypePred (any)
 
 @[simp, grind =] public theorem TypePred.any_eq_object : any = object := by
   unfold any; rfl
+
+public instance : DecidablePy any := fun _ => isTrue (by simp)
 
 /--
 A Python object of unknown type. This is analgous to Python's {lit}`Any`.
@@ -349,6 +364,9 @@ public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
   PyObject.isBaseExceptionInstance o ↔ o.raw ∈ TypePred.baseException
 := Py.Raw.isOfKind_iff_mem
 
+public instance : DecidablePy baseException :=
+  Internal.decPy (·.isBaseExceptionInstance) (·.isBaseExceptionInstance_iff_mem)
+
 @[inline] public def PyBaseException.mk (o : PyObject) (h : o.isBaseExceptionInstance) : PyBaseException :=
   ⟨o.raw, .of_isOfKind h⟩
 
@@ -376,6 +394,13 @@ public abbrev PyStr := PyObjectView <| Py str
 @[extern "nerodia_py_object_is_str_instance", view_method]
 public def PyObject.isStrInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .str
+
+@[grind _=_] public theorem PyObject.isStrInstance_iff_mem :
+  PyObject.isStrInstance o ↔ o.raw ∈ TypePred.str
+:= Py.Raw.isOfKind_iff_mem
+
+public instance : DecidablePy str :=
+  Internal.decPy (·.isStrInstance) (·.isStrInstance_iff_mem)
 
 @[inline] public def PyStr.mk (o : PyObject) (h : o.isStrInstance) : PyStr :=
   ⟨o.raw, .of_isOfKind h⟩
@@ -405,6 +430,13 @@ public abbrev PyBytes := PyBufferView <| PyObjectView <| Py bytes
 public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .bytes
 
+@[grind _=_] public theorem PyObject.isBytesInstance_iff_mem :
+  PyObject.isBytesInstance o ↔ o.raw ∈ TypePred.bytes
+:= Py.Raw.isOfKind_iff_mem
+
+public instance : DecidablePy bytes :=
+  Internal.decPy (·.isBytesInstance) (·.isBytesInstance_iff_mem)
+
 @[inline] public def PyBytes.mk (o : PyObject) (h : o.isBytesInstance) : PyBytes :=
   ⟨o.raw, .of_isOfKind h⟩
 
@@ -433,6 +465,13 @@ public abbrev PyInt := PyObjectView <| Py int
 public def PyObject.isIntInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .int
 
+@[grind _=_] public theorem PyObject.isIntInstance_iff_mem :
+  PyObject.isIntInstance o ↔ o.raw ∈ TypePred.int
+:= Py.Raw.isOfKind_iff_mem
+
+public instance : DecidablePy int :=
+  Internal.decPy (·.isIntInstance) (·.isIntInstance_iff_mem)
+
 @[inline] public def PyInt.mk (o : PyObject) (h : o.isIntInstance) : PyInt :=
   ⟨o.raw, .of_isOfKind h⟩
 
@@ -460,6 +499,13 @@ public abbrev PyModule := PyObjectView <| Py moduleType
 @[extern "nerodia_py_object_is_module_instance", view_method]
 public def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .module
+
+@[grind _=_] public theorem PyObject.isModuleInstance_iff_mem :
+  PyObject.isModuleInstance o ↔ o.raw ∈ TypePred.moduleType
+:= Py.Raw.isOfKind_iff_mem
+
+public instance : DecidablePy moduleType :=
+  Internal.decPy (·.isModuleInstance) (·.isModuleInstance_iff_mem)
 
 @[inline] public def PyModule.mk (o : PyObject) (h : o.isModuleInstance) : PyModule :=
   ⟨o.raw, .of_isOfKind h⟩
