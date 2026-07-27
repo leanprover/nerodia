@@ -6,12 +6,12 @@ Authors: Mac Malone, Claude Code
 import Nerodia
 
 open Nerodia
-open Internal (PyContext)
+open Internal (PyThreadCtx)
 
 /-!
 # Interweaving Python Contexts & Threads
 
-Tests {name}`PyContext`'s bookkeeping: nesting multiple contexts on one
+Tests {name}`PyThreadCtx`'s bookkeeping: nesting multiple contexts on one
 thread, letting a Python object outlive the context that created it, and
 concurrent initialization/finalization races across threads.
 -/
@@ -25,8 +25,8 @@ releasing the GIL early (unlike Python's GIL state).
 
 #guard_msgs in
 #eval show IO Unit from do
-  let c1 ← PyContext.getOrInit -- should take the GIL
-  let c2 ← PyContext.getOrInit -- should reuse the GIL state
+  let c1 ← PyThreadCtx.getOrInit -- should take the GIL
+  let c2 ← PyThreadCtx.getOrInit -- should reuse the GIL state
   Runtime.hold c1 -- release c1 here (should NOT release the GIL)
   Runtime.hold c2 -- release c2 here (fatal if GIL already released)
 
@@ -89,7 +89,7 @@ A fully deterministic test of the race is impossible from Lean.
     let go : IO.Promise Unit ← IO.Promise.new
     let b ← IO.asTask (prio := .dedicated) do
       -- Acquire the context and signal readiness
-      let ctx ← PyContext.getOrInit
+      let ctx ← PyThreadCtx.getOrInit
       ready.resolve ()
       IO.wait go.result!
       -- On notification, drop it (which triggers finalize).
@@ -98,7 +98,7 @@ A fully deterministic test of the race is impossible from Lean.
     -- the same time, racing this thread's `getOrInit` against the task's finalize.
     IO.wait ready.result!
     go.resolve ()
-    let _ ← PyContext.getOrInit
+    let _ ← PyThreadCtx.getOrInit
     match b.get with
     | .ok _ => pure ()
     | .error e =>

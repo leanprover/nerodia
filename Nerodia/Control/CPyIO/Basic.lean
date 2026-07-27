@@ -146,7 +146,7 @@ end CPyResult
 
 end Internal
 
-open Internal (PyContext CPyBaseResult CPyResult getPyContextUnsafe)
+open Internal (PyThreadCtx CPyBaseResult CPyResult getPyThreadCtxUnsafe)
 
 /-! ## C Monad Types -/
 
@@ -330,7 +330,7 @@ Runs a {lean}`PyIO` action producing nothing in {lean}`CPyUnitIO`.
 This creates a new temporary Python context for the call.
 -/
 @[inline] public def PyIO.toCPyUnitIO (x : PyIO Unit) : CPyUnitIO := .ofBaseIOUnsafe do
-  let ctx ← PyContext.getOrInit
+  let ctx ← PyThreadCtx.getOrInit
   match ( ← x.runUnsafe? ctx) with
   | some _ => CPyUnitIO.ok.toBaseIOUnsafe
   | none => CPyUnitIO.failureUnsafe.toBaseIOUnsafe
@@ -352,7 +352,7 @@ unseal PyCResultIO in
   x
 
 open Internal in
-@[inline] def runUnsafe (ctx : PyContext) (x : PyCResultIO α) : BaseIO (CPyResult α) :=
+@[inline] def runUnsafe (ctx : PyThreadCtx) (x : PyCResultIO α) : BaseIO (CPyResult α) :=
   x.toPyBaseIOUnsafe.runUnsafe ctx
 
 /--
@@ -361,7 +361,7 @@ Runs a {lean}`PyCResultIO` action producing a Python object in {lean}`CPyIO`.
 This creates a new temporary Python context for the call.
 -/
 @[inline] public def toCPyIO (x : PyCResultIO α) : CPyIO α := .ofBaseIOUnsafe do
-  x.runUnsafe (← PyContext.getOrInit)
+  x.runUnsafe (← PyThreadCtx.getOrInit)
 
 /--
 Converts a {lean}`PyCResultIO` returning a
@@ -377,7 +377,7 @@ end PyCResultIO
   (x : CPyIO α)
 : PyCResultIO α := .ofPyBaseIOUnsafe do
   let r ← x.toBaseIOUnsafe
-  Runtime.hold (← getPyContextUnsafe)
+  Runtime.hold (← getPyThreadCtxUnsafe)
   return r
 
 /-- Sequences a {lean}`PyCResultIO` action after a {lean}`PyBaseIO` action. -/
@@ -414,14 +414,14 @@ opaque PyEnvironment.mkObjectUnsafe (env : @& PyEnvironment) (o : CPyBaseResult 
   Classical.choice o.nonempty
 
 @[extern "nerodia_mk_object", inherit_doc PyEnvironment.mkObjectUnsafe]
-abbrev Internal.PyContext.mkObjectUnsafe (ctx : @& PyContext) (o : CPyBaseResult α) : α :=
+abbrev Internal.PyThreadCtx.mkObjectUnsafe (ctx : @& PyThreadCtx) (o : CPyBaseResult α) : α :=
   Classical.choice o.nonempty
 
 @[inline, inherit_doc PyEnvironment.mkObjectUnsafe]
 def ofBaseResultUnsafe
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
   (r : CPyBaseResult α)
-: m α := return (← getPyContextUnsafe).mkObjectUnsafe r
+: m α := return (← getPyThreadCtxUnsafe).mkObjectUnsafe r
 
 namespace CPyBaseIO
 
@@ -490,7 +490,7 @@ This creates a new temporary Python context for the call.
 @[inline] public def PyBaseIO.bindCPyBaseIO
   (x : PyBaseIO α) (f : α → CPyBaseIO β)
 : CPyBaseIO β := .ofBaseIOUnsafe do
-  let ctx ← PyContext.getOrInit
+  let ctx ← PyThreadCtx.getOrInit
   f (← x.runUnsafe ctx) |>.toBaseIOUnsafe
 
 /--
@@ -510,7 +510,7 @@ This creates a new temporary Python context for the call.
 @[inline] public def PyBaseIO.bindCPyIO
   (x : PyBaseIO α) (f : α → CPyIO β)
 : CPyIO β := .ofBaseIOUnsafe do
-  let ctx ← PyContext.getOrInit
+  let ctx ← PyThreadCtx.getOrInit
   f (← x.runUnsafe ctx) |>.toBaseIOUnsafe
 
 /-- Constructs a successful {lean}`CPyIO` that returns {lean}`o`. -/
@@ -524,7 +524,7 @@ Sequences a {lean}`CPyIO` action after a {lean}`PyIO` action.
 This creates a new temporary Python context for the call.
 -/
 @[inline] public def PyIO.bindCPyIO (x : PyIO α) (f : α → CPyIO β) : CPyIO β := .ofBaseIOUnsafe do
-  let ctx ← PyContext.getOrInit
+  let ctx ← PyThreadCtx.getOrInit
   match (← x.runUnsafe? ctx) with
   | some a => f a |>.toBaseIOUnsafe
   | none => CPyIO.failureUnsafe.toBaseIOUnsafe
@@ -548,28 +548,28 @@ open Internal in
 /-! ## Exception Handling -/
 
 /-- Clears the current exception. Does nothing if there is none. -/
-@[extern "nerodia_py_context_clear_error"]
-opaque Internal.PyContext.clearError (ctx : @& PyContext) : BaseIO Unit
+@[extern "nerodia_py_thread_ctx_clear_error"]
+opaque Internal.PyThreadCtx.clearError (ctx : @& PyThreadCtx) : BaseIO Unit
 
-@[inline, inherit_doc Internal.PyContext.clearError]
+@[inline, inherit_doc Internal.PyThreadCtx.clearError]
 def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
-  getPyContextUnsafe >>= (·.clearError)
+  getPyThreadCtxUnsafe >>= (·.clearError)
 
 /--
 Constructs a {lit}`SystemError` with the string {lean}`msg`.
 Panics if the construction fails (e.g., due to lack of memeory).
 -/
-@[extern "nerodia_py_context_system_error"]
-opaque Internal.PyContext.systemError!
-  (msg : @& String) (ctx : @& PyContext) : PySystemError
+@[extern "nerodia_py_thread_ctx_system_error"]
+opaque Internal.PyThreadCtx.systemError!
+  (msg : @& String) (ctx : @& PyThreadCtx) : PySystemError
 
 /-- The exception used when when no other exception is set. -/
-@[inline] opaque Internal.PyContext.unsetException (ctx : PyContext) : PySystemError :=
+@[inline] opaque Internal.PyThreadCtx.unsetException (ctx : PyThreadCtx) : PySystemError :=
   ctx.systemError! "no exception was set"
 
-@[inline, inherit_doc Internal.PyContext.unsetException]
+@[inline, inherit_doc Internal.PyThreadCtx.unsetException]
 def getUnsetException  [Functor m] [MonadPy m] : m PyBaseException :=
-  (·.unsetException) <$> getPyContextUnsafe
+  (·.unsetException) <$> getPyThreadCtxUnsafe
 
 /-- Clears the current exception and returns it. -/
 @[extern "nerodia_get_raised_exception"]
@@ -585,8 +585,8 @@ If none, instead returns {name}`getUnsetException`.
 
 open Internal Nerodia in
 /-- Returns the currently raised exception or {name}`unsetException` if none. -/
-@[inline] protected def Internal.PyContext.getRaisedException
-  (ctx : PyContext)
+@[inline] protected def Internal.PyThreadCtx.getRaisedException
+  (ctx : PyThreadCtx)
 : BaseIO PyBaseException := PyBaseIO.runUnsafe ctx getRaisedException
 
 /--
@@ -637,7 +637,7 @@ Exceptions in {name}`f` are not caught.
   [Monad m] [MonadLiftT BaseIO m] [MonadPy m]
   (x : PyIO α) (f : PyBaseException → m α)
 : m α := do
-  let ctx ← getPyContextUnsafe
+  let ctx ← getPyThreadCtxUnsafe
   (← x.runUnsafe? ctx).getDM do
     f (← ctx.getRaisedException)
 
@@ -653,7 +653,7 @@ As such, it should only be used when another Python context is not available.
 Otherwise, lift {lean}`x` into a supporting monad.
 -/
 @[inline] public def toEIO (x : PyIO α) : EIO PyBaseException α := do
-  PyContextT.run' <| x.tryCatchM throw
+  PyThreadCtxT.run' <| x.tryCatchM throw
 
 open Internal in
 /--
@@ -668,7 +668,7 @@ re-reaises the exception. Otherwise, if {name}`x` succeeds and returns
   [Monad m] [MonadLiftT BaseIO m] [MonadPy m] [MonadRaise m]
   (x : PyIO α) (f : Option α → m β)
 : m (α × β) := do
-  let ctx ← getPyContextUnsafe
+  let ctx ← getPyThreadCtxUnsafe
   if let some a ← x.runUnsafe? ctx then
     let b ← f (some a)
     return (a, b)
@@ -689,7 +689,7 @@ If {name}`x` raises an exception, clears it and runs {lean}`f ()`.
   [Monad m] [MonadLiftT BaseIO m] [MonadPy m]
   (x : PyIO α) (f : Unit → m α)
 : m α := do
-  let ctx ← getPyContextUnsafe
+  let ctx ← getPyThreadCtxUnsafe
   (← x.runUnsafe? ctx).getDM do
     clearError
     f ()

@@ -63,14 +63,14 @@ static py_environment g_py_env = {
 typedef struct {
   int holders;
   PyGILState_STATE gil;
-} py_context;
+} py_thread_ctx;
 
-static _Thread_local py_context g_py_ctx = {
+static _Thread_local py_thread_ctx g_py_ctx = {
   .holders = 0,
 };
 
 static lean_external_class* g_py_environment_external_class = NULL;
-static lean_external_class* g_py_context_external_class = NULL;
+static lean_external_class* g_py_thread_ctx_external_class = NULL;
 static lean_external_class* g_py_object_external_class = NULL;
 
 static inline void py_finalize(void) {
@@ -131,13 +131,13 @@ static void py_environment_finalize(void* p) {
   }
 }
 
-static void py_context_foreach(void* p, b_lean_obj_arg f) {
+static void py_thread_ctx_foreach(void* p, b_lean_obj_arg f) {
   lean_internal_panic(
-    "`PyContext` marked persistent or multi-threaded. "
-    "This is forbidden as `PyContext` holds the Python GIL.");
+    "`PyThreadCtx` marked persistent or multi-threaded. "
+    "This is forbidden as `PyThreadCtx` holds the Python GIL.");
 }
 
-static void py_context_finalize(void* p) {
+static void py_thread_ctx_finalize(void* p) {
   if (g_py_ctx.holders == 1) {
     if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
       py_finalize();
@@ -169,9 +169,9 @@ static void py_env_ensure(void) {
       g_py_environment_external_class = lean_register_external_class(
         py_environment_finalize, nop_foreach);
     }
-    if (!g_py_context_external_class) {
-      g_py_context_external_class = lean_register_external_class(
-        py_context_finalize, py_context_foreach);
+    if (!g_py_thread_ctx_external_class) {
+      g_py_thread_ctx_external_class = lean_register_external_class(
+        py_thread_ctx_finalize, py_thread_ctx_foreach);
     }
     if (!g_py_object_external_class) {
       g_py_object_external_class = lean_register_external_class(
@@ -200,26 +200,26 @@ LEAN_EXPORT lean_obj_res nerodia_py_environment_get_or_init(void) {
   return lean_alloc_external(g_py_environment_external_class, NULL);
 }
 
-/* init :  BaseIO PyContext */
-LEAN_EXPORT lean_obj_res nerodia_py_context_get_or_init(void) {
+/* init :  BaseIO PyThreadCtx */
+LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_get_or_init(void) {
   if (py_ctx_acquire()) {
     py_env_ensure();
     py_ctx_init();
   }
-  return lean_alloc_external(g_py_context_external_class, NULL);
+  return lean_alloc_external(g_py_thread_ctx_external_class, NULL);
 }
 
-/* mk : @& PyEnvironment -> BaseIO PyContext */
-LEAN_EXPORT lean_obj_res nerodia_py_context_mk(b_lean_obj_arg env) {
+/* mk : @& PyEnvironment -> BaseIO PyThreadCtx */
+LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_mk(b_lean_obj_arg env) {
   if (py_ctx_acquire()) {
     atomic_fetch_add(&g_py_env.holders, 1);
     py_ctx_init();
   }
-  return lean_alloc_external(g_py_context_external_class, NULL);
+  return lean_alloc_external(g_py_thread_ctx_external_class, NULL);
 }
 
-/* env :  @& PyContext -> PyEnvironment */
-LEAN_EXPORT lean_obj_res nerodia_py_context_env(b_lean_obj_arg ctx) {
+/* env :  @& PyThreadCtx -> PyEnvironment */
+LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_env(b_lean_obj_arg ctx) {
   atomic_fetch_add(&g_py_env.holders, 1);
   // Remark: Consider caching this object if performance becomes an issue.
   return lean_alloc_external(g_py_environment_external_class, NULL);
@@ -321,18 +321,18 @@ LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
   return (size_t)Py_NewRef(nerodia_to_object(self));
 }
 
-/* mkObjectUnsafe : @& PyEnvironment|PyContext -> CPy α -> α */
+/* mkObjectUnsafe : @& PyEnvironment|PyThreadCtx -> CPy α -> α */
 LEAN_EXPORT lean_obj_res nerodia_mk_object(b_lean_obj_arg env_or_ctx, size_t ptr) {
   return nerodia_of_object((PyObject*)ptr, env_or_ctx);
 }
 
-/* mkArgUnsafe : @& PyContext ->  CPyArg α -> α */
-LEAN_EXPORT lean_obj_res nerodia_py_context_mk_arg(b_lean_obj_arg ctx, size_t ptr) {
+/* mkArgUnsafe : @& PyThreadCtx ->  CPyArg α -> α */
+LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_mk_arg(b_lean_obj_arg ctx, size_t ptr) {
   return nerodia_of_object(Py_NewRef((PyObject*)ptr), ctx);
 }
 
-/* mkArgsUnsafe : @& PyContext -> CPyArgs -> USize -> Array PyObject */
-LEAN_EXPORT lean_obj_res nerodia_py_context_mk_args(b_lean_obj_arg ctx, size_t args, size_t nargs) {
+/* mkArgsUnsafe : @& PyThreadCtx -> CPyArgs -> USize -> Array PyObject */
+LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_mk_args(b_lean_obj_arg ctx, size_t args, size_t nargs) {
   lean_obj_res objs = lean_alloc_array(nargs, nargs);
   for (size_t i = 0; i < nargs; ++i) {
     lean_array_set_core(objs, i,
@@ -341,13 +341,13 @@ LEAN_EXPORT lean_obj_res nerodia_py_context_mk_args(b_lean_obj_arg ctx, size_t a
   return objs;
 }
 
-/* mkNthArgUnsafe : @& PyContext -> CPyArgs -> USize -> PyObject */
-LEAN_EXPORT lean_obj_res nerodia_py_context_mk_nth_arg(b_lean_obj_arg ctx, size_t args, size_t i) {
+/* mkNthArgUnsafe : @& PyThreadCtx -> CPyArgs -> USize -> PyObject */
+LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_mk_nth_arg(b_lean_obj_arg ctx, size_t args, size_t i) {
   return nerodia_of_object(Py_NewRef(((PyObject**)args)[i]), ctx);
 }
 
-/* clearError : @& PyContext -> BaseIO Unit */
-LEAN_EXPORT lean_obj_res nerodia_py_context_clear_error(b_lean_obj_arg ctx) {
+/* clearError : @& PyThreadCtx -> BaseIO Unit */
+LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_clear_error(b_lean_obj_arg ctx) {
   PyErr_Clear();
   return lean_box(0);
 }
@@ -397,8 +397,8 @@ LEAN_NORETURN void nerodia_exception_panic(void) {
   }
 }
 
-/* systemError : @& String -> @& PyContext -> PySystemError */
-LEAN_EXPORT lean_obj_res nerodia_py_context_system_error(b_lean_obj_arg msg, b_lean_obj_arg ctx) {
+/* systemError : @& String -> @& PyThreadCtx -> PySystemError */
+LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_system_error(b_lean_obj_arg msg, b_lean_obj_arg ctx) {
   py_gil_ensure();
   PyObject* msg_obj = PyUnicode_FromString(lean_string_cstr(msg));
   if (LEAN_LIKELY(msg_obj != NULL)) {

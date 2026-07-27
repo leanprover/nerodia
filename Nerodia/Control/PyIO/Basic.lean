@@ -28,42 +28,42 @@ without setting one, relying on this would be contray to the specification.
 
 namespace Nerodia
 
-open Internal (PyContext)
+open Internal (PyThreadCtx)
 
-/-! ## PyContextT -/
+/-! ## PyThreadCtxT -/
 
 /--
 Monad transfer to equip a monad with a Python context.
 
-**API Caveat:** The definition of {name}`PyContextT` is not part of Nerodia's
+**API Caveat:** The definition of {name}`PyThreadCtxT` is not part of Nerodia's
 public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
-public def PyContextT (m : Type → Type u) (α : Type) :=
-  PyContext → m α
+public def PyThreadCtxT (m : Type → Type u) (α : Type) :=
+  PyThreadCtx → m α
 
-namespace Internal.Nerodia.PyContextT
+namespace Internal.Nerodia.PyThreadCtxT
 
-unseal PyContextT in
+unseal PyThreadCtxT in
 /--
-Constructs a {name}`PyContextT` from the equivalent {name}`ReaderT`.
+Constructs a {name}`PyThreadCtxT` from the equivalent {name}`ReaderT`.
 
-**Thread Safety:** Users must ensure that the {name}`PyContext` does not
+**Thread Safety:** Users must ensure that the {name}`PyThreadCtx` does not
 cross thread boundaries.
 -/
 @[always_inline]
-public def ofReaderTUnsafe (x : ReaderT PyContext m α) : PyContextT m α :=
+public def ofReaderTUnsafe (x : ReaderT PyThreadCtx m α) : PyThreadCtxT m α :=
  x
 
-unseal PyContextT in
+unseal PyThreadCtxT in
 /--
-Converts a {name}`PyContextT` to the equivalent {name}`ReaderT`.
+Converts a {name}`PyThreadCtxT` to the equivalent {name}`ReaderT`.
 
-**Thread Safety:** Users must ensure that {name}`PyContext` does not
+**Thread Safety:** Users must ensure that {name}`PyThreadCtx` does not
 cross thread boundaries.
 -/
 @[always_inline]
-public def toReaderTUnsafe (x : PyContextT m α) :  ReaderT PyContext m α :=
+public def toReaderTUnsafe (x : PyThreadCtxT m α) :  ReaderT PyThreadCtx m α :=
   x
 
 open Internal in
@@ -72,60 +72,60 @@ Runs the action within the given Python context.
 
 **Thread Safety:** Users must ensure {lean}`ctx` does not cross thread boundaries.
 -/
-@[inline] public def runUnsafe (ctx : PyContext) (x : PyContextT m α)  : m α :=
+@[inline] public def runUnsafe (ctx : PyThreadCtx) (x : PyThreadCtxT m α)  : m α :=
   x.toReaderTUnsafe.run ctx
 
-end Internal.Nerodia.PyContextT
+end Internal.Nerodia.PyThreadCtxT
 
-namespace PyContextT
+namespace PyThreadCtxT
 
 open Internal in
 /-- Runs the monadic action within the given Python environment. -/
 @[always_inline] public def run
-  [Monad m] [MonadLiftT BaseIO m] (env : PyEnvironment) (x : PyContextT m α)
-: m α := do x.toReaderTUnsafe.run (← PyContext.mk env)
+  [Monad m] [MonadLiftT BaseIO m] (env : PyEnvironment) (x : PyThreadCtxT m α)
+: m α := do x.toReaderTUnsafe.run (← PyThreadCtx.mk env)
 
 open Internal in
 /-- Runs the monadic action within a new Python context. -/
 @[always_inline] public def run'
-  [Monad m] [MonadLiftT BaseIO m] (x : PyContextT m α)
-: m α := do x.toReaderTUnsafe.run (← PyContext.getOrInit)
+  [Monad m] [MonadLiftT BaseIO m] (x : PyThreadCtxT m α)
+: m α := do x.toReaderTUnsafe.run (← PyThreadCtx.getOrInit)
 
 open Internal in
 /-- Lifts the action into a supporting monad. -/
 @[always_inline] public def toM
-  [Monad n] [MonadLiftT m n] [MonadPy n] (x : PyContextT m α)
-: n α := do x.toReaderTUnsafe.run (← getPyContextUnsafe)
+  [Monad n] [MonadLiftT m n] [MonadPy n] (x : PyThreadCtxT m α)
+: n α := do x.toReaderTUnsafe.run (← getPyThreadCtxUnsafe)
 
 open Internal in
-@[always_inline] public instance [Monad m] : MonadPy (PyContextT m) where
-  getPyContextUnsafe := private .ofReaderTUnsafe read
+@[always_inline] public instance [Monad m] : MonadPy (PyThreadCtxT m) where
+  getPyThreadCtxUnsafe := private .ofReaderTUnsafe read
 
-public instance : MonadLift m (PyContextT m) :=
-   inferInstanceAs (MonadLift m <| ReaderT PyContext m)
+public instance : MonadLift m (PyThreadCtxT m) :=
+   inferInstanceAs (MonadLift m <| ReaderT PyThreadCtx m)
 
-public instance : MonadFunctor m (PyContextT m) :=
-  inferInstanceAs (MonadFunctor m <| ReaderT PyContext m)
+public instance : MonadFunctor m (PyThreadCtxT m) :=
+  inferInstanceAs (MonadFunctor m <| ReaderT PyThreadCtx m)
 
-public instance : MonadControl m (PyContextT m) :=
-  inferInstanceAs (MonadControl m <| ReaderT PyContext m)
+public instance : MonadControl m (PyThreadCtxT m) :=
+  inferInstanceAs (MonadControl m <| ReaderT PyThreadCtx m)
 
-public instance[MonadExceptOf ε m] : MonadExceptOf ε (PyContextT m) :=
-  inferInstanceAs (MonadExceptOf ε <| ReaderT PyContext m)
+public instance[MonadExceptOf ε m] : MonadExceptOf ε (PyThreadCtxT m) :=
+  inferInstanceAs (MonadExceptOf ε <| ReaderT PyThreadCtx m)
 
-public instance [Monad m] : Monad (PyContextT m) :=
-  inferInstanceAs (Monad <| ReaderT PyContext m)
+public instance [Monad m] : Monad (PyThreadCtxT m) :=
+  inferInstanceAs (Monad <| ReaderT PyThreadCtx m)
 
-public instance[Monad m] [LawfulMonad m] : LawfulMonad (PyContextT m) :=
-  inferInstanceAs (LawfulMonad <| ReaderT PyContext m)
+public instance[Monad m] [LawfulMonad m] : LawfulMonad (PyThreadCtxT m) :=
+  inferInstanceAs (LawfulMonad <| ReaderT PyThreadCtx m)
 
-public instance [Monad m] [MonadAttach m] : MonadAttach (PyContextT m) :=
-  inferInstanceAs (MonadAttach <| ReaderT PyContext m)
+public instance [Monad m] [MonadAttach m] : MonadAttach (PyThreadCtxT m) :=
+  inferInstanceAs (MonadAttach <| ReaderT PyThreadCtx m)
 
-public instance [Monad m] [LawfulMonad m] [MonadAttach m] [LawfulMonadAttach m] : LawfulMonadAttach (PyContextT m) :=
-  inferInstanceAs (LawfulMonadAttach <| ReaderT PyContext m)
+public instance [Monad m] [LawfulMonad m] [MonadAttach m] [LawfulMonadAttach m] : LawfulMonadAttach (PyThreadCtxT m) :=
+  inferInstanceAs (LawfulMonadAttach <| ReaderT PyThreadCtx m)
 
-end PyContextT
+end PyThreadCtxT
 
 /-! ## PyBaseIO -/
 
@@ -137,19 +137,19 @@ public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyBaseIO :=
-  PyContextT BaseIO
+  PyThreadCtxT BaseIO
   deriving Monad, MonadPy
 
 namespace Internal.Nerodia.PyBaseIO
 
 unseal PyBaseIO in
-/-- Constructs a {name}`PyBaseIO` from the equivalent {name}`PyContextT`. --/
-@[always_inline] public def ofPyContextT (x : PyContextT BaseIO α) : PyBaseIO α :=
+/-- Constructs a {name}`PyBaseIO` from the equivalent {name}`PyThreadCtxT`. --/
+@[always_inline] public def ofPyThreadCtxT (x : PyThreadCtxT BaseIO α) : PyBaseIO α :=
   x
 
 unseal PyBaseIO in
-/-- Converts a {name}`PyBaseIO` to the equivalent {name}`PyContextT`. -/
-@[always_inline] public def toPyContextT (x : PyBaseIO α) : PyContextT BaseIO α :=
+/-- Converts a {name}`PyBaseIO` to the equivalent {name}`PyThreadCtxT`. -/
+@[always_inline] public def toPyThreadCtxT (x : PyBaseIO α) : PyThreadCtxT BaseIO α :=
   x
 
 open Internal in
@@ -158,15 +158,15 @@ Runs the {name}`PyBaseIO` action within the given Python context.
 
 **Thread Safety:** Users must ensure {lean}`ctx` does not cross thread boundaries.
 -/
-@[inline] public def runUnsafe (ctx : PyContext) (x : PyBaseIO α)  : BaseIO α :=
-  x.toPyContextT.toReaderTUnsafe.run ctx
+@[inline] public def runUnsafe (ctx : PyThreadCtx) (x : PyBaseIO α)  : BaseIO α :=
+  x.toPyThreadCtxT.toReaderTUnsafe.run ctx
 
 end Internal.Nerodia.PyBaseIO
 
 open Internal in
 /-- Lifts a {name}`BaseIO` action into {name}`PyBaseIO`. -/
 @[inline] public def BaseIO.toPyBaseIO (x : BaseIO α) : PyBaseIO α  :=
-  .ofPyContextT x
+  .ofPyThreadCtxT x
 
 public instance : MonadLift BaseIO PyBaseIO := ⟨BaseIO.toPyBaseIO⟩
 
@@ -175,12 +175,12 @@ namespace PyBaseIO
 open Internal in
 /-- Runs the action within the given Python environment. -/
 @[inline] public def run (env : PyEnvironment) (x : PyBaseIO α) : BaseIO α := do
-  x.toPyContextT.run env
+  x.toPyThreadCtxT.run env
 
 open Internal in
 /-- Runs the {name}`PyBaseIO` action in {name}`BaseIO`, using a new Python context. -/
 @[inline] public def toBaseIO (x : PyBaseIO α) : BaseIO α := do
-  x.toPyContextT.run'
+  x.toPyThreadCtxT.run'
 
 public instance : MonadEval PyBaseIO BaseIO := ⟨PyBaseIO.toBaseIO⟩
 
@@ -188,7 +188,7 @@ open Internal in
 /-- Lifts the action into a supporting monad. -/
 @[inline] public def toM
   [Monad n] [MonadLiftT BaseIO n] [MonadPy n]  (x : PyBaseIO α)
-: n α := x.toPyContextT.toM
+: n α := x.toPyThreadCtxT.toM
 
 end PyBaseIO
 
@@ -209,7 +209,7 @@ namespace Internal.Nerodia.PyIO
 
 unseal PyIO in
 /--
-Constructs a {name}`PyIO` from the equivalent {name}`PyContextT`.
+Constructs a {name}`PyIO` from the equivalent {name}`PyThreadCtxT`.
 
 **Safety:** Users should ensure that an exception is set on {lean}`x`'s failure.
 -/
@@ -219,7 +219,7 @@ Constructs a {name}`PyIO` from the equivalent {name}`PyContextT`.
 
 unseal PyIO in
 /--
-Converts a {name}`PyIO` to the equivalent {name}`PyContextT`.
+Converts a {name}`PyIO` to the equivalent {name}`PyThreadCtxT`.
 
 **Safety:** Users must handle the raised exception on failure.
 -/
@@ -244,7 +244,7 @@ Runs the {name}`PyIO` function, returning {name}`none` if an exception was raise
 * **Correctness:** Users must handle a raised exception.
 * **Thread:** Users must ensure that {lean}`ctx` does not cross thread boundaries.
 -/
-@[inline] public def runUnsafe? (ctx : PyContext) (x : PyIO α) : BaseIO (Option α) :=
+@[inline] public def runUnsafe? (ctx : PyThreadCtx) (x : PyIO α) : BaseIO (Option α) :=
   x.toPyBaseIOUnsafe?.runUnsafe ctx
 
 /--

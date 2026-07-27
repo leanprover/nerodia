@@ -37,9 +37,9 @@ Wraps a borrowed Python object reference into a memory-managed Lean object.
 **Memory Safety:** Users must ensure the reference currently valid
 (e.g., it has not escaped its original function).
 -/
-@[extern "nerodia_py_context_mk_arg"]
-def Internal.PyContext.mkArgUnsafe
-  (ctx : @& PyContext) (arg : CPyArg T)
+@[extern "nerodia_py_thread_ctx_mk_arg"]
+def Internal.PyThreadCtx.mkArgUnsafe
+  (ctx : @& PyThreadCtx) (arg : CPyArg T)
 : (Py T) := Classical.choice arg.toCPtrUnsafe.nonempty
 
 /--
@@ -54,24 +54,24 @@ public structure CPyArgs where
   private ofAddrUnsafe ::
     private addr : Addr
 
-@[extern "nerodia_py_context_mk_args"]
-opaque Internal.PyContext.mkArgsUnsafe
-  (ctx : @& PyContext) (args : CPyArgs) (nargs : USize) : Array PyObject
+@[extern "nerodia_py_thread_ctx_mk_args"]
+opaque Internal.PyThreadCtx.mkArgsUnsafe
+  (ctx : @& PyThreadCtx) (args : CPyArgs) (nargs : USize) : Array PyObject
 
-@[extern "nerodia_py_context_mk_nth_arg"]
-opaque Internal.PyContext.mkNthArgUnsafe
-  (ctx : @& PyContext) (args : CPyArgs) (i : USize) : PyObject
+@[extern "nerodia_py_thread_ctx_mk_nth_arg"]
+opaque Internal.PyThreadCtx.mkNthArgUnsafe
+  (ctx : @& PyThreadCtx) (args : CPyArgs) (i : USize) : PyObject
 
 /-- Internal function for {lit}`@[py_module_fn]`.  -/
 @[inline] public def Internal.ofPyArgUnsafe
   [OfPyArg α T] (fn : String) (i : USize) (args : CPyArgs)
 : PyIO α := do
-  let obj := ((← getPyContextUnsafe).mkNthArgUnsafe args i)
+  let obj := ((← getPyThreadCtxUnsafe).mkNthArgUnsafe args i)
   OfPyArg.ofPyArg fn (i.toNat+1) obj
 
 /-! ## Python Method Types -/
 
-open Internal (getPyContextUnsafe)
+open Internal (getPyThreadCtxUnsafe)
 
 /-! ### PyMethNoArgs -/
 
@@ -89,7 +89,7 @@ unseal PyMethNoArgs in
 @[inline] public def PyMethNoArgs.ofPyIO
   (x : (self : PyObject) → PyIO PyObject)
 : PyMethNoArgs := fun self _ => CPyIO.raw <| PyIO.toCPyIO do
-  let ctx ← getPyContextUnsafe
+  let ctx ← getPyThreadCtxUnsafe
   let self := ctx.mkArgUnsafe self
   x self
 
@@ -123,7 +123,7 @@ unseal PyMethFastCall in
 @[inline] public def PyMethFastCall.ofPyIO
   (x : (self : PyObject) → (args : Array PyObject) → PyIO (Py T))
 : PyMethFastCall := fun self args nargs => CPyIO.raw <| PyIO.toCPyIO do
-  let ctx ← getPyContextUnsafe
+  let ctx ← getPyThreadCtxUnsafe
   let self := ctx.mkArgUnsafe self
   let args := ctx.mkArgsUnsafe args nargs
   x self args
@@ -159,7 +159,7 @@ unseal PyMethO in
 @[inline] public def PyMethO.ofPyIO
   (x : (self : PyObject) → (arg : PyObject) → PyIO (Py T))
 : PyMethO := fun self arg => CPyIO.raw <| PyIO.toCPyIO do
-  let ctx ← getPyContextUnsafe
+  let ctx ← getPyThreadCtxUnsafe
   let self := ctx.mkArgUnsafe self
   let arg := ctx.mkArgUnsafe arg
   x self arg
@@ -173,7 +173,7 @@ unseal PyMethO in
 @[inline] public def Internal.mkPyMethO
   (x : (arg : PyObject) → PyCResultIO Py.Raw)
 : PyMethO := fun _ arg =>
-  PyCResultIO.toCPyIO <| PyBaseIO.bindPyResultIO getPyContextUnsafe fun ctx =>
+  PyCResultIO.toCPyIO <| PyBaseIO.bindPyResultIO getPyThreadCtxUnsafe fun ctx =>
     x (ctx.mkArgUnsafe arg)
 
 /-! ## PyModuleInit -/
@@ -192,7 +192,7 @@ unseal PyModuleInit in
 @[inline] public def PyModuleInit.ofPyIO
   (x : PyModule → PyIO Unit)
 : PyModuleInit := fun mod => PyIO.toCPyUnitIO do
-  let ctx ← getPyContextUnsafe
+  let ctx ← getPyThreadCtxUnsafe
   x (ctx.mkArgUnsafe mod)
 
 public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ => return⟩

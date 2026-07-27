@@ -35,11 +35,11 @@ public opaque getOrInit : BaseIO PyEnvironment
 
 end PyEnvironment
 
-/-! ## PyContext -/
+/-! ## PyThreadCtx -/
 
 namespace Internal
 
-structure PyContext.Model where
+structure PyThreadCtx.Model where
   mk ::
     env : PyEnvironment
     data : Dynamic
@@ -49,26 +49,26 @@ structure PyContext.Model where
 Reference holder for the Python environment ({name}`PyEnvironment`)
 and the global interpreter lock (GIL).
 
-**Not thread safe.** As a {name}`PyContext` object holds a lock (the GIL),
+**Not thread safe.** As a {name}`PyThreadCtx` object holds a lock (the GIL),
 it must not be marked persistent or multi-threaded. Any attempt to do so
 will emit a fatal panic. Nerodia ensures this within its API, and users are
-not expected to manage {name}`PyContext` objects manually.
+not expected to manage {name}`PyThreadCtx` objects manually.
 -/
-public structure PyContext where
+public structure PyThreadCtx where
   private ofModel ::
-    private toModel : PyContext.Model
+    private toModel : PyThreadCtx.Model
     deriving Nonempty
 
-namespace PyContext
+namespace PyThreadCtx
 
-noncomputable opaque mkOpaque (env : PyEnvironment) : BaseIO PyContext
+noncomputable opaque mkOpaque (env : PyEnvironment) : BaseIO PyThreadCtx
 
 /--
 Constructs a Python context from a Python environment,
 ensuring this thread has the global interpreter lock (GIL).
 -/
-@[extern "nerodia_py_context_mk"]
-public def mk (env : @& PyEnvironment) : BaseIO PyContext :=
+@[extern "nerodia_py_thread_ctx_mk"]
+public def mk (env : @& PyEnvironment) : BaseIO PyThreadCtx :=
   (ofModel {·.toModel with env}) <$> mkOpaque env
 
 /--
@@ -77,13 +77,13 @@ ensuring the thread has the global interpreter lock (GIL).
 
 If no Python environment exists yet, it will be initialized.
 -/
-@[extern "nerodia_py_context_get_or_init"]
-public def getOrInit : BaseIO PyContext := do
+@[extern "nerodia_py_thread_ctx_get_or_init"]
+public def getOrInit : BaseIO PyThreadCtx := do
   mk (← PyEnvironment.getOrInit)
 
 /-- Returns a reference to the Python environment. -/
-@[extern "nerodia_py_context_env"]
-public def env (ctx : @& PyContext) : PyEnvironment :=
+@[extern "nerodia_py_thread_ctx_env"]
+public def env (ctx : @& PyThreadCtx) : PyEnvironment :=
   ctx.toModel.env
 
-end PyContext
+end PyThreadCtx

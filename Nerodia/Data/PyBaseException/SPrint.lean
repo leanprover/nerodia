@@ -59,7 +59,7 @@ def main : IO Unit := do
 ```
 -/
 @[inline] public def toIO (x : PyIO α) : IO α :=
-  PyContextT.run' <| x.tryCatchM fun e => do
+  PyThreadCtxT.run' <| x.tryCatchM fun e => do
     throw (IO.userError (← e.sprint.toM))
 
 public instance : MonadEval PyIO IO := ⟨toIO⟩

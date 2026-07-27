@@ -90,7 +90,7 @@ Nerodia.MkPyResult
 Nerodia.MkPyResult.mk
 Nerodia.MkPyResult.mkPyResult (proj)
 Nerodia.MonadPy
-Nerodia.MonadPy.getPyContextUnsafe (proj)
+Nerodia.MonadPy.getPyThreadCtxUnsafe (proj)
 Nerodia.MonadPy.mk
 Nerodia.MonadPyEnv
 Nerodia.MonadPyEnv.getPyEnvironment (proj)
@@ -170,10 +170,6 @@ Nerodia.PyCResultIO (irreducible)
 Nerodia.PyCResultIO.pure
 Nerodia.PyCResultIO.raw
 Nerodia.PyCResultIO.toCPyIO
-Nerodia.PyContextT (irreducible)
-Nerodia.PyContextT.run
-Nerodia.PyContextT.run'
-Nerodia.PyContextT.toM
 Nerodia.PyEOFError (exposed)
 Nerodia.PyEnvironment
 Nerodia.PyEnvironment.getOrInit
@@ -261,6 +257,10 @@ Nerodia.PyStr.encodeUTF8 (exposed)
 Nerodia.PyStr.mk
 Nerodia.PyStr.toString
 Nerodia.PySystemError (exposed)
+Nerodia.PyThreadCtxT (irreducible)
+Nerodia.PyThreadCtxT.run
+Nerodia.PyThreadCtxT.run'
+Nerodia.PyThreadCtxT.toM
 Nerodia.PyType (exposed)
 Nerodia.PyType.getQualName
 Nerodia.PyType.mk
@@ -380,15 +380,6 @@ Nerodia.Py.instNonemptyRaw
 Nerodia.PyBaseExceptionView.instCoeOutPyBaseExceptionOfToPyBaseException
 Nerodia.PyBaseIO.instMonadEvalBaseIO
 Nerodia.PyBufferView.instCoeOutPyBufferOfToPyBuffer
-Nerodia.PyContextT.instLawfulMonad
-Nerodia.PyContextT.instLawfulMonadAttachOfLawfulMonad
-Nerodia.PyContextT.instMonad
-Nerodia.PyContextT.instMonadAttachOfMonad
-Nerodia.PyContextT.instMonadControl
-Nerodia.PyContextT.instMonadExceptOf
-Nerodia.PyContextT.instMonadFunctor
-Nerodia.PyContextT.instMonadLift
-Nerodia.PyContextT.instMonadPyOfMonad
 Nerodia.PyIO.instMonadEvalIO
 Nerodia.PyIO.instMonadExceptOfPyBaseException
 Nerodia.PyIO.instMonadFinally
@@ -397,6 +388,15 @@ Nerodia.PyIO.instOrElse
 Nerodia.PyInt.instToString
 Nerodia.PyObjectView.instCoeOutPyObjectOfToPyObject
 Nerodia.PyStr.instToString
+Nerodia.PyThreadCtxT.instLawfulMonad
+Nerodia.PyThreadCtxT.instLawfulMonadAttachOfLawfulMonad
+Nerodia.PyThreadCtxT.instMonad
+Nerodia.PyThreadCtxT.instMonadAttachOfMonad
+Nerodia.PyThreadCtxT.instMonadControl
+Nerodia.PyThreadCtxT.instMonadExceptOf
+Nerodia.PyThreadCtxT.instMonadFunctor
+Nerodia.PyThreadCtxT.instMonadLift
+Nerodia.PyThreadCtxT.instMonadPyOfMonad
 Nerodia.ToPyObject.instRaw
 Nerodia.TypeExpr.instCoeTypeConst
 Nerodia.TypeExpr.instToString
