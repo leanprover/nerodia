@@ -8,7 +8,7 @@ module
 public import Nerodia.Data.OfMkPy.OfPyArg
 public import Nerodia.Data.OfMkPy.MkPyResult
 -- utilities
-public import Nerodia.Data.Py.Ops
+public import Nerodia.Data.PyObject.Basic
 public import Nerodia.Data.Exceptions
 public import Nerodia.Data.PyType.Basic
 -- interface types

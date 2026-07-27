@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (347)
+# Constants (338)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -128,14 +128,6 @@ Nerodia.Py.raw (proj)
 Nerodia.Py.raw_mem
 Nerodia.Py.raw_promote
 Nerodia.PyAny (exposed)
-Nerodia.PyAny.getAttrByString
-Nerodia.PyAny.mk
-Nerodia.PyAny.raw_mk
-Nerodia.PyAnyView (exposed)
-Nerodia.PyAnyView.getAttrByString
-Nerodia.PyAnyView.getAttrByString_spec
-Nerodia.PyAnyView.toPyAny
-Nerodia.PyAnyView.toPyAny_eq_toPy
 Nerodia.PyAttrInit (irreducible)
 Nerodia.PyAttrInit.ofCPyIO
 Nerodia.PyBaseException (exposed)
@@ -223,6 +215,7 @@ Nerodia.PyModuleInit.ofPyIO
 Nerodia.PyNone (exposed)
 Nerodia.PyNone.isNone_eq_true
 Nerodia.PyObject (exposed)
+Nerodia.PyObject.getAttrByString
 Nerodia.PyObject.getType
 Nerodia.PyObject.isBaseExceptionInstance
 Nerodia.PyObject.isBaseExceptionInstance_iff_mem
@@ -238,6 +231,8 @@ Nerodia.PyObject.raw_mk
 Nerodia.PyObject.repr
 Nerodia.PyObject.str
 Nerodia.PyObjectView (exposed)
+Nerodia.PyObjectView.getAttrByString
+Nerodia.PyObjectView.getAttrByString_spec
 Nerodia.PyObjectView.getType
 Nerodia.PyObjectView.getType_spec
 Nerodia.PyObjectView.isBaseExceptionInstance
@@ -273,8 +268,6 @@ Nerodia.PyTypeError (exposed)
 Nerodia.ToPy
 Nerodia.ToPy.mk
 Nerodia.ToPy.toPy (proj)
-Nerodia.ToPyAny (exposed)
-Nerodia.ToPyAny.toPy_eq_mk
 Nerodia.ToPyBaseException (exposed)
 Nerodia.ToPyBuffer (exposed)
 Nerodia.ToPyObject (exposed)
@@ -292,14 +285,12 @@ Nerodia.TypeExpr.ofTypeConst (exposed)
 Nerodia.TypeExpr.toString (proj)
 Nerodia.TypePred (irreducible)
 Nerodia.TypePred.Mem
-Nerodia.TypePred.Mem.any
 Nerodia.TypePred.Mem.left
 Nerodia.TypePred.Mem.object
 Nerodia.TypePred.Mem.right
 Nerodia.TypePred.Mem.union_left
 Nerodia.TypePred.Mem.union_right
 Nerodia.TypePred.Subset
-Nerodia.TypePred.Subset.any
 Nerodia.TypePred.Subset.inter_left
 Nerodia.TypePred.Subset.inter_right
 Nerodia.TypePred.Subset.mem_of_mem
@@ -366,7 +357,7 @@ Nerodia.type (exposed)
 Nerodia.typeError (exposed)
 Nerodia.typeHint
 
-# Instances (140)
+# Instances (138)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -386,7 +377,6 @@ Nerodia.Null.instSubsingleton
 Nerodia.NullableAddr.instInhabited
 Nerodia.Py.Raw.instDecidableEq
 Nerodia.Py.instNonemptyRaw
-Nerodia.PyAnyView.instCoeOutPyAnyOfToPyAny
 Nerodia.PyBaseExceptionView.instCoeOutPyBaseExceptionOfToPyBaseException
 Nerodia.PyBaseIO.instMonadEvalBaseIO
 Nerodia.PyBufferView.instCoeOutPyBufferOfToPyBuffer
@@ -407,7 +397,6 @@ Nerodia.PyIO.instOrElse
 Nerodia.PyInt.instToString
 Nerodia.PyObjectView.instCoeOutPyObjectOfToPyObject
 Nerodia.PyStr.instToString
-Nerodia.ToPyAny.instRaw
 Nerodia.ToPyObject.instRaw
 Nerodia.TypeExpr.instCoeTypeConst
 Nerodia.TypeExpr.instToString

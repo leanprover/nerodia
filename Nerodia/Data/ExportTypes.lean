@@ -87,14 +87,14 @@ public def PyMethNoArgs :=
 
 unseal PyMethNoArgs in
 @[inline] public def PyMethNoArgs.ofPyIO
-  (x : (self : PyObject) → PyIO PyAny)
+  (x : (self : PyObject) → PyIO PyObject)
 : PyMethNoArgs := fun self _ => CPyIO.raw <| PyIO.toCPyIO do
   let ctx ← getPyContextUnsafe
   let self := ctx.mkArgUnsafe self
   x self
 
 @[inline] public def PyMethNoArgs.ofPyIO'
-  (x : PyIO PyAny)
+  (x : PyIO PyObject)
 : PyMethNoArgs := ofPyIO fun _ => x
 
 unseal PyMethNoArgs in

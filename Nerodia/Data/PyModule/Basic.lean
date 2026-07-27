@@ -15,7 +15,7 @@ Imports the module named {lean}`modName`.
 In Python, the import can be anything, so this may not return a {lean}`PyModule`.
 -/
 @[extern "nerodia_import"]
-public opaque «import» (modName : @& String) : CPyIO PyAny
+public opaque «import» (modName : @& String) : CPyIO PyObject
 
 namespace PyModule
 

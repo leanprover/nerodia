@@ -8,13 +8,7 @@ public import Nerodia.Data.Types
 public import Nerodia.Control.CPyIO
 meta import Nerodia.ViewMethod
 
-/-! # Universal Operations -/
-
-namespace Nerodia
-
-/-! ## PyObject Methods -/
-
-namespace PyObject
+namespace Nerodia.PyObject
 
 /--
 Returns the type of the object {lean}`self`.
@@ -40,15 +34,11 @@ This is equivalent to the Python expression {lit}`str(self)`.
 @[extern "nerodia_py_object_str", view_method]
 public opaque str (self : @& PyObject) : CPyIO PyStr
 
-end PyObject
+/--
+Returns the attribute named {lean}`attr` on {lean}`self`.
 
-/-! ## PyAny Methods -/
-
-namespace PyAny
-
-/-- Returns the attribute named {lean}`attrName` on {lean}`self`. -/
+This is equivalent to the Python expression {lit}`getattr(self, attr)`.
+-/
 @[extern "nerodia_py_object_get_attr_by_string", view_method]
 public opaque getAttrByString
-  (self : @& PyAny) (attrName : @& String) : CPyIO PyAny
-
-end PyAny
+  (self : @& PyObject) (attr : @& String) : CPyIO PyObject

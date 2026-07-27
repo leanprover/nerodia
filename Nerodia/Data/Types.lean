@@ -83,56 +83,28 @@ export TypePred (any)
 @[simp, grind =] public theorem TypePred.any_eq_object : any = object := by
   unfold any; rfl
 
-@[simp, grind .] public theorem TypePred.Mem.any : o ∈ any := by
-  simp
-
-@[simp, grind .] public theorem TypePred.Subset.any : T ⊆ any := by
-  simp
-
 /--
 A Python object of unknown type. This is analgous to Python's {lit}`Any`.
 
-In parameters, {lean}`PyObject` should generally be perferred. {lean}`PyAny`
-is primarily used to annotate a function that returns an object of unknown type
-(e.g., {name (scope := "Nerodia.Data.Module.Basic")}`Nerodia.import`).
+As Lean is statically typed, there is little utility in using this type
+instead of {name}`PyObject` within Lean code. However, it exists to enable
+defining Python functions whose parameters or return should be left untyped.
+
+For example, a module funciton defined as
+
+```
+@[py_module_fn] def foo (o : PyObject) : PyObject := ...
+```
+
+will be given the the type {lit}`(o: object) -> object` by Nerodia, whereas
+
+```
+@[py_module_fn] def foo (o : PyAny) : PyAny := ...
+```
+
+will have the type {lit}`(o)` with no annotated parameter or return types.
 -/
 public abbrev PyAny := PyObjectView <| Py any
-
-@[inline] public def PyAny.mk (o : Py.Raw) : PyAny :=
-  Py.mk o .any
-
-@[simp, grind =] public theorem PyAny.raw_mk : (mk o).raw = o := by rfl
-
-/-- Shorthand for {lean}`ToPy any α` -/
-public abbrev ToPyAny := ToPy any
-
-namespace ToPyAny
-
-public instance : ToPyAny Py.Raw := ⟨PyAny.mk⟩
-
-@[simp, grind =] public theorem toPy_eq_mk :
-  toPy (o : Py.Raw) = PyAny.mk o := by rfl
-
-end ToPyAny
-
-/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
-public abbrev PyAnyView (α : Type u) := α
-
-namespace PyAnyView
-
-@[inline] public def toPyAny
-  [ToPyAny α] (self : PyAnyView α)
-: PyAny := toPy self
-
-@[simp, grind =]
-public theorem toPyAny_eq_toPy
-  [ToPyAny α] (self : PyAnyView α)
-: self.toPyAny = toPy (α := α) self := by rfl
-
-public instance [ToPyAny α] :
-  CoeOut (PyAnyView α) PyAny := ⟨toPyAny⟩
-
-end PyAnyView
 
 /-!
 ## Weak Types

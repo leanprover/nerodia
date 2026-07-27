@@ -441,7 +441,7 @@ LEAN_EXPORT int32_t nerodia_py_module_add_by_string
     lean_string_cstr(name), nerodia_to_object(val));
 }
 
-/* getAttrByString : @& PyAny -> @& String -> CPyIO PyObject */
+/* getAttrByString : @& PyObject -> @& String -> CPyIO PyObject */
 LEAN_EXPORT size_t nerodia_py_object_get_attr_by_string(b_lean_obj_arg self, b_lean_obj_arg attr_name) {
   return (size_t)PyObject_GetAttrString(nerodia_to_object(self), lean_string_cstr(attr_name));
 }

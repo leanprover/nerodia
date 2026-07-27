@@ -6,7 +6,7 @@ Authors: Mac Malone
 module
 public import Nerodia.Data.Types
 public import Nerodia.Control.CPyIO
-import Nerodia.Data.Py.Ops
+import Nerodia.Data.PyObject.Basic
 import Nerodia.Data.PyModule.Basic
 import Nerodia.Data.PyStr.Basic
 import Nerodia.Data.PyType.Basic
