@@ -23,7 +23,7 @@ The ultimate Python base class, [{lit}`object`][1].
 @[inline, irreducible, expose] public def object : TypeConst :=
   ⟨"object"⟩
 
-public instance : CoeDep TypeConst object TypePred := ⟨.object⟩
+public instance : CoeDep TypeConst object Typing := ⟨.object⟩
 public instance : ToTypeExpr object := ⟨object⟩
 
 /-- Any Python object. That is, an instance of {lit}`object`. -/
@@ -84,16 +84,16 @@ end PyObjectView
 A special indicator signifying any acceptable value.
 This is analgous to Python's [{lit}`Any`][1].
 
-As a type predicate, this is propositionally equivalent to {lean}`object`,
+As a typing, this is propositionally equivalent to {lean}`object`,
 but it has different type class instances.
 
 [1]: https://typing.python.org/en/latest/spec/special-types.html#any
 -/
-@[irreducible] public def TypePred.any : TypePred := .object
+@[irreducible] public def Typing.any : Typing := .object
 
-export TypePred (any)
+export Typing (any)
 
-@[simp, grind =] public theorem TypePred.any_eq_object : any = object := by
+@[simp, grind =] public theorem Typing.any_eq_object : any = object := by
   unfold any; rfl
 
 public instance : DecidablePy any := fun _ => isTrue (by simp)
@@ -157,8 +157,8 @@ public def cast (ty : TypeExpr) (self : Py.Raw) : Py.Raw :=
 end Py.Raw
 
 open Internal in
-/-- Type predicate for objects weakly typed as {lean}`ty`. -/
-public def typeHint (ty : TypeExpr) : TypePred :=
+/-- The typing for objects weakly typed as {lean}`ty`. -/
+public def typeHint (ty : TypeExpr) : Typing :=
   .ofFn (·.toModel.hint = ty)
 
 public instance : ToTypeExpr (typeHint ty) := ⟨ty⟩
@@ -186,7 +186,7 @@ The abstract base class [{lit}`Buffer`][1].
 @[inline, irreducible, expose] public def buffer : TypeConst :=
   ⟨"Buffer"⟩
 
-public instance : CoeDep TypeConst buffer TypePred := ⟨typeHint buffer⟩
+public instance : CoeDep TypeConst buffer Typing := ⟨typeHint buffer⟩
 public instance : ToTypeExpr buffer := ⟨buffer⟩
 
 /--
@@ -249,30 +249,30 @@ noncomputable def Py.Raw.ofKind (k : Py.Kind) : Py.Raw :=
   .ofModel {Classical.ofNonempty (α := Py.Model) with kind := k}
 
 open Internal in
-def TypePred.kind (k : Py.Kind) : TypePred :=
+def Typing.kind (k : Py.Kind) : Typing :=
   .ofFn (·.toModel.kind = k)
 
 @[simp, grind .] theorem Py.Raw.ofKind_mem_kind :
-  Py.Raw.ofKind k ∈ TypePred.kind k
-:= by simp [TypePred.kind, Py.Raw.ofKind]
+  Py.Raw.ofKind k ∈ Typing.kind k
+:= by simp [Typing.kind, Py.Raw.ofKind]
 
 @[simp] theorem Py.Raw.cast_mem_kind_iff :
-   o.cast ty ∈ TypePred.kind k ↔ o ∈ TypePred.kind k
-:= by simp [Py.Raw.cast, TypePred.kind]
+   o.cast ty ∈ Typing.kind k ↔ o ∈ Typing.kind k
+:= by simp [Py.Raw.cast, Typing.kind]
 
-noncomputable instance : Decidable (self ∈ TypePred.kind k) :=
+noncomputable instance : Decidable (self ∈ Typing.kind k) :=
   Classical.propDecidable _
 
 open Internal in
 noncomputable def Py.Raw.isOfKind (k : Py.Kind) (self : @& Py.Raw) : Bool :=
-  self ∈ TypePred.kind k
+  self ∈ Typing.kind k
 
 open Classical in
 theorem Py.Raw.isOfKind_iff_mem :
-  isOfKind k o ↔ o ∈ TypePred.kind k
+  isOfKind k o ↔ o ∈ Typing.kind k
 := Iff.intro of_decide_eq_true decide_eq_true
 
-theorem TypePred.Mem.of_isOfKind (h : o.isOfKind k)  : o ∈ kind k :=
+theorem Typing.Mem.of_isOfKind (h : o.isOfKind k)  : o ∈ kind k :=
   Py.Raw.isOfKind_iff_mem.mp h
 
 theorem NonemptyPy.of_kind : NonemptyPy (.kind k) :=
@@ -288,10 +288,10 @@ The ultimate base class of Python types, [{lit}`type`][1].
 @[inline, irreducible, expose] public def type : TypeConst :=
   ⟨"Buffer"⟩
 
-public protected def TypePred.type : TypePred :=
+public protected def Typing.type : Typing :=
   .kind .type
 
-public instance : CoeDep TypeConst type TypePred := ⟨.type⟩
+public instance : CoeDep TypeConst type Typing := ⟨.type⟩
 public instance : NonemptyPy type := .of_kind
 public instance : ToTypeExpr type := ⟨type⟩
 
@@ -323,10 +323,10 @@ The ultimate base class of Python excpetions, [{lit}`BaseException`][1].
 @[inline, irreducible, expose] public def baseException : TypeConst :=
   ⟨"BaseException"⟩
 
-public protected def TypePred.baseException : TypePred :=
+public protected def Typing.baseException : Typing :=
   .kind .baseException
 
-public instance : CoeDep TypeConst baseException TypePred := ⟨.baseException⟩
+public instance : CoeDep TypeConst baseException Typing := ⟨.baseException⟩
 public instance : ToTypeExpr baseException := ⟨baseException⟩
 public instance : NonemptyPy baseException := .of_kind
 
@@ -361,7 +361,7 @@ public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .baseException
 
 @[grind _=_] public theorem PyObject.isBaseExceptionInstance_iff_mem :
-  PyObject.isBaseExceptionInstance o ↔ o.raw ∈ TypePred.baseException
+  PyObject.isBaseExceptionInstance o ↔ o.raw ∈ Typing.baseException
 := Py.Raw.isOfKind_iff_mem
 
 public instance : DecidablePy baseException :=
@@ -380,10 +380,10 @@ The Python string type, [{lit}`str`][1].
 @[inline, irreducible, expose] public def str : TypeConst :=
   ⟨"str"⟩
 
-public protected def TypePred.str : TypePred :=
+public protected def Typing.str : Typing :=
   .kind .str
 
-public instance : CoeDep TypeConst str TypePred := ⟨.str⟩
+public instance : CoeDep TypeConst str Typing := ⟨.str⟩
 public instance : NonemptyPy str := .of_kind
 public instance : ToTypeExpr str := ⟨str⟩
 
@@ -396,7 +396,7 @@ public def PyObject.isStrInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .str
 
 @[grind _=_] public theorem PyObject.isStrInstance_iff_mem :
-  PyObject.isStrInstance o ↔ o.raw ∈ TypePred.str
+  PyObject.isStrInstance o ↔ o.raw ∈ Typing.str
 := Py.Raw.isOfKind_iff_mem
 
 public instance : DecidablePy str :=
@@ -415,10 +415,10 @@ The immutable Python byte array type, [{lit}`bytes`][1].
 @[inline, irreducible, expose] public def bytes : TypeConst :=
   ⟨"bytes"⟩
 
-public protected def TypePred.bytes : TypePred :=
+public protected def Typing.bytes : Typing :=
   .kind .bytes
 
-public instance : CoeDep TypeConst bytes TypePred := ⟨.bytes⟩
+public instance : CoeDep TypeConst bytes Typing := ⟨.bytes⟩
 public instance : NonemptyPy bytes := .of_kind
 public instance : ToTypeExpr bytes := ⟨bytes⟩
 
@@ -431,7 +431,7 @@ public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .bytes
 
 @[grind _=_] public theorem PyObject.isBytesInstance_iff_mem :
-  PyObject.isBytesInstance o ↔ o.raw ∈ TypePred.bytes
+  PyObject.isBytesInstance o ↔ o.raw ∈ Typing.bytes
 := Py.Raw.isOfKind_iff_mem
 
 public instance : DecidablePy bytes :=
@@ -450,10 +450,10 @@ The Python integer type, [{lit}`int`][1].
 @[inline, irreducible, expose] public def int : TypeConst :=
   ⟨"int"⟩
 
-public protected def TypePred.int : TypePred :=
+public protected def Typing.int : Typing :=
   .kind .int
 
-public instance : CoeDep TypeConst int TypePred := ⟨.int⟩
+public instance : CoeDep TypeConst int Typing := ⟨.int⟩
 public instance : NonemptyPy int := .of_kind
 public instance : ToTypeExpr int := ⟨int⟩
 
@@ -466,7 +466,7 @@ public def PyObject.isIntInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .int
 
 @[grind _=_] public theorem PyObject.isIntInstance_iff_mem :
-  PyObject.isIntInstance o ↔ o.raw ∈ TypePred.int
+  PyObject.isIntInstance o ↔ o.raw ∈ Typing.int
 := Py.Raw.isOfKind_iff_mem
 
 public instance : DecidablePy int :=
@@ -485,10 +485,10 @@ The ultimate base class of Python modules, [{lit}`types.ModuleType`][1].
 @[inline, irreducible, expose] public def moduleType : TypeConst :=
   ⟨"ModuleType"⟩
 
-public protected def TypePred.moduleType : TypePred :=
+public protected def Typing.moduleType : Typing :=
   .kind .module
 
-public instance : CoeDep TypeConst moduleType TypePred := ⟨.moduleType⟩
+public instance : CoeDep TypeConst moduleType Typing := ⟨.moduleType⟩
 public instance : ToTypeExpr moduleType := ⟨moduleType⟩
 public instance : NonemptyPy moduleType := .of_kind
 
@@ -501,7 +501,7 @@ public def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .module
 
 @[grind _=_] public theorem PyObject.isModuleInstance_iff_mem :
-  PyObject.isModuleInstance o ↔ o.raw ∈ TypePred.moduleType
+  PyObject.isModuleInstance o ↔ o.raw ∈ Typing.moduleType
 := Py.Raw.isOfKind_iff_mem
 
 public instance : DecidablePy moduleType :=
@@ -518,15 +518,15 @@ many of its subtypes (e.g., an object can be retyped to/from {lit}`Exception`).
 As such, instances of these subtypes are weakly typed.
 -/
 
-open TypePred in
+open Typing in
 public instance : NonemptyPy (baseException ∩ typeHint ty) :=
   .intro (.cast ty (.ofKind .baseException)) <| by
-    simp [mem_inter_iff_and, TypePred.baseException]
+    simp [mem_inter_iff_and, Typing.baseException]
 
 public instance : ToTypeExpr (.baseException ∩ (typeHint ty)) := ⟨ty⟩
 
-/-- Type predicate for a {lit}`BaseException` weakly typed as {lean}`ty`. -/
-public def exceptHint (ty : TypeConst) : TypePred :=
+/-- The typing for a {lit}`BaseException` weakly typed as {lean}`ty`. -/
+public def exceptHint (ty : TypeConst) : Typing :=
   baseException ∩ typeHint ty
   deriving NonemptyPy, IsSubtypeOf baseException, IsSubtypeOf (typeHint ty)
 
@@ -540,7 +540,7 @@ The base class of non-exiting Python exceptions, [{lit}`Exception`][1].
 @[inline, irreducible, expose] public def exception : TypeConst :=
   ⟨"Exception"⟩
 
-public instance : CoeDep TypeConst exception TypePred := ⟨exceptHint exception⟩
+public instance : CoeDep TypeConst exception Typing := ⟨exceptHint exception⟩
 public instance : ToTypeExpr exception := ⟨exception⟩
 
 /-- A weakly typed instance of {lit}`Exception`. -/
@@ -556,7 +556,7 @@ The Python end-of-file exception, [{lit}`EOFError`][1].
 @[inline, irreducible, expose] public def eofError : TypeConst :=
   ⟨"EOFError"⟩
 
-public instance : CoeDep TypeConst eofError TypePred := ⟨exceptHint eofError⟩
+public instance : CoeDep TypeConst eofError Typing := ⟨exceptHint eofError⟩
 public instance : ToTypeExpr eofError := ⟨eofError⟩
 
 /-- A weakly typed instance of {lit}`EOFError`. -/
@@ -572,7 +572,7 @@ The type of internal Python errors, [{lit}`SystemError`][1].
 @[inline, irreducible, expose] public def systemError : TypeConst :=
   ⟨"SystemError"⟩
 
-public instance : CoeDep TypeConst systemError TypePred := ⟨exceptHint systemError⟩
+public instance : CoeDep TypeConst systemError Typing := ⟨exceptHint systemError⟩
 public instance : ToTypeExpr systemError := ⟨systemError⟩
 
 /-- A weakly typed instance of {lit}`SystemError`. -/
@@ -588,7 +588,7 @@ The Python typing exception, [{lit}`TypeError`][1].
 @[inline, irreducible, expose] public def typeError : TypeConst :=
   ⟨"TypeError"⟩
 
-public instance : CoeDep TypeConst typeError TypePred := ⟨exceptHint typeError⟩
+public instance : CoeDep TypeConst typeError Typing := ⟨exceptHint typeError⟩
 public instance : ToTypeExpr typeError := ⟨typeError⟩
 
 /-- A weakly typed instance of {lit}`TypeError`. -/

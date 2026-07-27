@@ -7,18 +7,25 @@ module
 public import Nerodia.Data.TypeExpr
 public import Nerodia.Data.Py.Raw.Type
 
-/-! # Type Predicate -/
+/-! # Typings -/
 
 namespace Nerodia
 
 /--
- A Neordia type predicate.
+A typing predicate for Puthon objects.
 
-**API Caveat:** The definition of {name}`TypePred` is not part of Nerodia's
+This is the propositional equivalent of a Python type expression.
+However, it can express more complex types (e.g., intersections) than Python's
+base type system and is thus closer in power to the type system of Python's
+more advanced type checkers (e.g., [{lit}`ty`][1]).
+
+[1]: https://github.com/astral-sh/ty
+
+**API Caveat:** The definition of {name}`Typing` is not part of Nerodia's
 public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
-public def TypePred : Type :=
+public def Typing : Type :=
   Py.Raw → Prop
 
 /--
@@ -28,59 +35,60 @@ This class is used by the Nerodia compiler to generate Python type annotations.
 For this to work, all instances must be publicly reducible to {lean}`String`.
 Thus, definitions they use must be marked {attr}`@[expose]`.
 -/
-public class ToTypeExpr (T : TypePred) where
+public class ToTypeExpr (T : Typing) where
   toTypeExpr : TypeExpr
 
-namespace TypePred
+namespace Typing
 
-unseal TypePred in
-public def ofFn (p : Py.Raw → Prop) : TypePred :=
+export ToTypeExpr (toTypeExpr)
+
+unseal Typing in
+public def ofFn (p : Py.Raw → Prop) : Typing :=
   p
 
-unseal TypePred in
-public def Mem (T : TypePred) (o : Py.Raw) : Prop :=
+unseal Typing in
+public def Mem (T : Typing) (o : Py.Raw) : Prop :=
   T o
 
-public instance : Membership Py.Raw TypePred := ⟨Mem⟩
+public instance : Membership Py.Raw Typing := ⟨Mem⟩
 
-unseal TypePred in
+unseal Typing in
 @[simp, grind =] public theorem mem_ofFn_iff :
   o ∈ ofFn p ↔ p o
 := Iff.intro id id
 
-unseal TypePred in
+unseal Typing in
 @[ext, grind ext] public theorem ext
-  {T U : TypePred} (h : ∀ o, o ∈ T ↔ o ∈ U) : T = U
+  {T U : Typing} (h : ∀ o, o ∈ T ↔ o ∈ U) : T = U
 := funext fun o => propext (h o)
 
-public protected def union (T : TypePred) (U : TypePred) : TypePred :=
+public protected def union (T : Typing) (U : Typing) : Typing :=
   ofFn fun o => o ∈ T ∨ o ∈ U
 
-public instance : Union TypePred := ⟨TypePred.union⟩
+public instance : Union Typing := ⟨Typing.union⟩
 
 /--
-Constructs the union of two type predicates.
+Constructs the union of two typings.
 Written as {lean}`T ∪ U`. Equivalent to the Python `T | U`.
 -/
-add_decl_doc TypePred.union
+add_decl_doc Typing.union
 
-@[grind =] public theorem mem_union_iff_or {T U : TypePred} :
+@[grind =] public theorem mem_union_iff_or {T U : Typing} :
   o ∈ T ∪ U ↔ o ∈ T ∨ o ∈ U
-:= by simp only [Union.union, TypePred.union, mem_ofFn_iff]
+:= by simp only [Union.union, Typing.union, mem_ofFn_iff]
 
 public theorem Mem.union_left
-  {T U : TypePred} (h : o ∈ T) : o ∈ T ∪ U
+  {T U : Typing} (h : o ∈ T) : o ∈ T ∪ U
 := mem_union_iff_or.mpr <| .inl h
 
 public theorem Mem.union_right
-  {T U : TypePred} (h : o ∈ U) : o ∈ T ∪ U
+  {T U : Typing} (h : o ∈ U) : o ∈ T ∪ U
 := mem_union_iff_or.mpr <| .inr h
 
-/-- Constructs the union of two type predicates. Equivalent to the Python `T | U`. -/
-public protected def inter (T : TypePred) (U : TypePred) : TypePred :=
+public protected def inter (T : Typing) (U : Typing) : Typing :=
   ofFn fun o => o ∈ T ∧ o ∈ U
 
-public instance : Inter TypePred := ⟨TypePred.inter⟩
+public instance : Inter Typing := ⟨Typing.inter⟩
 
 /--
 Constructs the intersection of two type predicates. Written as {lean}`T ∩ U`.
@@ -90,51 +98,51 @@ as {lit}`T & U` / {lit}`Intersection[T, U]`.
 
 [1]: https://docs.astral.sh/ty/features/type-system/#intersection-types
 -/
-add_decl_doc TypePred.inter
+add_decl_doc Typing.inter
 
-@[grind =] public theorem mem_inter_iff_and {T U : TypePred} :
+@[grind =] public theorem mem_inter_iff_and {T U : Typing} :
   o ∈ T ∩ U ↔ o ∈ T ∧ o ∈ U
-:= by simp only [Inter.inter, TypePred.inter, mem_ofFn_iff]
+:= by simp only [Inter.inter, Typing.inter, mem_ofFn_iff]
 
 public nonrec theorem Mem.left
-  {T U : TypePred} (h : o ∈ T ∩ U) : o ∈ T
+  {T U : Typing} (h : o ∈ T ∩ U) : o ∈ T
 := mem_inter_iff_and.mp h |>.left
 
 public nonrec theorem Mem.right
-  {T U : TypePred} (h : o ∈ T ∩ U) : o ∈ U
+  {T U : Typing} (h : o ∈ T ∩ U) : o ∈ U
 := mem_inter_iff_and.mp h |>.right
 
-public def Subset (T : TypePred) (U : TypePred) : Prop :=
+public def Subset (T : Typing) (U : Typing) : Prop :=
   ∀ o, o ∈ T → o ∈ U
 
-public instance : HasSubset TypePred := ⟨Subset⟩
+public instance : HasSubset Typing := ⟨Subset⟩
 
-@[grind =] public theorem subset_iff_forall {T U : TypePred} :
+@[grind =] public theorem subset_iff_forall {T U : Typing} :
   T ⊆ U ↔ ∀ o, o ∈ T → o ∈ U
 := Iff.intro id id
 
 public theorem Subset.mem_of_mem
-  {T U : TypePred} (h : T ⊆ U) (ho : o ∈ T)
+  {T U : Typing} (h : T ⊆ U) (ho : o ∈ T)
 : o ∈ U := subset_iff_forall.mp h o ho
 
-public theorem Subset.refl (T : TypePred) : T ⊆ T :=
+public theorem Subset.refl (T : Typing) : T ⊆ T :=
   subset_iff_forall.mpr fun _ => id
 
-public theorem Subset.rfl {T : TypePred} : T ⊆ T :=
+public theorem Subset.rfl {T : Typing} : T ⊆ T :=
   .refl T
 
-public theorem Subset.inter_left {T U : TypePred} : T ∩ U ⊆ T :=
+public theorem Subset.inter_left {T U : Typing} : T ∩ U ⊆ T :=
   subset_iff_forall.mpr fun _ h => h.left
 
-public theorem Subset.inter_right {T U : TypePred} : T ∩ U ⊆ U :=
+public theorem Subset.inter_right {T U : Typing} : T ∩ U ⊆ U :=
   subset_iff_forall.mpr fun _ h => h.right
 
-/-- Python {lit}`object`. The top (⊤) element of type predicates. -/
-public def object : TypePred :=
+/-- Python {lit}`object`. The top (⊤) element of the set of typings. -/
+public def object : Typing :=
   ofFn fun _ => True
 
 @[simp, grind .] public theorem Mem.object : o ∈ object := by
-  simp only [TypePred.object, mem_ofFn_iff]
+  simp only [Typing.object, mem_ofFn_iff]
 
 -- the below are `@[simp]` only because grind already handles them
 
@@ -142,19 +150,19 @@ public def object : TypePred :=
   subset_iff_forall.mpr fun _ _ => .object
 
 @[simp] public theorem union_object : T ∪ object = object := by
-  simp [TypePred.ext_iff, mem_union_iff_or]
+  simp [Typing.ext_iff, mem_union_iff_or]
 
 @[simp] public theorem object_union : object ∪ T = object := by
-  simp [TypePred.ext_iff, mem_union_iff_or]
+  simp [Typing.ext_iff, mem_union_iff_or]
 
 @[simp] public theorem inter_object : T ∩ object = T := by
-  simp [TypePred.ext_iff, mem_inter_iff_and]
+  simp [Typing.ext_iff, mem_inter_iff_and]
 
 @[simp] public theorem object_inter : object ∩ T = T := by
-  simp [TypePred.ext_iff, mem_inter_iff_and]
+  simp [Typing.ext_iff, mem_inter_iff_and]
 
-/-- Python {lit}`Never`. The bottom (⊥) element of type predicates. -/
-public def never : TypePred :=
+/-- Python {lit}`Never`. The bottom (⊥) element of the set of typings. -/
+public def never : Typing :=
   ofFn fun _ => False
 
 @[simp, grind .] public theorem not_mem_never : ¬ o ∈ never := by
@@ -166,23 +174,23 @@ public def never : TypePred :=
   subset_iff_forall.mpr fun _ => not_mem_never.elim
 
 @[simp] public theorem union_never : T ∪ never = T := by
-  simp [TypePred.ext_iff, mem_union_iff_or]
+  simp [Typing.ext_iff, mem_union_iff_or]
 
 @[simp] public theorem never_union : never ∪ T = T := by
-  simp [TypePred.ext_iff, mem_union_iff_or]
+  simp [Typing.ext_iff, mem_union_iff_or]
 
 @[simp] public theorem inter_never : T ∩ never = never := by
-  simp [TypePred.ext_iff, mem_inter_iff_and]
+  simp [Typing.ext_iff, mem_inter_iff_and]
 
 @[simp] public theorem never_inter : never ∩ T = never := by
-  simp [TypePred.ext_iff, mem_inter_iff_and]
+  simp [Typing.ext_iff, mem_inter_iff_and]
 
-end TypePred
+end Typing
 
 /-! ## IsSubtypeOf -/
 
-/-- Type class used to iautomatically infer supertypes. -/
-public class IsSubtypeOf (T U : TypePred) : Prop where
+/-- Type class used to automatically infer supertypes. -/
+public class IsSubtypeOf (T U : Typing) : Prop where
   infer_subtype : U ⊆ T
 
 export IsSubtypeOf (infer_subtype)

@@ -19,5 +19,5 @@ This class is used by the by the Nerodia compiler attribute
 namespace Nerodia
 
 /-- Type class used to construct a Lean object from a Python function argument. -/
-public class OfPyArg (α : Type) (T : outParam TypePred) where
+public class OfPyArg (α : Type) (T : outParam Typing) where
   ofPyArg (fn : String) (i : Nat) (arg : PyObject) : PyIO α

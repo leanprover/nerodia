@@ -80,7 +80,7 @@ def mkPyResultCore
   (className mkName : Name) (ty : Expr) (x : Expr)
 : MetaM (Expr × Option String) := do
   let u ← getDecLevel ty
-  let predTy := mkConst `Nerodia.TypePred
+  let predTy := mkConst `Nerodia.Typing
   let predExpr ← mkFreshExprMVar (some predTy)
   let predInst ← synthInstance (mkApp2 (mkConst className [u]) ty predExpr)
   let predExpr ← instantiateMVars predExpr
@@ -98,7 +98,7 @@ def mkArgCore
   (fnName : Name)
   (fn : Expr) (i : Expr) (ty : Expr) (arg : Expr)
 : MetaM (Expr × Option String) := do
-  let predTy := mkConst `Nerodia.TypePred
+  let predTy := mkConst `Nerodia.Typing
   let predExpr ← mkFreshExprMVar (some predTy)
   let inst ← synthInstance (mkApp2 (mkConst `Nerodia.OfPyArg) ty predExpr)
   let x := mkApp6 (mkConst fnName) ty predExpr inst fn i arg

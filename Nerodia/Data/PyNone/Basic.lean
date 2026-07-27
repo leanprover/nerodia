@@ -22,14 +22,14 @@ noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : Py.Raw :=
   .ofModel {env, addr := env.noneAddr, hint := .none, kind := .other}
 
 open Internal in
-public def TypePred.none : TypePred :=
+public def Typing.none : Typing :=
   ofFn fun o => o = o.toModel.env.noneRaw
 
-public instance : CoeDep (Option α) none TypePred := ⟨.none⟩
+public instance : CoeDep (Option α) none Typing := ⟨.none⟩
 public instance : ToTypeExpr none := ⟨none⟩
 
-theorem PyEnvironment.noneRaw_mem_none {env} : noneRaw env ∈ TypePred.none := by
-  simp [PyEnvironment.noneRaw, TypePred.none]
+theorem PyEnvironment.noneRaw_mem_none {env} : noneRaw env ∈ Typing.none := by
+  simp [PyEnvironment.noneRaw, Typing.none]
 
 open PyEnvironment in
 public instance : NonemptyPy none :=
@@ -50,10 +50,10 @@ open Classical in
 /-- Equivalent to the Python {lit}`self is None`. -/
 @[extern "nerodia_py_object_is_none", view_method]
 public def PyObject.isNone (self : PyObject) : Bool :=
-  @decide (self.raw ∈ TypePred.none) (Classical.propDecidable _)
+  @decide (self.raw ∈ Typing.none) (Classical.propDecidable _)
 
 @[grind _=_]
-public theorem PyObject.isNone_iff_mem : isNone o ↔ o.raw ∈ TypePred.none := by
+public theorem PyObject.isNone_iff_mem : isNone o ↔ o.raw ∈ Typing.none := by
   simp [PyObject.isNone]
 
 public instance : DecidablePy none :=

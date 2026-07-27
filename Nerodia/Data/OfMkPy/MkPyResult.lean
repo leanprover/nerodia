@@ -20,7 +20,7 @@ namespace Nerodia
 /-! ## Type Classes -/
 
 /-- Type class used to construct Python return values from Lean objects. -/
-public class MkPyResult (α : Type u) (T : outParam TypePred) where
+public class MkPyResult (α : Type u) (T : outParam Typing) where
   mkPyResult : α → PyCResultIO (Py T)
 
 /-- Internal function for {lit}`@[py_module_fn]` -/
@@ -33,7 +33,7 @@ Type class used to construct Python return values from Lean objects.
 An optimized version of {lean}`MkPyResult` used when the created Python
 object is directly available via {lean}`CPyIO`.
 -/
-public class MkCPyResult (α : Type u) (T : outParam TypePred) where
+public class MkCPyResult (α : Type u) (T : outParam Typing) where
   mkCPyResult : α → CPyIO (Py T)
 
 /-- Internal function for {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]` -/

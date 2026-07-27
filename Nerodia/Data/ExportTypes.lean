@@ -29,7 +29,7 @@ A raw Python function argument (a borrowed Python object reference).
 This is not managed by Lean. Nerodia handles this within its API, and users are
 not expected to manage {name}`CPyArg` objects manually.
 -/
-public structure CPyArg (T : TypePred := .object) where
+public structure CPyArg (T : Typing := .object) where
   private ofCPtrUnsafe ::
     private toCPtrUnsafe : Internal.CPtr (Py T)
 

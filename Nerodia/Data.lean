@@ -21,5 +21,5 @@ public import Nerodia.Data.PyNone
 public import Nerodia.Data.PyStr
 public import Nerodia.Data.PyType
 public import Nerodia.Data.TypeExpr
-public import Nerodia.Data.TypePred
 public import Nerodia.Data.Types
+public import Nerodia.Data.Typing

@@ -4,7 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
-public import Nerodia.Data.TypePred
+public import Nerodia.Data.Typing
 public import Nerodia.Data.Py.Raw.Type
 
 /-! # Py -/
@@ -12,7 +12,7 @@ public import Nerodia.Data.Py.Raw.Type
 namespace Nerodia
 
 /-- A typed Python object. -/
-public structure Py (T : TypePred) where
+public structure Py (T : Typing) where
   raw : Py.Raw
   raw_mem : raw ∈ T
 
@@ -48,10 +48,10 @@ public instance : IsPy (Py T) := .of_py
 /-! ## DecidablePy -/
 
 /--
-A type predicate {lean}`T` with a {lean}`DecidablePy T` instance has
-a pure type checking function.
+A typing {lean}`T` with a {lean}`DecidablePy T` instance
+has a pure type checking function.
 -/
-public abbrev DecidablePy (T : TypePred) := DecidablePred (· ∈ T)
+public abbrev DecidablePy (T : Typing) := DecidablePred (· ∈ T)
 
 /-! ## NonemptyPy -/
 
@@ -59,7 +59,7 @@ public abbrev DecidablePy (T : TypePred) := DecidablePred (· ∈ T)
 A {lean}`NonemptyPy T` instance provides a proof
 that there exists a Python object of type {lean}`T`.
 -/
-public abbrev NonemptyPy (T : TypePred) := Nonempty (Py T)
+public abbrev NonemptyPy (T : Typing) := Nonempty (Py T)
 
 public theorem NonemptyPy.intro (o : Py.Raw) (h : o ∈ T) : NonemptyPy T :=
   ⟨⟨o, h⟩⟩
@@ -82,10 +82,10 @@ Types which can be trivially converted into Python objects of type {lean}`T`.
 
 This type class is intended to be used to convert between different
 representations of a Python object (e.g., coverting a {lean}`Py T` to a
-{given -show}`U : TypePred` {lean}`Py (T ∩ U)`). It is not meant to be a
+{given -show}`U : Typing` {lean}`Py (T ∩ U)`). It is not meant to be a
 general way to construct Python objects from arbitrary Lean types.
 -/
-public class ToPy (T : TypePred) (α : Type u)  where
+public class ToPy (T : Typing) (α : Type u)  where
   toPy (a : α) : Py T
 
 export ToPy (toPy)
