@@ -514,7 +514,7 @@ This creates a new temporary Python context for the call.
   f (← x.runUnsafe ctx) |>.toBaseIOUnsafe
 
 /-- Constructs a successful {lean}`CPyIO` that returns {lean}`o`. -/
-@[inline] public protected abbrev CPyIO.pure (o : Py T) : CPyIO (Py T) :=
+@[inline] public protected def CPyIO.pure (o : Py T) : CPyIO (Py T) :=
   CPyBaseIO.pure o |>.toCPyIO
 
 open Internal in
@@ -714,7 +714,7 @@ If a Python error occurs, it is raised via {name}`throw`.
 Runs the {lean}`CPyIO` function in a supporting monad
 If a Python error occurs, it is set as the exception.
 -/
-public abbrev toExceptT
+@[inline] public def toExceptT
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
 : ExceptT PyBaseException m α := x.toM
 
@@ -752,7 +752,7 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
 Runs the {lean}`CPyIO` function in a supporting monad
 If a Python error occurs, it is cleared and {lean}`none` is set.
 -/
-public abbrev toOptionT
+@[inline] public def toOptionT
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
 : OptionT m α := x.toAlternative
 
@@ -760,7 +760,7 @@ public abbrev toOptionT
 Runs the {lean}`CPyIO` function in a supporting monad.
 If a Python error occurs, it is cleared and {lean}`none` is returned.
 -/
-public abbrev toM?
+@[inline] public def toM?
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyIO α)
 : m (Option α) := x.toOptionT.run
 
@@ -796,7 +796,7 @@ If a Python error occurs, it is raised via {name}`throw`.
 Runs the {lean}`CPyUnitIO` function in a supporting monad
 If a Python error occurs, it is set as the exception.
 -/
-public abbrev toExceptT
+@[inline] public def toExceptT
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m] (x : CPyUnitIO)
 : ExceptT PyBaseException m PUnit := x.toM
 

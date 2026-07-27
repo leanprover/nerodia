@@ -10,7 +10,7 @@ meta import Nerodia.ViewMethod
 
 namespace Nerodia
 
-@[inline, expose] public def TypeExpr.none : TypeExpr :=
+@[inline, irreducible, expose] public def TypeExpr.none : TypeExpr :=
   ⟨"None"⟩
 
 public instance : CoeDep (Option α) none TypeExpr := ⟨.none⟩
@@ -40,7 +40,7 @@ The type of the Python {lit}`None` constant, [{lit}`types.NoneType`][1].
 
 [1]: https://docs.python.org/3/library/types.html#types.NoneType
 -/
-@[inline, expose] public def noneType : TypeConst :=
+@[inline, irreducible, expose] public def noneType : TypeConst :=
   ⟨"NoneType"⟩
 
 /-- A Python {lit}`None` constant. -/

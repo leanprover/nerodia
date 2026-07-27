@@ -72,7 +72,7 @@ def mkHint (p : Expr) : MetaM (Option String) := do
   if let .some inst := inst? then
     let hintExpr := mkApp2 (mkConst `Nerodia.ToTypeExpr.toTypeExpr) p inst
     let hintExpr := mkApp (mkConst `Nerodia.TypeExpr.toString) hintExpr
-    return some (← reduceEval hintExpr)
+    return some (← withTransparency .all <| reduceEval hintExpr)
   else
     return none
 

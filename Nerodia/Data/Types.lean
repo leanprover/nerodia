@@ -20,7 +20,7 @@ The ultimate Python base class, [{lit}`object`][1].
 
 [1]: https://docs.python.org/3/library/functions.html#object
 -/
-@[inline, expose] public def object : TypeConst :=
+@[inline, irreducible, expose] public def object : TypeConst :=
   ⟨"object"⟩
 
 public instance : CoeDep TypeConst object TypePred := ⟨.object⟩
@@ -168,7 +168,7 @@ The abstract base class [{lit}`Buffer`][1].
 
 [1]: https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer
 -/
-@[inline, expose] public def buffer : TypeConst :=
+@[inline, irreducible, expose] public def buffer : TypeConst :=
   ⟨"Buffer"⟩
 
 public instance : CoeDep TypeConst buffer TypePred := ⟨typeHint buffer⟩
@@ -270,7 +270,7 @@ The ultimate base class of Python types, [{lit}`type`][1].
 
 [1]: https://docs.python.org/3/library/functions.html#type
 -/
-@[inline, expose] public def type : TypeConst :=
+@[inline, irreducible, expose] public def type : TypeConst :=
   ⟨"Buffer"⟩
 
 public protected def TypePred.type : TypePred :=
@@ -305,7 +305,7 @@ The ultimate base class of Python excpetions, [{lit}`BaseException`][1].
 
 [1]: https://docs.python.org/3/library/exceptions.html#BaseException
 -/
-@[inline, expose] public def baseException : TypeConst :=
+@[inline, irreducible, expose] public def baseException : TypeConst :=
   ⟨"BaseException"⟩
 
 public protected def TypePred.baseException : TypePred :=
@@ -359,7 +359,7 @@ The Python string type, [{lit}`str`][1].
 
 [1]: https://docs.python.org/3/library/stdtypes.html#str
 -/
-@[inline, expose] public def str : TypeConst :=
+@[inline, irreducible, expose] public def str : TypeConst :=
   ⟨"str"⟩
 
 public protected def TypePred.str : TypePred :=
@@ -387,7 +387,7 @@ The immutable Python byte array type, [{lit}`bytes`][1].
 
 [1]: https://docs.python.org/3/library/stdtypes.html#bytes
 -/
-@[inline, expose] public def bytes : TypeConst :=
+@[inline, irreducible, expose] public def bytes : TypeConst :=
   ⟨"bytes"⟩
 
 public protected def TypePred.bytes : TypePred :=
@@ -415,7 +415,7 @@ The Python integer type, [{lit}`int`][1].
 
 [1]: https://docs.python.org/3/library/functions.html#int
 -/
-@[inline, expose] public def int : TypeConst :=
+@[inline, irreducible, expose] public def int : TypeConst :=
   ⟨"int"⟩
 
 public protected def TypePred.int : TypePred :=
@@ -443,7 +443,7 @@ The ultimate base class of Python modules, [{lit}`types.ModuleType`][1].
 
 [1]: https://docs.python.org/3/library/types.html#types.ModuleType
 -/
-@[inline, expose] public def moduleType : TypeConst :=
+@[inline, irreducible, expose] public def moduleType : TypeConst :=
   ⟨"ModuleType"⟩
 
 public protected def TypePred.moduleType : TypePred :=
@@ -491,7 +491,7 @@ The base class of non-exiting Python exceptions, [{lit}`Exception`][1].
 
 [1]: https://docs.python.org/3/library/exceptions.html#Exception
 -/
-@[inline, expose] public def exception : TypeConst :=
+@[inline, irreducible, expose] public def exception : TypeConst :=
   ⟨"Exception"⟩
 
 public instance : CoeDep TypeConst exception TypePred := ⟨exceptHint exception⟩
@@ -507,7 +507,7 @@ The Python end-of-file exception, [{lit}`EOFError`][1].
 
 [1]: https://docs.python.org/3/library/exceptions.html#EOFError
 -/
-@[inline, expose] public def eofError : TypeConst :=
+@[inline, irreducible, expose] public def eofError : TypeConst :=
   ⟨"EOFError"⟩
 
 public instance : CoeDep TypeConst eofError TypePred := ⟨exceptHint eofError⟩
@@ -523,7 +523,7 @@ The type of internal Python errors, [{lit}`SystemError`][1].
 
 [1]: https://docs.python.org/3/library/exceptions#SystemError
 -/
-@[inline, expose] public def systemError : TypeConst :=
+@[inline, irreducible, expose] public def systemError : TypeConst :=
   ⟨"SystemError"⟩
 
 public instance : CoeDep TypeConst systemError TypePred := ⟨exceptHint systemError⟩
@@ -539,7 +539,7 @@ The Python typing exception, [{lit}`TypeError`][1].
 
 [1]: https://docs.python.org/3/library/exceptions#TypeError
 -/
-@[inline, expose] public def typeError : TypeConst :=
+@[inline, irreducible, expose] public def typeError : TypeConst :=
   ⟨"TypeError"⟩
 
 public instance : CoeDep TypeConst typeError TypePred := ⟨exceptHint typeError⟩

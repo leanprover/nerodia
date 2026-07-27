@@ -25,7 +25,7 @@ namespace TypeExpr
 
 public instance : ToString TypeExpr := ⟨TypeExpr.toString⟩
 
-@[inline, expose] public def ofTypeConst (n : TypeConst) : TypeExpr :=
+@[inline, irreducible, expose] public def ofTypeConst (n : TypeConst) : TypeExpr :=
   ⟨n.toString⟩
 
 public instance : Coe TypeConst TypeExpr := ⟨ofTypeConst⟩

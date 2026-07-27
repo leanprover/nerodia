@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
+meta import Lean
 
 /-! # Pointer Addresses -/
 
@@ -23,14 +24,19 @@ namespace NullableAddr
 @[inline] public protected def null : NullableAddr :=
   ⟨0⟩ -- `NULL = 0` on Lean-supported platforms
 
-public instance : Inhabited NullableAddr := ⟨NullableAddr.null⟩
+public instance : Inhabited NullableAddr := ⟨.null⟩
 
-public abbrev IsNull (self : NullableAddr) : Prop :=
-  self = NullableAddr.null
+public def IsNull (self : NullableAddr) : Prop :=
+  self = .null
 
-@[simp] public theorem isNull_null : IsNull NullableAddr.null := by rfl
+@[inline] public instance : DecidablePred IsNull :=
+  private_decl% fun addr => by unfold IsNull; infer_instance
 
-public abbrev toNat (self : NullableAddr) : Nat :=
+@[grind .] public theorem IsNull.eq_null (h : IsNull a) : a = .null := h
+
+@[simp, grind .] public theorem isNull_null : IsNull .null := by rfl
+
+@[inline] public def toNat (self : NullableAddr) : Nat :=
   self.toUSize.toNat
 
 end NullableAddr
@@ -57,8 +63,14 @@ public theorem addr_inj : addr a = addr b ↔ a = b := by
 public instance : Inhabited Null := ⟨null⟩
 public instance : Coe Null NullableAddr := ⟨fun _ => NullableAddr.null⟩
 
+@[simp, grind =] public theorem addr_eq_null : addr (n : Null) = null :=
+  n.isNull_addr.eq_null
+
+public theorem eq_null : (n : Null) = null := by
+  simp [← addr_inj]
+
 public instance : Subsingleton Null where
-  allEq a b := by simp [← addr_inj, a.isNull_addr, b.isNull_addr]
+  allEq a b := by simp [eq_null]
 
 end Null
 
@@ -75,7 +87,7 @@ public structure Addr extends NullableAddr where
 namespace Addr
 
 public instance : Nonempty Addr :=
-  ⟨⟨⟨1⟩, by simp [NullableAddr.null, ← USize.toNat_inj]⟩⟩
+  ⟨⟨⟨1⟩, by simp [NullableAddr.null, ← USize.toNat_inj, NullableAddr.IsNull]⟩⟩
 
 public instance : Coe Addr NullableAddr := ⟨toNullableAddr⟩
 

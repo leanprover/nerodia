@@ -52,7 +52,8 @@ public instance : Inhabited (NullableCPtr α) := ⟨null⟩
 public abbrev IsNull (self : NullableCPtr α) : Prop :=
   self.nullableAddr.IsNull
 
-@[simp, grind .] public theorem isNull_null : IsNull (α := α) null := by rfl
+@[simp, grind .] public theorem isNull_null : IsNull (α := α) null :=
+  NullableAddr.isNull_null
 
 public theorem nonempty_of_not_isNull
   {p : NullableCPtr α} (h : ¬ IsNull p) : Nonempty α

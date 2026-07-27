@@ -50,5 +50,5 @@ Returns the UTF-8-encoded value of the string as bytes.
 This is equivalent to {lean}`self.encode .utf8 .strict` but more efficient.
 -/
 @[extern "nerodia_py_str_encode_utf8"]
-public abbrev encodeUTF8 (self : @& PyStr) : CPyIO PyBytes :=
+public def encodeUTF8 (self : @& PyStr) : CPyIO PyBytes :=
   self.encode .utf8 .strict

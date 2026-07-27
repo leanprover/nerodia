@@ -30,12 +30,12 @@ what languages they support.
 [1]: https://docs.python.org/3/library/codecs.html#standard-encodings
 -/
 
-public abbrev ascii : CodecEncoding := ⟨"ascii"⟩
-public abbrev latin1 : CodecEncoding := ⟨"latin_1"⟩
-public abbrev utf8 : CodecEncoding := ⟨"utf-8"⟩
-public abbrev utf16 : CodecEncoding := ⟨"utf-16"⟩
-public abbrev utf16LE : CodecEncoding := ⟨"utf-16-le"⟩
-public abbrev utf16BE : CodecEncoding := ⟨"utf-16-be"⟩
-public abbrev utf32 : CodecEncoding := ⟨"utf-32"⟩
-public abbrev utf32LE : CodecEncoding := ⟨"utf-32-le"⟩
-public abbrev utf32BE : CodecEncoding := ⟨"utf-32-be"⟩
+@[inline] public def ascii : CodecEncoding := ⟨"ascii"⟩
+@[inline] public def latin1 : CodecEncoding := ⟨"latin_1"⟩
+@[inline] public def utf8 : CodecEncoding := ⟨"utf-8"⟩
+@[inline] public def utf16 : CodecEncoding := ⟨"utf-16"⟩
+@[inline] public def utf16LE : CodecEncoding := ⟨"utf-16-le"⟩
+@[inline] public def utf16BE : CodecEncoding := ⟨"utf-16-be"⟩
+@[inline] public def utf32 : CodecEncoding := ⟨"utf-32"⟩
+@[inline] public def utf32LE : CodecEncoding := ⟨"utf-32-le"⟩
+@[inline] public def utf32BE : CodecEncoding := ⟨"utf-32-be"⟩
