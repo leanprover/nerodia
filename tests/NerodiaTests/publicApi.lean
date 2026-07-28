@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (350)
+# Constants (355)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -267,6 +267,7 @@ Nerodia.PyType (type abbrev)
 Nerodia.PyType.getQualName
 Nerodia.PyType.mk
 Nerodia.PyTypeError (type abbrev)
+Nerodia.PyValueError (type abbrev)
 Nerodia.ToPy
 Nerodia.ToPy.mk
 Nerodia.ToPy.toPy (proj)
@@ -293,6 +294,7 @@ Nerodia.TypeExpr.systemError (irreducible)
 Nerodia.TypeExpr.toString (proj)
 Nerodia.TypeExpr.type (irreducible)
 Nerodia.TypeExpr.typeError (irreducible)
+Nerodia.TypeExpr.valueError (irreducible)
 Nerodia.Typing (irreducible)
 Nerodia.Typing.Mem
 Nerodia.Typing.Mem.left
@@ -342,6 +344,7 @@ Nerodia.Typing.typeError
 Nerodia.Typing.union
 Nerodia.Typing.union_never
 Nerodia.Typing.union_object
+Nerodia.Typing.valueError
 Nerodia.any
 Nerodia.baseException
 Nerodia.buffer
@@ -353,14 +356,15 @@ Nerodia.getPyNone
 Nerodia.import
 Nerodia.int
 Nerodia.mkPyBytes
-Nerodia.mkPyEOFError
 Nerodia.mkPyInt
+Nerodia.mkPyNat
 Nerodia.mkPyStr
 Nerodia.moduleType
 Nerodia.object
 Nerodia.raise
 Nerodia.raisePyEOFError
 Nerodia.raisePyTypeError
+Nerodia.raisePyValueError
 Nerodia.str
 Nerodia.systemError
 Nerodia.toPy_eq_promote
@@ -368,8 +372,9 @@ Nerodia.toPy_eq_self
 Nerodia.toPy_eq_toPy_raw
 Nerodia.type
 Nerodia.typeError
+Nerodia.valueError
 
-# Instances (163)
+# Instances (172)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -417,12 +422,14 @@ Nerodia.Typing.instIsSubtypeOfBaseExceptionEofError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionException
 Nerodia.Typing.instIsSubtypeOfBaseExceptionSystemError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionTypeError
+Nerodia.Typing.instIsSubtypeOfBaseExceptionValueError
 Nerodia.Typing.instMembershipRaw
 Nerodia.Typing.instNonemptyPyBuffer
 Nerodia.Typing.instNonemptyPyEofError
 Nerodia.Typing.instNonemptyPyException
 Nerodia.Typing.instNonemptyPySystemError
 Nerodia.Typing.instNonemptyPyTypeError
+Nerodia.Typing.instNonemptyPyValueError
 Nerodia.Typing.instUnion
 Nerodia.instCoeDepConstantAnyTyping
 Nerodia.instCoeDepConstantBaseExceptionTyping
@@ -448,6 +455,8 @@ Nerodia.instCoeDepConstantTypeErrorTypeExpr
 Nerodia.instCoeDepConstantTypeErrorTyping
 Nerodia.instCoeDepConstantTypeTypeExpr
 Nerodia.instCoeDepConstantTypeTyping
+Nerodia.instCoeDepConstantValueErrorTypeExpr
+Nerodia.instCoeDepConstantValueErrorTyping
 Nerodia.instCoeDepOptionNoneTypeExpr
 Nerodia.instCoeDepOptionNoneTyping
 Nerodia.instDecidableEqAddr
@@ -475,7 +484,9 @@ Nerodia.instIsSubtypeOf
 Nerodia.instIsSubtypeOfInterTyping
 Nerodia.instIsSubtypeOfInterTyping_1
 Nerodia.instMkCPyResultBaseIO
+Nerodia.instMkCPyResultFinInt
 Nerodia.instMkCPyResultIntInt
+Nerodia.instMkCPyResultNatInt
 Nerodia.instMkCPyResultOfMkPyResult
 Nerodia.instMkCPyResultPUnitNone
 Nerodia.instMkCPyResultPy
@@ -510,7 +521,9 @@ Nerodia.instNonemptyPyType
 Nerodia.instNonemptyPyUnionTyping
 Nerodia.instNonemptyPyUnionTyping_1
 Nerodia.instNonemptyTypeExpr
+Nerodia.instOfPyArgFinInt
 Nerodia.instOfPyArgIntInt
+Nerodia.instOfPyArgNatInt
 Nerodia.instOfPyArgPyAnyAny
 Nerodia.instOfPyArgPyObjectObject
 Nerodia.instOfPyArgPyOfDecidablePyOfToTypeExpr
@@ -533,6 +546,7 @@ Nerodia.instToTypeExprStr
 Nerodia.instToTypeExprSystemError
 Nerodia.instToTypeExprType
 Nerodia.instToTypeExprTypeError
+Nerodia.instToTypeExprValueError
 -/
 #guard_msgs in
 #eval show CoreM Unit from do

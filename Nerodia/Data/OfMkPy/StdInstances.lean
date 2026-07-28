@@ -80,7 +80,7 @@ public instance [MkPyResult α T] : MkPyResult (PyIO α) T where
 
 /-! ## Unit -/
 
-public instance : MkCPyResult PUnit .none where
+public instance : MkCPyResult PUnit none where
   mkCPyResult _ := getPyNone
 
 /-! ## String -/
@@ -96,3 +96,31 @@ public instance : OfPyArg Int int where
   ofPyArg fn i arg := private PyInt.toInt <$> ofPyArg fn i arg
 
 public instance : MkCPyResult Int int := ⟨mkPyInt⟩
+
+/-! ## Nat -/
+
+@[extern "lean_int_to_nat"] -- in `lean.h` but no def in core
+def intToNat (n : Int) (h : 0 ≤ n) : Nat :=
+  n.natAbs
+
+public instance : OfPyArg Nat int where
+  ofPyArg fn i arg := private do
+    let n ← ofPyArg (α := Int) fn i arg
+    if h : n < 0 then
+      raisePyValueError s!"{fn} argument {i} must be a nonnegative integer, got {n}"
+    else
+      return intToNat n (Int.le_of_not_gt h)
+
+public instance : MkCPyResult Nat int := ⟨mkPyNat⟩
+
+/-! ## Fin -/
+
+public instance : OfPyArg (Fin n) int where
+  ofPyArg fn i arg := private do
+    let m ← ofPyArg (α := Nat) fn i arg
+    if h : m < n then
+      return Fin.mk m h
+    else
+      raisePyValueError s!"{fn} argument {i} must be less than {n}, got {m}"
+
+public instance : MkCPyResult (Fin n) int := ⟨(mkPyNat ·)⟩

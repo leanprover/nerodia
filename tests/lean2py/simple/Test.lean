@@ -16,6 +16,10 @@ py_module "testmodule"
 def myAdd (a b : Int) : Int :=
   a + b
 
+@[py_module_fn]
+def addBit (a : Nat) (b : Fin 2) : Nat :=
+  a + b
+
 /-- Return a standard greeting. -/
 @[py_module_fn]
 def greet : String :=

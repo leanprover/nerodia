@@ -15,8 +15,15 @@ opaque mkPyTypeError (msg : @& String) : CPyIO PyTypeError
 @[inline] public def raisePyTypeError (msg : String) : CPyIO α :=
   Internal.raiseNew <| (mkPyTypeError msg).promote
 
+@[extern "nerodia_mk_py_value_error"]
+opaque mkPyValueError (msg : @& String) : CPyIO PyValueError
+
+/-- Raises a {lean}`PyValueError` with the given message {lean}`msg`. -/
+@[inline] public def raisePyValueError (msg : String) : CPyIO α :=
+  Internal.raiseNew <| (mkPyValueError msg).promote
+
 @[extern "nerodia_mk_py_eof_error"]
-public opaque mkPyEOFError : CPyIO PyEOFError
+opaque mkPyEOFError : CPyIO PyEOFError
 
 /-- Raises a {lean}`PyEOFError`. -/
 @[inline] public def raisePyEOFError : CPyIO α :=

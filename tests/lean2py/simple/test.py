@@ -7,7 +7,7 @@ import testmodule
 # TODO: Generate `__all__` automatically from Nerodia and check it
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
 expected = [
-  "greet", "greet2", "greetUser", "greeting",
+  'addBit', "greet", "greet2", "greetUser", "greeting",
   "greeting_for", "my_add", "setUser"
 ]
 assert exports == expected, exports
@@ -16,7 +16,11 @@ assert testmodule.__doc__ == "A Lean-to-Python test module."
 
 assert testmodule.my_add.__doc__ == "Add two integers using Lean."
 
-assert testmodule.my_add(13, 42) == 55
+assert testmodule.my_add(-13, 42) == 29
+
+assert testmodule.addBit.__doc__ is None
+
+assert testmodule.addBit(42, 1) == 43
 
 assert testmodule.greet() == "Hello!"
 
@@ -38,6 +42,23 @@ assert testmodule.greetUser() == "Hello, Bob!"
 
 assert testmodule.setUser.__doc__ == "Sets the current user."
 assert testmodule.greetUser.__doc__ == "Returns a greeting for the current user."
+
+try:
+  testmodule.addBit(-1, 0)
+  raise AssertionError('expected ValueError')
+except ValueError as e:
+  assert str(e) == "testmodule.addBit() argument 1 must be a nonnegative integer, got -1"
+
+try:
+  testmodule.addBit(0, 2)
+  raise AssertionError('expected ValueError')
+except ValueError as e:
+  assert str(e) == "testmodule.addBit() argument 2 must be less than 2, got 2"
+
+try:
+  testmodule.addBit(0, 3)
+except ValueError as e:
+  assert str(e) == "testmodule.addBit() argument 2 must be less than 2, got 3"
 
 try:
   testmodule.greet("a") # type: ignore[ty:too-many-positional-arguments]

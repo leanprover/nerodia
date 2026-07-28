@@ -374,18 +374,27 @@ LEAN_EXPORT size_t nerodia_mk_py_eof_error() {
   return (size_t)PyObject_CallNoArgs(PyExc_EOFError);
 }
 
-/* @& String -> CPyIO PyTypeError */
-LEAN_EXPORT size_t nerodia_mk_py_type_error(b_lean_obj_arg msg) {
-  PyObject* msg_obj = PyUnicode_FromStringAndSize(
+static inline size_t calls(PyObject* err, b_lean_obj_arg msg) {
+   PyObject* msg_obj = PyUnicode_FromStringAndSize(
     lean_string_cstr(msg), lean_string_size(msg)-1);
   if (msg_obj != NULL) {
     PyObject* ex = PyObject_CallFunctionObjArgs(
-      PyExc_TypeError, msg_obj, NULL);
+      err, msg_obj, NULL);
     Py_DECREF(msg_obj);
     return (size_t)ex;
   } else {
     return (size_t)NULL;
   }
+}
+
+/* @& String -> CPyIO PyTypeError */
+LEAN_EXPORT size_t nerodia_mk_py_type_error(b_lean_obj_arg msg) {
+  return calls(PyExc_TypeError, msg);
+}
+
+/* @& String -> CPyIO PyValueError */
+LEAN_EXPORT size_t nerodia_mk_py_value_error(b_lean_obj_arg msg) {
+  return calls(PyExc_ValueError, msg);
 }
 
 LEAN_NORETURN void nerodia_exception_panic(void) {
@@ -612,6 +621,16 @@ size_t nerodia_mk_big_py_int(lean_obj_arg n);
 LEAN_EXPORT size_t nerodia_mk_py_int(b_lean_obj_arg n) {
   if (lean_is_scalar(n)) {
     return (size_t)PyLong_FromInt64(lean_scalar_to_int64(n));
+  } else {
+    lean_inc_ref(n);
+    return nerodia_mk_big_py_int(n);
+  }
+}
+
+/* mkPyNat : Nat -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_nat(b_lean_obj_arg n) {
+  if (lean_is_scalar(n)) {
+    return (size_t)PyLong_FromSize_t(lean_unbox(n));
   } else {
     lean_inc_ref(n);
     return nerodia_mk_big_py_int(n);

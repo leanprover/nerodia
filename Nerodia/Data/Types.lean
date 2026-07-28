@@ -689,3 +689,28 @@ public instance : ToTypeExpr typeError := ⟨typeError⟩
 
 /-- A weakly typed instance of {lit}`TypeError`. -/
 public abbrev PyTypeError := PyBaseExceptionView <| Py typeError
+
+/-! ### ValueError -/
+
+/--
+The Python typing exception, [{lit}`ValueError`][1].
+
+[1]: https://docs.python.org/3/library/exceptions#ValueError
+-/
+public opaque valueError : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.valueError : TypeExpr :=
+  ⟨"ValueError"⟩
+
+public instance : CoeDep Constant valueError TypeExpr := ⟨.valueError⟩
+
+public protected def Typing.valueError : Typing :=
+  exceptHint valueError
+  deriving NonemptyPy, IsSubtypeOf baseException
+
+public instance : CoeDep Constant valueError Typing := ⟨.valueError⟩
+public instance : ToTypeExpr valueError := ⟨valueError⟩
+
+/-- A weakly typed instance of {lit}`ValueError`. -/
+public abbrev PyValueError := PyBaseExceptionView <| Py valueError
