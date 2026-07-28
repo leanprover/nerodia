@@ -369,7 +369,7 @@ Nerodia.toPy_eq_toPy_raw
 Nerodia.type
 Nerodia.typeError
 
-# Instances (161)
+# Instances (163)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -460,10 +460,12 @@ Nerodia.instDecidablePyAny
 Nerodia.instDecidablePyBaseException
 Nerodia.instDecidablePyBytes
 Nerodia.instDecidablePyInt
+Nerodia.instDecidablePyInterTyping
 Nerodia.instDecidablePyModuleType
 Nerodia.instDecidablePyNone
 Nerodia.instDecidablePyObject
 Nerodia.instDecidablePyStr
+Nerodia.instDecidablePyUnionTyping
 Nerodia.instInhabitedConstant
 Nerodia.instInhabitedConstant.default
 Nerodia.instInhabitedPyModuleInit

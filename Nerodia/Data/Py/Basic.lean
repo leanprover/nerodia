@@ -53,6 +53,12 @@ has a pure type checking function.
 -/
 public abbrev DecidablePy (T : Typing) := DecidablePred (· ∈ T)
 
+public instance [DecidablePy T] [DecidablePy U] : DecidablePy (T ∪ U) :=
+  fun _ => decidable_of_iff' _ Typing.mem_union_iff_or
+
+public instance [DecidablePy T] [DecidablePy U] : DecidablePy (T ∩ U) :=
+  fun _ => decidable_of_iff' _ Typing.mem_inter_iff_and
+
 /-! ## NonemptyPy -/
 
 /--
