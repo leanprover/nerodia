@@ -35,14 +35,6 @@ open PyEnvironment in
 public instance : NonemptyPy none :=
   .intro (noneRaw Classical.ofNonempty) noneRaw_mem_none
 
-/--
-The type of the Python {lit}`None` constant, [{lit}`types.NoneType`][1].
-
-[1]: https://docs.python.org/3/library/types.html#types.NoneType
--/
-@[inline, irreducible, expose] public def noneType : TypeConst :=
-  ⟨"NoneType"⟩
-
 /-- A Python {lit}`None` constant. -/
 public abbrev PyNone := PyObjectView <| Py none
 

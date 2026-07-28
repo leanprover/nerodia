@@ -11,6 +11,20 @@ meta import Nerodia.ViewMethod
 
 namespace Nerodia
 
+/--
+Auxiliary type used for values representing a static Python constant.
+
+Similar to {lean}`Lean.Parser.Category`, definitions of this type have no
+content, they simply reserve names that can be coerced into other types (e.g.,
+{lean}`TypeExpr` or {lean}`Typing`) via {lean}`CoeDep`.
+
+**Users of Neroida should not define values of this type themselves.**
+-/
+public structure Constant where
+  private mk ::
+    private val : NonScalar
+    deriving Inhabited
+
 /-! ## Universal Types -/
 
 /-! ### PyObject -/
@@ -20,10 +34,15 @@ The ultimate Python base class, [{lit}`object`][1].
 
 [1]: https://docs.python.org/3/library/functions.html#object
 -/
-@[inline, irreducible, expose] public def object : TypeConst :=
+public opaque object : Constant
+
+public instance : CoeDep Constant object Typing := ⟨.object⟩
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.object : TypeExpr :=
   ⟨"object"⟩
 
-public instance : CoeDep TypeConst object Typing := ⟨.object⟩
+public instance : CoeDep Constant object TypeExpr := ⟨.object⟩
 public instance : ToTypeExpr object := ⟨object⟩
 
 /-- Any Python object. That is, an instance of {lit}`object`. -/
@@ -89,9 +108,11 @@ but it has different type class instances.
 
 [1]: https://typing.python.org/en/latest/spec/special-types.html#any
 -/
+public opaque any : Constant
+
 @[irreducible] public def Typing.any : Typing := .object
 
-export Typing (any)
+public instance : CoeDep Constant any Typing := ⟨.any⟩
 
 @[simp, grind =] public theorem Typing.any_eq_object : any = object := by
   unfold any; rfl
@@ -151,30 +172,28 @@ This weakly types the object, providing no strong guarantees.
 This is akin to the Python {lit}`typing.cast(ty, self)`.
 -/
 @[implemented_by castImpl]
-public def cast (ty : TypeExpr) (self : Py.Raw) : Py.Raw :=
+def cast (ty : TypeExpr) (self : Py.Raw) : Py.Raw :=
   .ofModel {self.toModel with hint := ty}
 
 end Py.Raw
 
 open Internal in
 /-- The typing for objects weakly typed as {lean}`ty`. -/
-public def typeHint (ty : TypeExpr) : Typing :=
+def typeHint (ty : TypeExpr) : Typing :=
   .ofFn (·.toModel.hint = ty)
 
-public instance : ToTypeExpr (typeHint ty) := ⟨ty⟩
+instance : ToTypeExpr (typeHint ty) := ⟨ty⟩
 
-@[simp, grind .] public theorem Py.Raw.cast_mem_typeHint :
+@[simp, grind .] theorem Py.Raw.cast_mem_typeHint :
   Py.Raw.cast ty o ∈ typeHint ty
 := by simp [typeHint, Py.Raw.cast]
 
-public instance : NonemptyPy (typeHint ty) :=
+instance : NonemptyPy (typeHint ty) :=
   .intro (.cast ty Classical.ofNonempty) Py.Raw.cast_mem_typeHint
 
 @[inherit_doc Py.Raw.cast]
-public def Py.cast (o : Py T) (ty : TypeExpr) : Py (typeHint ty) :=
+def Py.cast (o : Py T) (ty : TypeExpr) : Py (typeHint ty) :=
   ⟨o.raw.cast ty, Py.Raw.cast_mem_typeHint⟩
-
-public instance : ToPy (typeHint ty) (Py T)  := ⟨(·.cast ty)⟩
 
 /-! ### Buffer -/
 
@@ -183,10 +202,19 @@ The abstract base class [{lit}`Buffer`][1].
 
 [1]: https://docs.python.org/3/library/collections.abc.html#collections.abc.Buffer
 -/
-@[inline, irreducible, expose] public def buffer : TypeConst :=
+public opaque buffer : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.buffer : TypeExpr :=
   ⟨"Buffer"⟩
 
-public instance : CoeDep TypeConst buffer Typing := ⟨typeHint buffer⟩
+public instance : CoeDep Constant buffer TypeExpr := ⟨.buffer⟩
+
+public protected def Typing.buffer : Typing :=
+  typeHint buffer
+  deriving NonemptyPy
+
+public instance : CoeDep Constant buffer Typing := ⟨.buffer⟩
 public instance : ToTypeExpr buffer := ⟨buffer⟩
 
 /--
@@ -220,6 +248,9 @@ public instance [ToPyBuffer α] :
   CoeOut (PyBufferView α) PyBuffer := ⟨toPyBuffer⟩
 
 end PyBufferView
+
+/-- Casts an object into a boffer. No check that this is valid is performed. -/
+@[inline] public def PyBuffer.mk (x : PyObject) : PyBuffer := x.cast buffer
 
 /-!
 ## Strong Types
@@ -285,13 +316,18 @@ The ultimate base class of Python types, [{lit}`type`][1].
 
 [1]: https://docs.python.org/3/library/functions.html#type
 -/
-@[inline, irreducible, expose] public def type : TypeConst :=
-  ⟨"Buffer"⟩
+public opaque type : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.type : TypeExpr :=
+  ⟨"type"⟩
+
+public instance : CoeDep Constant type TypeExpr := ⟨.type⟩
 
 public protected def Typing.type : Typing :=
   .kind .type
 
-public instance : CoeDep TypeConst type Typing := ⟨.type⟩
+public instance : CoeDep Constant type Typing := ⟨.type⟩
 public instance : NonemptyPy type := .of_kind
 public instance : ToTypeExpr type := ⟨type⟩
 
@@ -320,21 +356,25 @@ The ultimate base class of Python excpetions, [{lit}`BaseException`][1].
 
 [1]: https://docs.python.org/3/library/exceptions.html#BaseException
 -/
-@[inline, irreducible, expose] public def baseException : TypeConst :=
-  ⟨"BaseException"⟩
+public opaque baseException : Constant
 
 public protected def Typing.baseException : Typing :=
   .kind .baseException
 
-public instance : CoeDep TypeConst baseException Typing := ⟨.baseException⟩
-public instance : ToTypeExpr baseException := ⟨baseException⟩
+public instance : CoeDep Constant baseException Typing := ⟨.baseException⟩
 public instance : NonemptyPy baseException := .of_kind
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.baseException : TypeExpr :=
+  ⟨"BaseException"⟩
+
+public instance : ToTypeExpr baseException := ⟨.baseException⟩
 
 /-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
 public abbrev PyBaseException := PyObjectView <| Py baseException
 
-/-- Shorthand for {lean}`ToPy .baseException α` -/
-public abbrev ToPyBaseException := ToPy .baseException
+/-- Shorthand for {lean}`ToPy baseException α` -/
+public abbrev ToPyBaseException := ToPy baseException
 
 /-- Equips {lean}`α` with the dot notation methods of a {lean}`PyBaseException`. -/
 public abbrev PyBaseExceptionView (α : Type u) := α
@@ -377,14 +417,19 @@ The Python string type, [{lit}`str`][1].
 
 [1]: https://docs.python.org/3/library/stdtypes.html#str
 -/
-@[inline, irreducible, expose] public def str : TypeConst :=
-  ⟨"str"⟩
+public opaque str : Constant
 
 public protected def Typing.str : Typing :=
   .kind .str
 
-public instance : CoeDep TypeConst str Typing := ⟨.str⟩
+public instance : CoeDep Constant str Typing := ⟨.str⟩
 public instance : NonemptyPy str := .of_kind
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.str : TypeExpr :=
+  ⟨"str"⟩
+
+public instance : CoeDep Constant str TypeExpr := ⟨.str⟩
 public instance : ToTypeExpr str := ⟨str⟩
 
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
@@ -412,18 +457,25 @@ The immutable Python byte array type, [{lit}`bytes`][1].
 
 [1]: https://docs.python.org/3/library/stdtypes.html#bytes
 -/
-@[inline, irreducible, expose] public def bytes : TypeConst :=
-  ⟨"bytes"⟩
+public opaque bytes : Constant
 
 public protected def Typing.bytes : Typing :=
   .kind .bytes
 
-public instance : CoeDep TypeConst bytes Typing := ⟨.bytes⟩
+public instance : CoeDep Constant bytes Typing := ⟨.bytes⟩
 public instance : NonemptyPy bytes := .of_kind
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.bytes : TypeExpr :=
+  ⟨"bytes"⟩
+
+public instance : CoeDep Constant bytes TypeExpr := ⟨.bytes⟩
 public instance : ToTypeExpr bytes := ⟨bytes⟩
 
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
 public abbrev PyBytes := PyBufferView <| PyObjectView <| Py bytes
+
+public instance : ToPyBuffer PyBytes  := ⟨(PyBuffer.mk ·)⟩
 
 /-- Returns whether this type is an instance of {lit}`bytes`. -/
 @[extern "nerodia_py_object_is_bytes_instance", view_method]
@@ -447,14 +499,19 @@ The Python integer type, [{lit}`int`][1].
 
 [1]: https://docs.python.org/3/library/functions.html#int
 -/
-@[inline, irreducible, expose] public def int : TypeConst :=
-  ⟨"int"⟩
+public opaque int : Constant
 
 public protected def Typing.int : Typing :=
   .kind .int
 
-public instance : CoeDep TypeConst int Typing := ⟨.int⟩
+public instance : CoeDep Constant int Typing := ⟨.int⟩
 public instance : NonemptyPy int := .of_kind
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.int : TypeExpr :=
+  ⟨"int"⟩
+
+public instance : CoeDep Constant int TypeExpr := ⟨.int⟩
 public instance : ToTypeExpr int := ⟨int⟩
 
 /-- A Python long object. That is, an instance of {lit}`int`. -/
@@ -482,15 +539,20 @@ The ultimate base class of Python modules, [{lit}`types.ModuleType`][1].
 
 [1]: https://docs.python.org/3/library/types.html#types.ModuleType
 -/
-@[inline, irreducible, expose] public def moduleType : TypeConst :=
-  ⟨"ModuleType"⟩
+public opaque moduleType : Constant
 
 public protected def Typing.moduleType : Typing :=
   .kind .module
 
-public instance : CoeDep TypeConst moduleType Typing := ⟨.moduleType⟩
-public instance : ToTypeExpr moduleType := ⟨moduleType⟩
+public instance : CoeDep Constant moduleType Typing := ⟨.moduleType⟩
 public instance : NonemptyPy moduleType := .of_kind
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.moduleType : TypeExpr :=
+  ⟨"ModuleType"⟩
+
+public instance : CoeDep Constant moduleType TypeExpr := ⟨.moduleType⟩
+public instance : ToTypeExpr moduleType := ⟨moduleType⟩
 
 /-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
 public abbrev PyModule := PyObjectView <| Py moduleType
@@ -519,14 +581,12 @@ As such, instances of these subtypes are weakly typed.
 -/
 
 open Typing in
-public instance : NonemptyPy (baseException ∩ typeHint ty) :=
+instance : NonemptyPy (baseException ∩ typeHint ty) :=
   .intro (.cast ty (.ofKind .baseException)) <| by
     simp [mem_inter_iff_and, Typing.baseException]
 
-public instance : ToTypeExpr (.baseException ∩ (typeHint ty)) := ⟨ty⟩
-
 /-- The typing for a {lit}`BaseException` weakly typed as {lean}`ty`. -/
-public def exceptHint (ty : TypeConst) : Typing :=
+def exceptHint (ty : TypeExpr) : Typing :=
   baseException ∩ typeHint ty
   deriving NonemptyPy, IsSubtypeOf baseException, IsSubtypeOf (typeHint ty)
 
@@ -537,10 +597,19 @@ The base class of non-exiting Python exceptions, [{lit}`Exception`][1].
 
 [1]: https://docs.python.org/3/library/exceptions.html#Exception
 -/
-@[inline, irreducible, expose] public def exception : TypeConst :=
+public opaque exception : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.exception : TypeExpr :=
   ⟨"Exception"⟩
 
-public instance : CoeDep TypeConst exception Typing := ⟨exceptHint exception⟩
+public instance : CoeDep Constant exception TypeExpr := ⟨.exception⟩
+
+public protected def Typing.exception : Typing :=
+  exceptHint exception
+  deriving NonemptyPy, IsSubtypeOf baseException
+
+public instance : CoeDep Constant exception Typing := ⟨.exception⟩
 public instance : ToTypeExpr exception := ⟨exception⟩
 
 /-- A weakly typed instance of {lit}`Exception`. -/
@@ -553,10 +622,19 @@ The Python end-of-file exception, [{lit}`EOFError`][1].
 
 [1]: https://docs.python.org/3/library/exceptions.html#EOFError
 -/
-@[inline, irreducible, expose] public def eofError : TypeConst :=
+public opaque eofError : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.eofError : TypeExpr :=
   ⟨"EOFError"⟩
 
-public instance : CoeDep TypeConst eofError Typing := ⟨exceptHint eofError⟩
+public instance : CoeDep Constant eofError TypeExpr := ⟨.eofError⟩
+
+public protected def Typing.eofError : Typing :=
+  exceptHint eofError
+  deriving NonemptyPy, IsSubtypeOf baseException
+
+public instance : CoeDep Constant eofError Typing := ⟨.eofError⟩
 public instance : ToTypeExpr eofError := ⟨eofError⟩
 
 /-- A weakly typed instance of {lit}`EOFError`. -/
@@ -569,10 +647,19 @@ The type of internal Python errors, [{lit}`SystemError`][1].
 
 [1]: https://docs.python.org/3/library/exceptions#SystemError
 -/
-@[inline, irreducible, expose] public def systemError : TypeConst :=
+public opaque systemError : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.systemError : TypeExpr :=
   ⟨"SystemError"⟩
 
-public instance : CoeDep TypeConst systemError Typing := ⟨exceptHint systemError⟩
+public instance : CoeDep Constant systemError TypeExpr := ⟨.systemError⟩
+
+public protected def Typing.systemError : Typing :=
+  exceptHint systemError
+  deriving NonemptyPy, IsSubtypeOf baseException
+
+public instance : CoeDep Constant systemError Typing := ⟨.systemError⟩
 public instance : ToTypeExpr systemError := ⟨systemError⟩
 
 /-- A weakly typed instance of {lit}`SystemError`. -/
@@ -585,10 +672,19 @@ The Python typing exception, [{lit}`TypeError`][1].
 
 [1]: https://docs.python.org/3/library/exceptions#TypeError
 -/
-@[inline, irreducible, expose] public def typeError : TypeConst :=
+public opaque typeError : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.typeError : TypeExpr :=
   ⟨"TypeError"⟩
 
-public instance : CoeDep TypeConst typeError Typing := ⟨exceptHint typeError⟩
+public instance : CoeDep Constant typeError TypeExpr := ⟨.typeError⟩
+
+public protected def Typing.typeError : Typing :=
+  exceptHint typeError
+  deriving NonemptyPy, IsSubtypeOf baseException
+
+public instance : CoeDep Constant typeError Typing := ⟨.typeError⟩
 public instance : ToTypeExpr typeError := ⟨typeError⟩
 
 /-- A weakly typed instance of {lit}`TypeError`. -/
