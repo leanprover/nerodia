@@ -126,7 +126,7 @@ As Lean is statically typed, there is little utility in using this type
 instead of {name}`PyObject` within Lean code. However, it exists to enable
 defining Python functions whose parameters or return should be left untyped.
 
-For example, a module funciton defined as
+For example, a module function defined as
 
 ```
 @[py_module_fn] def foo (o : PyObject) : PyObject := ...
@@ -141,6 +141,36 @@ will be given the the type {lit}`(o: object) -> object` by Nerodia, whereas
 will have the type {lit}`(o)` with no annotated parameter or return types.
 -/
 public abbrev PyAny := PyObjectView <| Py any
+
+/-! ### PyNever -/
+
+/--
+The special form [{lit}`Never`][1], which is the {lean}`Empty` of Python.
+
+[1]: https://typing.python.org/en/latest/spec/special-types.html#never
+-/
+public opaque never : Constant
+
+public instance : CoeDep Constant never Typing := ⟨.never⟩
+public instance : DecidablePy never := fun _ => isFalse (by simp)
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.never : TypeExpr :=
+  ⟨"Never"⟩
+
+public instance : CoeDep Constant never TypeExpr := ⟨.never⟩
+public instance : ToTypeExpr never := ⟨never⟩
+
+/--
+An instance of the empty type [{lit}`Never`][1]. There are no inhabitants.
+
+[1]: https://docs.python.org/3/library/typing.html#typing.Never
+-/
+public abbrev PyNever := Py never
+
+/-- Anything holds from an instance of the empty type (c.f., {lean}`Empty.elim`). -/
+def PyNever.elim (self : PyNever) : α :=
+  Typing.not_mem_never self.raw_mem |>.elim
 
 /-!
 ## Weak Types
@@ -693,7 +723,7 @@ public abbrev PyTypeError := PyBaseExceptionView <| Py typeError
 /-! ### ValueError -/
 
 /--
-The Python typing exception, [{lit}`ValueError`][1].
+The Python exception for invalud values, [{lit}`ValueError`][1].
 
 [1]: https://docs.python.org/3/library/exceptions#ValueError
 -/
@@ -714,3 +744,28 @@ public instance : ToTypeExpr valueError := ⟨valueError⟩
 
 /-- A weakly typed instance of {lit}`ValueError`. -/
 public abbrev PyValueError := PyBaseExceptionView <| Py valueError
+
+/-! ### RuntimeError -/
+
+/--
+The type of generic Python errors, [{lit}`RuntimeError`][1].
+
+[1]: https://docs.python.org/3/library/exceptions#RuntimeError
+-/
+public opaque runtimeError : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.runtimeError : TypeExpr :=
+  ⟨"RuntimeError"⟩
+
+public instance : CoeDep Constant runtimeError TypeExpr := ⟨.runtimeError⟩
+
+public protected def Typing.runtimeError : Typing :=
+  exceptHint runtimeError
+  deriving NonemptyPy, IsSubtypeOf baseException
+
+public instance : CoeDep Constant runtimeError Typing := ⟨.runtimeError⟩
+public instance : ToTypeExpr runtimeError := ⟨runtimeError⟩
+
+/-- A weakly typed instance of {lit}`RuntimeError`. -/
+public abbrev PyRuntimeError := PyBaseExceptionView <| Py runtimeError

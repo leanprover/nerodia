@@ -83,6 +83,14 @@ public instance [MkPyResult α T] : MkPyResult (PyIO α) T where
 public instance : MkCPyResult PUnit none where
   mkCPyResult _ := getPyNone
 
+/-! ## Empty -/
+
+public instance : MkCPyResult Empty never where
+  mkCPyResult := Empty.elim
+
+public instance : MkCPyResult PEmpty never where
+  mkCPyResult := PEmpty.elim
+
 /-! ## String -/
 
 public instance : OfPyArg String str where

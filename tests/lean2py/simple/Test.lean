@@ -20,6 +20,10 @@ def myAdd (a b : Int) : Int :=
 def addBit (a : Nat) (b : Fin 2) : Nat :=
   a + b
 
+@[py_module_fn]
+def alwaysRaise : PyIO Empty :=
+  raisePyRuntimeError "alwaysRaise() called"
+
 /-- Return a standard greeting. -/
 @[py_module_fn]
 def greet : String :=

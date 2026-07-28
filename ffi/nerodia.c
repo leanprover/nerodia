@@ -397,6 +397,12 @@ LEAN_EXPORT size_t nerodia_mk_py_value_error(b_lean_obj_arg msg) {
   return calls(PyExc_ValueError, msg);
 }
 
+/* @& String -> CPyIO PyRuntimeError */
+LEAN_EXPORT size_t nerodia_mk_py_runtime_error(b_lean_obj_arg msg) {
+  return calls(PyExc_RuntimeError, msg);
+}
+
+
 LEAN_NORETURN void nerodia_exception_panic(void) {
   if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
     lean_internal_panic_out_of_memory();

@@ -8,6 +8,13 @@ public import Nerodia.Control.CPyIO
 
 namespace Nerodia
 
+@[extern "nerodia_mk_py_eof_error"]
+opaque mkPyEOFError : CPyIO PyEOFError
+
+/-- Raises a {lean}`PyEOFError`. -/
+@[inline] public def raisePyEOFError : CPyIO α :=
+  Internal.raiseNew <| (mkPyEOFError).promote
+
 @[extern "nerodia_mk_py_type_error"]
 opaque mkPyTypeError (msg : @& String) : CPyIO PyTypeError
 
@@ -22,9 +29,9 @@ opaque mkPyValueError (msg : @& String) : CPyIO PyValueError
 @[inline] public def raisePyValueError (msg : String) : CPyIO α :=
   Internal.raiseNew <| (mkPyValueError msg).promote
 
-@[extern "nerodia_mk_py_eof_error"]
-opaque mkPyEOFError : CPyIO PyEOFError
+@[extern "nerodia_mk_py_runtime_error"]
+opaque mkPyRuntimeError (msg : @& String) : CPyIO PyRuntimeError
 
-/-- Raises a {lean}`PyEOFError`. -/
-@[inline] public def raisePyEOFError : CPyIO α :=
-  Internal.raiseNew <| (mkPyEOFError).promote
+/-- Raises a {lean}`PyRuntimeError` with the given message {lean}`msg`. -/
+@[inline] public def raisePyRuntimeError(msg : String) : CPyIO α :=
+  Internal.raiseNew <| (mkPyRuntimeError msg).promote

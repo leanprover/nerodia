@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (355)
+# Constants (363)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -206,6 +206,7 @@ Nerodia.PyModule.addByString
 Nerodia.PyModule.mk
 Nerodia.PyModuleInit (irreducible)
 Nerodia.PyModuleInit.ofPyIO
+Nerodia.PyNever (type abbrev)
 Nerodia.PyNone (type abbrev)
 Nerodia.PyNone.isNone_eq_true
 Nerodia.PyObject (type abbrev)
@@ -253,6 +254,7 @@ Nerodia.PyObjectView.str
 Nerodia.PyObjectView.str_spec
 Nerodia.PyObjectView.toPyObject
 Nerodia.PyObjectView.toPyObject_eq_toPy
+Nerodia.PyRuntimeError (type abbrev)
 Nerodia.PyStr (type abbrev)
 Nerodia.PyStr.encode
 Nerodia.PyStr.encodeUTF8
@@ -286,9 +288,11 @@ Nerodia.TypeExpr.eofError (irreducible)
 Nerodia.TypeExpr.exception (irreducible)
 Nerodia.TypeExpr.int (irreducible)
 Nerodia.TypeExpr.moduleType (irreducible)
+Nerodia.TypeExpr.never (irreducible)
 Nerodia.TypeExpr.none (irreducible)
 Nerodia.TypeExpr.object (irreducible)
 Nerodia.TypeExpr.ofString
+Nerodia.TypeExpr.runtimeError (irreducible)
 Nerodia.TypeExpr.str (irreducible)
 Nerodia.TypeExpr.systemError (irreducible)
 Nerodia.TypeExpr.toString (proj)
@@ -336,6 +340,7 @@ Nerodia.Typing.object
 Nerodia.Typing.object_inter
 Nerodia.Typing.object_union
 Nerodia.Typing.ofFn
+Nerodia.Typing.runtimeError
 Nerodia.Typing.str
 Nerodia.Typing.subset_iff_forall
 Nerodia.Typing.systemError
@@ -360,11 +365,14 @@ Nerodia.mkPyInt
 Nerodia.mkPyNat
 Nerodia.mkPyStr
 Nerodia.moduleType
+Nerodia.never
 Nerodia.object
 Nerodia.raise
 Nerodia.raisePyEOFError
+Nerodia.raisePyRuntimeError
 Nerodia.raisePyTypeError
 Nerodia.raisePyValueError
+Nerodia.runtimeError
 Nerodia.str
 Nerodia.systemError
 Nerodia.toPy_eq_promote
@@ -374,7 +382,7 @@ Nerodia.type
 Nerodia.typeError
 Nerodia.valueError
 
-# Instances (172)
+# Instances (183)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -420,6 +428,7 @@ Nerodia.Typing.instHasSubset
 Nerodia.Typing.instInter
 Nerodia.Typing.instIsSubtypeOfBaseExceptionEofError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionException
+Nerodia.Typing.instIsSubtypeOfBaseExceptionRuntimeError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionSystemError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionTypeError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionValueError
@@ -427,6 +436,7 @@ Nerodia.Typing.instMembershipRaw
 Nerodia.Typing.instNonemptyPyBuffer
 Nerodia.Typing.instNonemptyPyEofError
 Nerodia.Typing.instNonemptyPyException
+Nerodia.Typing.instNonemptyPyRuntimeError
 Nerodia.Typing.instNonemptyPySystemError
 Nerodia.Typing.instNonemptyPyTypeError
 Nerodia.Typing.instNonemptyPyValueError
@@ -445,8 +455,12 @@ Nerodia.instCoeDepConstantIntTypeExpr
 Nerodia.instCoeDepConstantIntTyping
 Nerodia.instCoeDepConstantModuleTypeTypeExpr
 Nerodia.instCoeDepConstantModuleTypeTyping
+Nerodia.instCoeDepConstantNeverTypeExpr
+Nerodia.instCoeDepConstantNeverTyping
 Nerodia.instCoeDepConstantObjectTypeExpr
 Nerodia.instCoeDepConstantObjectTyping
+Nerodia.instCoeDepConstantRuntimeErrorTypeExpr
+Nerodia.instCoeDepConstantRuntimeErrorTyping
 Nerodia.instCoeDepConstantStrTypeExpr
 Nerodia.instCoeDepConstantStrTyping
 Nerodia.instCoeDepConstantSystemErrorTypeExpr
@@ -471,6 +485,7 @@ Nerodia.instDecidablePyBytes
 Nerodia.instDecidablePyInt
 Nerodia.instDecidablePyInterTyping
 Nerodia.instDecidablePyModuleType
+Nerodia.instDecidablePyNever
 Nerodia.instDecidablePyNone
 Nerodia.instDecidablePyObject
 Nerodia.instDecidablePyStr
@@ -484,10 +499,12 @@ Nerodia.instIsSubtypeOf
 Nerodia.instIsSubtypeOfInterTyping
 Nerodia.instIsSubtypeOfInterTyping_1
 Nerodia.instMkCPyResultBaseIO
+Nerodia.instMkCPyResultEmptyNever
 Nerodia.instMkCPyResultFinInt
 Nerodia.instMkCPyResultIntInt
 Nerodia.instMkCPyResultNatInt
 Nerodia.instMkCPyResultOfMkPyResult
+Nerodia.instMkCPyResultPEmptyNever
 Nerodia.instMkCPyResultPUnitNone
 Nerodia.instMkCPyResultPy
 Nerodia.instMkCPyResultPyBaseIO
@@ -540,8 +557,10 @@ Nerodia.instToTypeExprEofError
 Nerodia.instToTypeExprException
 Nerodia.instToTypeExprInt
 Nerodia.instToTypeExprModuleType
+Nerodia.instToTypeExprNever
 Nerodia.instToTypeExprNone
 Nerodia.instToTypeExprObject
+Nerodia.instToTypeExprRuntimeError
 Nerodia.instToTypeExprStr
 Nerodia.instToTypeExprSystemError
 Nerodia.instToTypeExprType

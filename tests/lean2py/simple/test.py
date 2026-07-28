@@ -7,7 +7,7 @@ import testmodule
 # TODO: Generate `__all__` automatically from Nerodia and check it
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
 expected = [
-  'addBit', "greet", "greet2", "greetUser", "greeting",
+  "addBit", "alwaysRaise", "greet", "greet2", "greetUser", "greeting",
   "greeting_for", "my_add", "setUser"
 ]
 assert exports == expected, exports
@@ -42,6 +42,13 @@ assert testmodule.greetUser() == "Hello, Bob!"
 
 assert testmodule.setUser.__doc__ == "Sets the current user."
 assert testmodule.greetUser.__doc__ == "Returns a greeting for the current user."
+
+try:
+  x = testmodule.alwaysRaise()
+  print(x)
+  raise AssertionError('expected RuntimeError')
+except RuntimeError as e:
+  assert str(e) == "alwaysRaise() called"
 
 try:
   testmodule.addBit(-1, 0)
