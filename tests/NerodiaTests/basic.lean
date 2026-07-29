@@ -7,6 +7,19 @@ import Nerodia
 
 open Nerodia
 
+/-- info: -1 -/
+#guard_msgsin #eval mkPyInt (-1)
+/-- info: 13 -/
+#guard_msgs in #eval mkPyInt 13
+/-- info: 420 -/
+#guard_msgs in #eval mkPyInt 420
+/-- info: -420 -/
+#guard_msgs in  #eval mkPyInt (-420)
+/-- info: 36893488147419103232 -/
+#guard_msgs in  #eval mkPyInt (2^65)
+ /-- info: -36893488147419103232 -/
+#guard_msgs in #eval mkPyInt (-(2^65))
+
 /-- info: "hello" -/
 #guard_msgs in
 #eval PyIO.toIO do
@@ -49,6 +62,26 @@ wow
   -- Test that `toString` handles lone surrogates
   return str.toString
 
+/-- info: b'\x00' -/
+#guard_msgs in
+#eval PyIO.toIO do (← (← mkPyBytes <| .mk #[0]).bytes).repr
+
+/-- error: TypeError: cannot convert 'int' object to bytes -/
+#guard_msgs in
+#eval PyIO.toIO do (← (← mkPyInt 0).bytes).repr
+
+/-- info: 10 -/
+#guard_msgs in
+#eval PyIO.toIO do (← (← mkPyStr "10").int).repr
+
+/-- error: TypeError: 'str' object cannot be interpreted as an integer -/
+#guard_msgs in
+#eval PyIO.toIO do (← (← mkPyStr "10").index).repr
+
+/-- info: 0 -/
+#guard_msgs in
+#eval PyIO.toIO do (← (← mkPyInt 0).index).repr
+
 /-- info: None -/
 #guard_msgs in
 #eval PyIO.toIO do (← getPyNone).repr
@@ -72,16 +105,3 @@ open Internal Nerodia in
 /-- error: RuntimeError: my error -/
 #guard_msgs in
 #eval PyIO.toIO (α := Empty) <| IO.toPyIO do throw (IO.userError "my error")
-
-/-- info: -1 -/
-#guard_msgsin #eval mkPyInt (-1)
-/-- info: 13 -/
-#guard_msgs in #eval mkPyInt 13
-/-- info: 420 -/
-#guard_msgs in #eval mkPyInt 420
-/-- info: -420 -/
-#guard_msgs in  #eval mkPyInt (-420)
-/-- info: 36893488147419103232 -/
-#guard_msgs in  #eval mkPyInt (2^65)
- /-- info: -36893488147419103232 -/
-#guard_msgs in #eval mkPyInt (-(2^65))

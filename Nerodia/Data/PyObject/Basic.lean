@@ -35,6 +35,31 @@ This is equivalent to the Python expression {lit}`str(self)`.
 public opaque str (self : @& PyObject) : CPyIO PyStr
 
 /--
+Computes a bytes representation of the object {lean}`self`.
+
+This is similar to the Python expression {lit}`bytes(self)`, except,
+for intergers, it raises a {lean}`PyTypeError` instead of returning
+a zero-initialized bytes objects.
+-/
+@[extern "nerodia_py_object_bytes", view_method]
+public opaque bytes (self : @& PyObject) : CPyIO PyBytes
+
+/--
+Returns {lean}`self` converted to an integer object.
+
+This is equivalent to the Python expression {lit}`int(self)`.
+-/
+@[extern "nerodia_py_object_int", view_method]
+public opaque int (self : @& PyObject) : CPyIO PyInt
+/--
+Returns {lean}`self` interpreted as exactly an {lit}`int` (not one of its subclasses).
+
+This is equivalent to the Python expression {lit}`operator.index(self)`.
+-/
+@[extern "nerodia_py_object_index", view_method]
+public opaque index (self : @& PyObject) : CPyIO PyInt
+
+/--
 Returns the attribute named {lean}`attr` on {lean}`self`.
 
 This is equivalent to the Python expression {lit}`getattr(self, attr)`.

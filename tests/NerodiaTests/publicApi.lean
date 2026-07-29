@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (370)
+# Constants (379)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -212,8 +212,11 @@ Nerodia.PyNone (type abbrev)
 Nerodia.PyNone.isNone_eq_true
 Nerodia.PyOSError (type abbrev)
 Nerodia.PyObject (type abbrev)
+Nerodia.PyObject.bytes
 Nerodia.PyObject.getAttrByString
 Nerodia.PyObject.getType
+Nerodia.PyObject.index
+Nerodia.PyObject.int
 Nerodia.PyObject.isBaseExceptionInstance
 Nerodia.PyObject.isBaseExceptionInstance_iff_mem
 Nerodia.PyObject.isBytesInstance
@@ -232,10 +235,16 @@ Nerodia.PyObject.raw_mk
 Nerodia.PyObject.repr
 Nerodia.PyObject.str
 Nerodia.PyObjectView (type abbrev)
+Nerodia.PyObjectView.bytes
+Nerodia.PyObjectView.bytes_spec
 Nerodia.PyObjectView.getAttrByString
 Nerodia.PyObjectView.getAttrByString_spec
 Nerodia.PyObjectView.getType
 Nerodia.PyObjectView.getType_spec
+Nerodia.PyObjectView.index
+Nerodia.PyObjectView.index_spec
+Nerodia.PyObjectView.int
+Nerodia.PyObjectView.int_spec
 Nerodia.PyObjectView.isBaseExceptionInstance
 Nerodia.PyObjectView.isBaseExceptionInstance_spec
 Nerodia.PyObjectView.isBytesInstance

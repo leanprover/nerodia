@@ -414,7 +414,7 @@ LEAN_EXPORT size_t nerodia_mk_py_runtime_error(b_lean_obj_arg msg) {
 LEAN_EXPORT size_t nerodia_mk_py_os_error2(
   uint32_t errno, b_lean_obj_arg sterror
 ) {
-  PyObject* errno_obj = PyLong_FromInt32(errno);
+  PyObject* errno_obj = PyLong_FromUInt32(errno);
   if (errno_obj == NULL) {
     return (size_t)NULL;
   }
@@ -434,7 +434,7 @@ LEAN_EXPORT size_t nerodia_mk_py_os_error2(
 LEAN_EXPORT size_t nerodia_mk_py_os_error3(
   uint32_t errno, b_lean_obj_arg sterror, b_lean_obj_arg filename
 ) {
-  PyObject* errno_obj = PyLong_FromInt32(errno);
+  PyObject* errno_obj = PyLong_FromUInt32(errno);
   if (errno_obj == NULL) {
     return (size_t)NULL;
   }
@@ -637,6 +637,11 @@ LEAN_EXPORT size_t nerodia_py_object_decode(
 
 /** ### Bytes */
 
+/* bytes : @& PyObject -> CPyIO PyBytes */
+LEAN_EXPORT size_t nerodia_py_object_bytes(b_lean_obj_arg o) {
+  return (size_t)PyObject_Bytes(nerodia_to_object(o));
+}
+
 /* mkPyBytes : @& ByteArray -> CPyIO PyBytes */
 LEAN_EXPORT size_t nerodia_mk_py_bytes(b_lean_obj_arg self) {
   return (size_t)PyBytes_FromStringAndSize(
@@ -665,6 +670,16 @@ LEAN_EXPORT lean_obj_res nerodia_py_bytes_to_byte_array(b_lean_obj_arg self) {
 }
 
 /** ### Integers */
+
+/* int : @& PyObject -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_py_object_int(b_lean_obj_arg o) {
+  return (size_t)PyNumber_Long(nerodia_to_object(o));
+}
+
+/* index : @& PyObject -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_py_object_index(b_lean_obj_arg o) {
+  return (size_t)PyNumber_Index(nerodia_to_object(o));
+}
 
 /* mkPyIntLE : @& ByteArray -> CPyIO PyInt */
 LEAN_EXPORT size_t nerodia_mk_py_int_le(b_lean_obj_arg bs) {
