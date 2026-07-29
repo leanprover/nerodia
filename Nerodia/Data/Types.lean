@@ -117,6 +117,9 @@ public instance : CoeDep Constant any Typing := ⟨.any⟩
 @[simp, grind =] public theorem Typing.any_eq_object : any = object := by
   unfold any; rfl
 
+public instance : NonemptyPy any :=
+  ⟨⟨Classical.ofNonempty, Typing.any_eq_object ▸ .object⟩⟩
+
 public instance : DecidablePy any := fun _ => isTrue (by simp)
 
 /--

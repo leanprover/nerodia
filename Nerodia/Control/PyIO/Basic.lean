@@ -262,6 +262,9 @@ Constructs a {name}`PyIO` that fails.
 end Internal.Nerodia.PyIO
 
 open Internal in
+public instance : Nonempty (PyIO α) := ⟨.failureUnsafe⟩
+
+open Internal in
 /-- Lifts a {name}`BaseIO` action into {name}`PyIO`. -/
 @[inline] public def BaseIO.toPyIO (x : BaseIO α) : PyIO α  :=
   .ofOptionTUnsafe x

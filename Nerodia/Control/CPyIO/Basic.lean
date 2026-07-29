@@ -628,6 +628,9 @@ open Internal in
 
 public instance : MonadRaise PyIO := ⟨PyIO.raise⟩
 
+public instance : Inhabited (PyIO α) :=
+  ⟨private_decl% getUnsetException >>= raise⟩
+
 open Internal in
 /--
 Runs the {name}`PyIO` action {name}`x`.

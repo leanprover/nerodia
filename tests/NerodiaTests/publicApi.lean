@@ -382,7 +382,7 @@ Nerodia.type
 Nerodia.typeError
 Nerodia.valueError
 
-# Instances (183)
+# Instances (186)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -406,6 +406,7 @@ Nerodia.Py.instNonemptyRaw
 Nerodia.PyBaseExceptionView.instCoeOutPyBaseExceptionOfToPyBaseException
 Nerodia.PyBaseIO.instMonadEvalBaseIO
 Nerodia.PyBufferView.instCoeOutPyBufferOfToPyBuffer
+Nerodia.PyIO.instInhabited
 Nerodia.PyIO.instMonadEvalIO
 Nerodia.PyIO.instMonadExceptOfPyBaseException
 Nerodia.PyIO.instMonadFinally
@@ -525,10 +526,12 @@ Nerodia.instMonadPyIO
 Nerodia.instMonadPyOfMonadLift
 Nerodia.instMonadPyPyBaseIO
 Nerodia.instMonadPyPyIO
+Nerodia.instNonemptyPyAny
 Nerodia.instNonemptyPyAttrInit
 Nerodia.instNonemptyPyBaseException
 Nerodia.instNonemptyPyBytes
 Nerodia.instNonemptyPyEnvironment
+Nerodia.instNonemptyPyIO
 Nerodia.instNonemptyPyInt
 Nerodia.instNonemptyPyModuleType
 Nerodia.instNonemptyPyNone

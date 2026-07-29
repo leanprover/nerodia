@@ -1,0 +1,112 @@
+/-
+Copyright (c) 2026 Lean FRO. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Mac Malone
+-/
+module
+public import Nerodia
+meta import Lean
+
+/-!
+# Python Signature Inference
+
+This test verifies the Python signatures the Nerodia compiler generates.
+It serves as a faster supplement to a full {lit}`lean2py` integration test.
+-/
+
+open Nerodia
+
+/-! ## Setup -/
+
+py_module "test"
+
+open Lean Elab Command in
+elab "#check_fn " sig:declSig : command => withoutModifyingEnv do
+  elabCommand <| ← `(
+    set_option linter.unusedVariables.funArgs false in
+    @[py_module_fn] opaque $(mkIdent `test) $sig)
+  let df := Compiler.modCfgExt.getState (← getEnv) |>.get!.methods.back!
+  logInfo df.pySig
+
+open Lean Elab Command in
+elab "#check_attr " ty:term : command => withoutModifyingEnv do
+  elabCommand <| ← `(
+    set_option linter.unusedVariables.funArgs false in
+    @[py_module_attr] opaque $(mkIdent `test) : $ty)
+  let df := Compiler.modCfgExt.getState (← getEnv) |>.get!.attrs.back!
+  logInfo (df.ty?.getD "")
+
+/-! ## Tests -/
+
+/-! ### Monads -/
+
+/-- info: () -> None -/
+#guard_msgs in #check_fn : Unit
+
+/-- info: None -/
+#guard_msgs in #check_attr BaseIO Unit
+
+/-- info: () -> None -/
+#guard_msgs in #check_fn : BaseIO Unit
+
+/-- info: None -/
+#guard_msgs in #check_attr PyBaseIO Unit
+
+/-- info: () -> None -/
+#guard_msgs in #check_fn : PyBaseIO Unit
+
+/-- info: Never -/
+#guard_msgs in #check_attr PyIO Empty
+
+/-- info: () -> Never -/
+#guard_msgs in #check_fn : PyIO Empty
+
+/-! ### {lean}`Py`-only Types -/
+
+/-- info: -/
+#guard_msgs in #check_attr PyIO PyAny
+
+/-- info: (o, /) -/
+#guard_msgs in #check_fn (o : PyAny) : PyIO PyAny
+
+/-- info: object -/
+#guard_msgs in #check_attr PyIO PyObject
+
+/-- info: (o: object, /) -> object -/
+#guard_msgs in #check_fn (o : PyObject) : PyIO PyObject
+
+/-- info: Buffer -/
+#guard_msgs in #check_attr PyIO PyBuffer
+
+-- TODO: Support `PyBuffer` as an argument.
+/-- info: () -> Buffer -/
+#guard_msgs in #check_fn : PyIO PyBuffer
+
+/-- info: (bs: bytes, /) -> bytes -/
+#guard_msgs in #check_fn (bs : PyBytes) : PyIO PyBytes
+
+/-! ### Lean Types -/
+
+/-- info: str -/
+#guard_msgs in #check_attr String
+
+/-- info: (s: str, /) -> str -/
+#guard_msgs in #check_fn (s : String) : String
+
+/-- info: int -/
+#guard_msgs in #check_attr Int
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : Int) : Int
+
+/-- info: int -/
+#guard_msgs in #check_attr Nat
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : Nat) : Nat
+
+/-- info: int -/
+#guard_msgs in #check_attr Fin 2
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : Fin 0) : Fin 1

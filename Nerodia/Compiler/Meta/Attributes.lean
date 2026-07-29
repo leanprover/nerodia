@@ -134,9 +134,6 @@ def mkAuxSym
 @[inline] def mkPyName (name : Name) : String :=
   name.getString! -- TODO: validate / mangle Lean name for Python
 
-@[inline] def addMethodDef [MonadEnv m] (df : MethodDef) : m PUnit :=
-  modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
-
 @[inline_if_reduce]
 def CallConv.ofTypeName? (n : Name) : Option CallConv :=
   match n with
@@ -183,6 +180,73 @@ def mkArgChain
     return (body, pySig)
   return (body, s!"({pySig}")
 
+def mkMethodDef
+  (decl : ConstantInfo)
+  (modName name : String) (doc? : Option String) (pySig? : Option StrLit)
+: MetaM MethodDef := do
+  let declName := decl.name
+  let pySigD df := pySig?.elim df (·.getString)
+  let declConst := mkConst decl.name (decl.levelParams.map .param)
+  let mkAuxSym := mkAuxSym `_pyFn  decl.isUnsafe decl.levelParams
+  if let .const n .. := decl.type then
+    if let some callConv := CallConv.ofTypeName? n then
+      return {
+        name, doc?, callConv
+        cSym := ← getFnSymbol declName
+        pySig := pySigD callConv.pySig
+      }
+    else
+      let (val, pyRet?) ← mkCPyResult decl.type declConst
+      let val := mkApp (mkConst `Nerodia.Internal.mkPyMethNoArgs) val
+      let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
+      let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
+      return {name, doc?, cSym, pySig, callConv := .noArgs}
+  else
+    let fn := mkStrLit s!"{modName}.{name}()"
+    forallTelescope decl.type fun as rTy => do
+      let allExplicit ← as.allM fun a => do
+        return (← getFVarLocalDecl a).binderInfo.isExplicit
+      unless allExplicit do
+        throwError "All parameters of a `@[py_module_fn]` definition must be explicit."
+      if as.size = 0 then
+        let (rx, pyRet?) ← mkCPyResult rTy (mkAppN declConst as)
+        let val := mkApp (mkConst `Nerodia.Internal.mkPyMethNoArgs) rx
+        let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
+        let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
+        return {name, doc?, cSym, pySig, callConv := .noArgs}
+      else
+        let (rx, pyRet?) ← mkPyResult rTy (mkAppN declConst as)
+        let pySigD params := pySigD <|
+          pyRet?.elim params (s!"{params} -> {·}")
+        if h : as.size = 1 then
+          withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
+          let a := as[0]
+          let ldecl ← getFVarLocalDecl a
+          let (ma, pyTy?) ← mkArg fn 0 ldecl.type arg
+          let pyName := mkPyName ldecl.userName
+          let pySig := pySigD <|
+            match pyTy? with
+            | some pyTy => s!"({pyName}: {pyTy}, /)"
+            | none => s!"({pyName}, /)"
+          let lam ← mkLambdaFVars #[a] rx
+          let rx := mkPyBind ldecl.type ma lam
+          let lam ← mkLambdaFVars #[arg] rx
+          let val := mkApp (mkConst `Nerodia.Internal.mkPyMethO) lam
+          let cSym ← mkAuxSym `Nerodia.PyMethO val
+          return {name, doc?, cSym, pySig, callConv := .o}
+        else if lt32 : as.size < UInt32.size then
+          withLocalDeclD `cargs (mkConst `Nerodia.Internal.CPyArgs) fun cargs => do
+          let (rx, pyParams) ← mkArgChain fn cargs as rx lt32
+          let pySig := pySigD pyParams
+          let lam ← mkLambdaFVars #[cargs] rx
+          let mk := mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe
+          let val := mkApp3 mk fn (toExpr as.usize) lam
+          let cSym ← mkAuxSym `Nerodia.PyMethFastCall val
+          return {name, doc?, cSym, pySig, callConv := .fastCall}
+        else
+          throwError "Cannot generate Python function: \
+            {.ofConstName declName} has too many arguments ({as.size})"
+
 initialize
   let attrName := `py_module_fn
   registerBuiltinAttribute {
@@ -206,72 +270,26 @@ initialize
       -- TODO: Validate the name is a legal Python identifier
       let name := name?.elim declName.getString! (·.getString)
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
-      let pySigD df := pySig?.elim df (·.getString)
-      let declConst := mkConst decl.name (decl.levelParams.map .param)
-      let mkAuxSym := mkAuxSym `_pyFn  decl.isUnsafe decl.levelParams
-      if let .const n .. := decl.type then
-        if let some callConv := CallConv.ofTypeName? n then
-          addMethodDef {
-            name, doc?, callConv
-            cSym := ← getFnSymbol declName
-            pySig := pySigD callConv.pySig
-          }
-        else MetaM.run' do
-          let (val, pyRet?) ← mkCPyResult decl.type declConst
-          let val := mkApp (mkConst `Nerodia.Internal.mkPyMethNoArgs) val
-          let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
-          let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
-          addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
-      else
-        MetaM.run' do
-        let fn := mkStrLit s!"{moduleCfg.name}.{name}()"
-        forallTelescope decl.type fun as rTy => do
-          let allExplicit ← as.allM fun a => do
-            return (← getFVarLocalDecl a).binderInfo.isExplicit
-          unless allExplicit do
-            throwError "All parameters of a `@[py_module_fn]` definition must be explicit."
-          if as.size = 0 then
-            let (rx, pyRet?) ← mkCPyResult rTy (mkAppN declConst as)
-            let val := mkApp (mkConst `Nerodia.Internal.mkPyMethNoArgs) rx
-            let cSym ← mkAuxSym `Nerodia.PyMethNoArgs val
-            let pySig := pySigD (pyRet?.elim "()" (s!"() -> {·}"))
-            addMethodDef {name, doc?, cSym, pySig, callConv := .noArgs}
-          else
-            let (rx, pyRet?) ← mkPyResult rTy (mkAppN declConst as)
-            let pySigD params := pySigD <|
-              pyRet?.elim params (s!"{params} -> {·}")
-            if h : as.size = 1 then
-              withLocalDeclD `arg (mkConst `Nerodia.PyObject) fun arg => do
-              let a := as[0]
-              let ldecl ← getFVarLocalDecl a
-              let (ma, pyTy?) ← mkArg fn 0 ldecl.type arg
-              let pyName := mkPyName ldecl.userName
-              let pySig := pySigD <|
-                match pyTy? with
-                | some pyTy => s!"({pyName}: {pyTy}, /)"
-                | none => s!"({pyName}, /)"
-              let lam ← mkLambdaFVars #[a] rx
-              let rx := mkPyBind ldecl.type ma lam
-              let lam ← mkLambdaFVars #[arg] rx
-              let val := mkApp (mkConst `Nerodia.Internal.mkPyMethO) lam
-              let cSym ← mkAuxSym `Nerodia.PyMethO val
-              addMethodDef {name, doc?, cSym, pySig, callConv := .o}
-            else if lt32 : as.size < UInt32.size then
-              withLocalDeclD `cargs (mkConst `Nerodia.Internal.CPyArgs) fun cargs => do
-              let (rx, pyParams) ← mkArgChain fn cargs as rx lt32
-              let pySig := pySigD pyParams
-              let lam ← mkLambdaFVars #[cargs] rx
-              let mk := mkConst `Nerodia.Internal.mkPyMethFastCallUnsafe
-              let val := mkApp3 mk fn (toExpr as.usize) lam
-              let cSym ← mkAuxSym `Nerodia.PyMethFastCall val
-              addMethodDef {name, doc?, cSym, pySig, callConv := .fastCall}
-            else
-              throwError "Cannot generate Python function: \
-                {.ofConstName declName} has too many arguments ({as.size})"
+      let df ← MetaM.run' <| mkMethodDef decl moduleCfg.name name doc? pySig?
+      modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
   }
 
 syntax (name := py_module_attr) "py_module_attr" (ppSpace str)?
   (ppSpace atomic("(" &"ty") " := " str ")")? : attr
+
+def mkAttrDef
+  (decl : ConstantInfo)
+  (name : String) (doc? : Option String) (ty? : Option StrLit)
+: MetaM AttrDef := do
+  let declName := decl.name
+  let us := decl.levelParams.map .param
+  let (val, pyTy?) ← mkCPyResult decl.type (mkConst declName us)
+  let val := mkApp (mkConst `Nerodia.Internal.mkPyAttrInit) val
+  let cSym ← mkAuxSym `_pyAttr decl.isUnsafe decl.levelParams `Nerodia.PyAttrInit val
+  return {
+    name, doc?, cSym
+    ty? := ty?.elim pyTy? (some ·.getString)
+  }
 
 initialize
   let attrName := `py_module_attr
@@ -297,14 +315,6 @@ initialize
       -- TODO: Validate the name is a legal Python identifier
       let name := name?.elim declName.getString! (·.getString)
       let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
-      MetaM.run' do
-      let us := decl.levelParams.map .param
-      let (val, pyTy?) ← mkCPyResult decl.type (mkConst declName us)
-      let val := mkApp (mkConst `Nerodia.Internal.mkPyAttrInit) val
-      let cSym ← mkAuxSym `_pyAttr decl.isUnsafe decl.levelParams `Nerodia.PyAttrInit val
-      let df : AttrDef := {
-        name, doc?, cSym
-        ty? := ty?.elim pyTy? (some ·.getString)
-      }
+      let df ← MetaM.run' <| mkAttrDef decl name doc? ty?
       modifyModuleConfig fun cfg => {cfg with attrs := cfg.attrs.push df}
   }

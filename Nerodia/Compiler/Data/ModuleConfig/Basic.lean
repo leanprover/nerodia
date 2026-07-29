@@ -16,10 +16,12 @@ public structure AttrDef where
   doc? : Option String
   cSym : String
   ty? : Option String
+  deriving Inhabited
 
 public structure MethodFlags where
   private ofString ::
     protected toString : String
+    deriving Inhabited
 
 public instance : ToString MethodFlags := ⟨MethodFlags.toString⟩
 
@@ -32,7 +34,7 @@ inductive CallConv.Raw
 | method
 | noArgs
 | o
-deriving Nonempty, DecidableEq
+deriving Inhabited, DecidableEq
 
 /-- The FFI calling convention of a Python function. -/
 public structure CallConv where
@@ -40,7 +42,7 @@ public structure CallConv where
     -- Recursor is not public API.
     -- More conventions may be added as Python evolves.
     private raw : CallConv.Raw
-    deriving Nonempty, DecidableEq
+    deriving Inhabited, DecidableEq
 
 namespace CallConv
 
@@ -114,6 +116,7 @@ public structure MethodDef where
   coexist : Bool := false
   cSym : String
   pySig : String := callConv.pySig
+  deriving Inhabited
 
 /--  The C function signature of the method's Lean definition. -/
 @[inline] public def MethodDef.cSig (self : MethodDef) : String :=
