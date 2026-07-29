@@ -21,8 +21,8 @@ def addBit (a : Nat) (b : Fin 2) : Nat :=
   a + b
 
 @[py_module_fn]
-def alwaysRaise : PyIO Empty :=
-  raisePyRuntimeError "alwaysRaise() called"
+def alwaysRaise : IO Empty :=
+  throw <| IO.userError "alwaysRaise() called"
 
 /-- Return a standard greeting. -/
 @[py_module_fn]

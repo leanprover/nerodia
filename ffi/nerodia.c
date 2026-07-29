@@ -346,6 +346,8 @@ LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_mk_nth_arg(b_lean_obj_arg ctx, si
   return nerodia_of_object(Py_NewRef(((PyObject**)args)[i]), ctx);
 }
 
+/* ### Exceptions */
+
 /* clearError : @& PyThreadCtx -> BaseIO Unit */
 LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_clear_error(b_lean_obj_arg ctx) {
   PyErr_Clear();
@@ -374,17 +376,23 @@ LEAN_EXPORT size_t nerodia_mk_py_eof_error() {
   return (size_t)PyObject_CallNoArgs(PyExc_EOFError);
 }
 
+static inline PyObject* mk_str(b_lean_obj_arg s) {
+  // Lean strings include a null-terminator.
+  // `FromStringAndSize` does not expect one, so use `size-1`.
+  // Lean guarantees that the string is properly UTF-8 encoded.
+  return PyUnicode_FromStringAndSize(
+    lean_string_cstr(s), lean_string_size(s)-1);
+}
+
 static inline size_t calls(PyObject* err, b_lean_obj_arg msg) {
-   PyObject* msg_obj = PyUnicode_FromStringAndSize(
-    lean_string_cstr(msg), lean_string_size(msg)-1);
-  if (msg_obj != NULL) {
-    PyObject* ex = PyObject_CallFunctionObjArgs(
-      err, msg_obj, NULL);
-    Py_DECREF(msg_obj);
-    return (size_t)ex;
-  } else {
+  PyObject* msg_obj = mk_str(msg);
+  if (msg_obj == NULL) {
     return (size_t)NULL;
   }
+  PyObject* ex = PyObject_CallFunctionObjArgs(
+    err, msg_obj, NULL);
+  Py_DECREF(msg_obj);
+  return (size_t)ex;
 }
 
 /* @& String -> CPyIO PyTypeError */
@@ -402,6 +410,52 @@ LEAN_EXPORT size_t nerodia_mk_py_runtime_error(b_lean_obj_arg msg) {
   return calls(PyExc_RuntimeError, msg);
 }
 
+/* UInt32 -> @& String -> CPyIO PyOSError */
+LEAN_EXPORT size_t nerodia_mk_py_os_error2(
+  uint32_t errno, b_lean_obj_arg sterror
+) {
+  PyObject* errno_obj = PyLong_FromInt32(errno);
+  if (errno_obj == NULL) {
+    return (size_t)NULL;
+  }
+  PyObject* sterror_obj = mk_str(sterror);
+  if (sterror_obj == NULL) {
+    Py_DECREF(errno_obj);
+    return (size_t)NULL;
+  }
+  PyObject* ex = PyObject_CallFunctionObjArgs(
+    PyExc_OSError, errno_obj, sterror_obj, NULL);
+  Py_DECREF(errno_obj);
+  Py_DECREF(sterror_obj);
+  return (size_t)ex;
+}
+
+/* UInt32 -> @& String -> @& System.FilePath -> CPyIO PyOSError */
+LEAN_EXPORT size_t nerodia_mk_py_os_error3(
+  uint32_t errno, b_lean_obj_arg sterror, b_lean_obj_arg filename
+) {
+  PyObject* errno_obj = PyLong_FromInt32(errno);
+  if (errno_obj == NULL) {
+    return (size_t)NULL;
+  }
+  PyObject* sterror_obj = mk_str(sterror);
+  if (sterror_obj == NULL) {
+    Py_DECREF(errno_obj);
+    return (size_t)NULL;
+  }
+  PyObject* filename_obj = mk_str(filename);
+  if (filename == NULL) {
+    Py_DECREF(errno_obj);
+    Py_DECREF(sterror_obj);
+    return (size_t)NULL;
+  }
+  PyObject* ex = PyObject_CallFunctionObjArgs(
+    PyExc_OSError, errno_obj, sterror_obj, filename_obj, NULL);
+  Py_DECREF(errno_obj);
+  Py_DECREF(sterror_obj);
+  Py_DECREF(filename_obj);
+  return (size_t)ex;
+}
 
 LEAN_NORETURN void nerodia_exception_panic(void) {
   if (PyErr_ExceptionMatches(PyExc_MemoryError)) {
@@ -427,6 +481,8 @@ LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_system_error(b_lean_obj_arg msg, 
   }
   nerodia_exception_panic();
 }
+
+/* ### Etc */
 
 /* none : @& PyEnvironment -> CPyIO PyNone */
 LEAN_EXPORT lean_obj_res nerodia_py_environment_none(b_lean_obj_arg env) {
@@ -509,11 +565,7 @@ LEAN_EXPORT size_t nerodia_py_type_get_qual_name(b_lean_obj_arg self) {
 
 /* mkPyStr : @& String -> CPyIO PyStr */
 LEAN_EXPORT size_t nerodia_mk_py_str(b_lean_obj_arg s) {
-  // Lean strings include a null-terminator.
-  // `FromStringAndSize` does not expect one, so use `size-1`.
-  // Lean guarantees that the string is properly UTF-8 encoded.
-  return (size_t)PyUnicode_FromStringAndSize(
-    lean_string_cstr(s), lean_string_size(s)-1);
+  return (size_t)mk_str(s);
 }
 
 /* str : @& PyObject -> CPyIO PyStr */

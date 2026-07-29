@@ -61,22 +61,31 @@ public instance : MkPyResult (Py T) T where
 /-! ## IO -/
 
 public instance [MkCPyResult α T] : MkCPyResult (BaseIO α) T where
-  mkCPyResult x := .ofBind x MkCPyResult.mkCPyResult
+  mkCPyResult x := private .ofBind x MkCPyResult.mkCPyResult
+
+public instance [MkCPyResult α T] : MkCPyResult (IO α) T where
+  mkCPyResult x := private
+    .ofBind x.toBaseIO fun
+    | .ok a => MkCPyResult.mkCPyResult a
+    | .error e => raiseIOError e
 
 public instance [MkCPyResult α T] : MkCPyResult (PyBaseIO α) T where
-  mkCPyResult x := x.bindCPyIO MkCPyResult.mkCPyResult
+  mkCPyResult x := private x.bindCPyIO MkCPyResult.mkCPyResult
 
 public instance [MkCPyResult α T] : MkCPyResult (PyIO α) T where
-  mkCPyResult x := x.bindCPyIO MkCPyResult.mkCPyResult
+  mkCPyResult x := private x.bindCPyIO MkCPyResult.mkCPyResult
 
 public instance [MkPyResult α T] : MkPyResult (BaseIO α) T where
-  mkPyResult x := PyBaseIO.bindPyResultIO x MkPyResult.mkPyResult
+  mkPyResult x := private PyBaseIO.bindPyResultIO x MkPyResult.mkPyResult
+
+public instance [MkPyResult α T] : MkPyResult (IO α) T where
+  mkPyResult x := private PyIO.bindPyResultIO x MkPyResult.mkPyResult
 
 public instance [MkPyResult α T] : MkPyResult (PyBaseIO α) T where
-  mkPyResult x := x.bindPyResultIO MkPyResult.mkPyResult
+  mkPyResult x := private x.bindPyResultIO MkPyResult.mkPyResult
 
 public instance [MkPyResult α T] : MkPyResult (PyIO α) T where
-  mkPyResult x := x.bindPyResultIO MkPyResult.mkPyResult
+  mkPyResult x := private x.bindPyResultIO MkPyResult.mkPyResult
 
 /-! ## Unit -/
 

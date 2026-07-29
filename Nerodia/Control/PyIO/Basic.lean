@@ -265,14 +265,14 @@ open Internal in
 public instance : Nonempty (PyIO α) := ⟨.failureUnsafe⟩
 
 open Internal in
-/-- Lifts a {name}`BaseIO` action into {name}`PyIO`. -/
-@[inline] public def BaseIO.toPyIO (x : BaseIO α) : PyIO α  :=
-  .ofOptionTUnsafe x
-
-public instance : MonadLift BaseIO PyIO := ⟨BaseIO.toPyIO⟩
-
 /-- Lifts a {name}`PyBaseIO` action into {name}`PyIO`. -/
 @[inline] public def PyBaseIO.toPyIO (x : PyBaseIO α) : PyIO α :=
-  x.toM
+  .ofOptionTUnsafe x
 
 public instance : MonadLift PyBaseIO PyIO := ⟨PyBaseIO.toPyIO⟩
+
+/-- Lifts a {name}`BaseIO` action into {name}`PyIO`. -/
+@[inline] public def BaseIO.toPyIO (x : BaseIO α) : PyIO α  :=
+  BaseIO.toPyBaseIO x |>.toPyIO
+
+public instance : MonadLift BaseIO PyIO := ⟨BaseIO.toPyIO⟩

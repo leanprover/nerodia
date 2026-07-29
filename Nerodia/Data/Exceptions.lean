@@ -35,3 +35,72 @@ opaque mkPyRuntimeError (msg : @& String) : CPyIO PyRuntimeError
 /-- Raises a {lean}`PyRuntimeError` with the given message {lean}`msg`. -/
 @[inline] public def raisePyRuntimeError(msg : String) : CPyIO α :=
   Internal.raiseNew <| (mkPyRuntimeError msg).promote
+
+@[extern "nerodia_mk_py_os_error2"]
+opaque mkPyOSError2 (errno : UInt32) (sterror : @& String) : CPyIO PyOSError
+
+@[extern "nerodia_mk_py_os_error3"]
+opaque mkPyOSError3
+  (errno : UInt32) (sterror : @& String) (filename : @& System.FilePath)
+: CPyIO PyOSError
+
+@[inline_if_reduce] def mkPyOSError
+  (errno : UInt32) (sterror : String) (filename? : Option System.FilePath)
+: CPyIO PyOSError :=
+  match filename? with
+  | some filename => mkPyOSError3 errno sterror filename
+  | none => mkPyOSError2 errno sterror
+
+/--
+Raises a {lean}`PyOSError` (possibly a subclass) corresponding to the OS-specific
+{lean}`errno` with the system error message {lean}`sterror` and optional filename.
+-/
+@[inline] public def raisePyOSError
+  (errno : UInt32) (sterror : String) (filename? : Option System.FilePath := none)
+: CPyIO α := Internal.raiseNew <| (mkPyOSError errno sterror filename?).promote
+
+/-- Unpacks a Lean {lean}`IO.Error` and returns the corresponding Python error. -/
+@[inline_if_reduce] def mkIOError (e : IO.Error) : CPyIO PyBaseException :=
+  match e with
+  | .unexpectedEof =>
+    mkPyEOFError |>.promote
+  | .interrupted fn code details
+  | .noFileOrDirectory fn code details =>
+    mkPyOSError code details fn |>.promote
+  | .inappropriateType fn? code details
+  | .invalidArgument fn? code details
+  | .noSuchThing fn? code details
+  | .permissionDenied fn? code details
+  | .resourceExhausted fn? code details
+  | .alreadyExists fn? code details =>
+    mkPyOSError code details fn? |>.promote
+  | .otherError code details
+  | .resourceBusy code details
+  | .resourceVanished code details
+  | .hardwareFault code details
+  | .illegalOperation code details
+  | .protocolError code details
+  | .timeExpired code details
+  | .unsatisfiedConstraints code details
+  | .unsupportedOperation code details =>
+    mkPyOSError code details none |>.promote
+  | .userError msg  =>
+    mkPyRuntimeError msg |>.promote
+
+open IO.Error in
+/--
+Unpacks a Lean {lean}`IO.Error` and raises the corresponding Python error.
+
+An {lean}`userError` becomes a {lean}`PyRuntimeError`, a {lean}`unexpectedEof`
+becomes a {lean}`PyEOFError`, and everything else becomes a {lean}`PyOSError`
+(or one of its subsclasses).
+-/
+@[inline] public def raiseIOError (e : IO.Error) : CPyIO α :=
+  Internal.raiseNew (mkIOError e)
+
+@[inline] public def IO.toPyIO (x : IO α) : PyIO α := do
+  match (← x.toBaseIO) with
+  | .ok a => pure a
+  | .error e => raiseIOError e
+
+public instance : MonadLift IO PyIO := ⟨IO.toPyIO⟩

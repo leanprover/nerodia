@@ -673,6 +673,31 @@ public instance : ToTypeExpr eofError := ⟨eofError⟩
 /-- A weakly typed instance of {lit}`EOFError`. -/
 public abbrev PyEOFError := PyBaseExceptionView <| Py eofError
 
+/-! ### OSError -/
+
+/--
+The Python type of native errors, [{lit}`OSError`][1].
+
+[1]: https://docs.python.org/3/library/exceptions.html#OSError
+-/
+public opaque osError : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.osError : TypeExpr :=
+  ⟨"OSError"⟩
+
+public instance : CoeDep Constant osError TypeExpr := ⟨.osError⟩
+
+public protected def Typing.osError : Typing :=
+  exceptHint osError
+  deriving NonemptyPy, IsSubtypeOf baseException
+
+public instance : CoeDep Constant osError Typing := ⟨.osError⟩
+public instance : ToTypeExpr osError := ⟨osError⟩
+
+/-- A weakly typed instance of {lit}`OSError`. -/
+public abbrev PyOSError := PyBaseExceptionView <| Py osError
+
 /-! ### SystemError -/
 
 /--

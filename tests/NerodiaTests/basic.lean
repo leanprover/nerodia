@@ -25,14 +25,12 @@ info: 3
 wow
 -/
 #guard_msgs in
-#eval do
-  let bytes ← PyIO.toIO do
-    mkPyBytes (.mk #[119, 111, 119])
+#eval PyIO.toIO do
+  let bytes ← mkPyBytes (.mk #[119, 111, 119])
   IO.println bytes.size
   IO.println bytes.usize
   IO.println bytes.toByteArray
-  let str ← PyIO.toIO do
-    bytes.decodeUTF8
+  let str ← bytes.decodeUTF8
   IO.println str
 
 /-- info: [237, 160, 128] -/
@@ -70,6 +68,10 @@ open Internal Nerodia in
 /-- error: EOFError -/
 #guard_msgs in
 #eval raisePyEOFError (α := Empty)
+
+/-- error: RuntimeError: my error -/
+#guard_msgs in
+#eval PyIO.toIO (α := Empty) <| IO.toPyIO do throw (IO.userError "my error")
 
 /-- info: -1 -/
 #guard_msgsin #eval mkPyInt (-1)
