@@ -82,8 +82,23 @@ elab "#check_attr " ty:term : command => withoutModifyingEnv do
 /-- info: () -> Buffer -/
 #guard_msgs in #check_fn : PyIO PyBuffer
 
+/-- info: type -/
+#guard_msgs in #check_attr PyIO PyType
+
+/-- info: (bs: type, /) -> type -/
+#guard_msgs in #check_fn (bs : PyType) : PyIO PyType
+
+/-- info: bytes -/
+#guard_msgs in #check_attr PyIO PyBytes
+
 /-- info: (bs: bytes, /) -> bytes -/
 #guard_msgs in #check_fn (bs : PyBytes) : PyIO PyBytes
+
+/-- info: ModuleType -/
+#guard_msgs in #check_attr PyIO PyModule
+
+/-- info: (bs: ModuleType, /) -> ModuleType -/
+#guard_msgs in #check_fn (bs : PyModule) : PyIO PyModule
 
 /-! ### Lean Types -/
 

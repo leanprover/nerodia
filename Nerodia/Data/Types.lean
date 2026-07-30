@@ -309,38 +309,23 @@ massive Python refactor.
 -/
 
 open Internal in
-noncomputable def Py.Raw.ofKind (k : Py.Kind) : Py.Raw :=
-  .ofModel {Classical.ofNonempty (α := Py.Model) with kind := k}
-
-open Internal in
 def Typing.kind (k : Py.Kind) : Typing :=
   .ofFn (·.toModel.kind = k)
+
+open Internal in
+noncomputable def Py.Raw.ofKind (k : Py.Kind) : Py.Raw :=
+  .ofModel {Classical.ofNonempty (α := Py.Model) with kind := k}
 
 @[simp, grind .] theorem Py.Raw.ofKind_hasType_kind :
   .ofKind k ⦂ .kind k
 := by simp [Typing.kind, Py.Raw.ofKind]
 
+instance : NonemptyPy (.kind k) :=
+  .intro (.ofKind k) Py.Raw.ofKind_hasType_kind
+
 @[simp] theorem Py.Raw.cast_hasType_kind_iff :
    o.cast ty ⦂ .kind k ↔ o ⦂ .kind k
 := by simp [Py.Raw.cast, Typing.kind]
-
-noncomputable instance : Decidable (self ⦂ .kind k) :=
-  Classical.propDecidable _
-
-open Internal in
-noncomputable def Py.Raw.isOfKind (k : Py.Kind) (self : @& Py.Raw) : Bool :=
-  self ⦂ .kind k
-
-open Classical in
-theorem Py.Raw.isOfKind_iff_hasType :
-  isOfKind k o ↔ o ⦂ .kind k
-:= Iff.intro of_decide_eq_true decide_eq_true
-
-theorem Typing.HasType.of_isOfKind (h : o.isOfKind k) : o ⦂ .kind k :=
-  Py.Raw.isOfKind_iff_hasType.mp h
-
-theorem NonemptyPy.of_kind : NonemptyPy (.kind k) :=
-  .intro (.ofKind k) Py.Raw.ofKind_hasType_kind
 
 /-! ### type -/
 
@@ -359,9 +344,9 @@ public instance : CoeDep Constant type TypeExpr := ⟨.type⟩
 
 public protected def Typing.type : Typing :=
   .kind .type
+  deriving NonemptyPy
 
 public instance : CoeDep Constant type Typing := ⟨.type⟩
-public instance : NonemptyPy type := .of_kind
 public instance : ToTypeExpr type := ⟨type⟩
 
 /--
@@ -374,13 +359,21 @@ Equivalently, a [{lit}`PyTypeObject`][1] pointer managed by Lean.
 -/
 public abbrev PyType := PyObjectView <| Py type
 
-/-- Returns whether this type is an instance of {lit}`type`. -/
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`type`. -/
 @[extern "nerodia_py_object_is_type_instance", view_method]
 public def PyObject.isTypeInstance (self : @& PyObject) : Bool :=
-  self.raw.isOfKind .type
+  self.raw ⦂ type
+
+@[grind _=_] public theorem PyObject.isTypeInstance_iff_hasType :
+  PyObject.isTypeInstance o ↔ o.raw ⦂ type
+:= by simp [PyObject.isTypeInstance]
+
+public instance : DecidablePy type :=
+  Internal.decPy (·.isTypeInstance) (·.isTypeInstance_iff_hasType)
 
 @[inline] public def PyType.mk (o : PyObject) (h : o.isTypeInstance) : PyType :=
-  ⟨o.raw, .of_isOfKind h⟩
+  ⟨o.raw, o.isTypeInstance_iff_hasType.mp h⟩
 
 /-! ### BaseException -/
 
@@ -393,9 +386,9 @@ public opaque baseException : Constant
 
 public protected def Typing.baseException : Typing :=
   .kind .baseException
+  deriving NonemptyPy
 
 public instance : CoeDep Constant baseException Typing := ⟨.baseException⟩
-public instance : NonemptyPy baseException := .of_kind
 
 @[inline, irreducible, expose] -- for Nerodia compiler reduction
 public protected def TypeExpr.baseException : TypeExpr :=
@@ -428,20 +421,21 @@ public instance [ToPyBaseException α] :
 
 end PyBaseExceptionView
 
-/-- Returns whether this type is an instance of {lit}`BaseException`. -/
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`BaseException`. -/
 @[extern "nerodia_py_object_is_base_exception_instance", view_method]
 public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
-  self.raw.isOfKind .baseException
+  self.raw ⦂ baseException
 
 @[grind _=_] public theorem PyObject.isBaseExceptionInstance_iff_hasType :
   PyObject.isBaseExceptionInstance o ↔ o.raw ⦂ baseException
-:= Py.Raw.isOfKind_iff_hasType
+:= by simp [PyObject.isBaseExceptionInstance]
 
 public instance : DecidablePy baseException :=
   Internal.decPy (·.isBaseExceptionInstance) (·.isBaseExceptionInstance_iff_hasType)
 
 @[inline] public def PyBaseException.mk (o : PyObject) (h : o.isBaseExceptionInstance) : PyBaseException :=
-  ⟨o.raw, .of_isOfKind h⟩
+  ⟨o.raw, o.isBaseExceptionInstance_iff_hasType.mp h⟩
 
 /-! ### str -/
 
@@ -454,9 +448,9 @@ public opaque str : Constant
 
 public protected def Typing.str : Typing :=
   .kind .str
+  deriving NonemptyPy
 
 public instance : CoeDep Constant str Typing := ⟨.str⟩
-public instance : NonemptyPy str := .of_kind
 
 @[inline, irreducible, expose] -- for Nerodia compiler reduction
 public protected def TypeExpr.str : TypeExpr :=
@@ -468,20 +462,21 @@ public instance : ToTypeExpr str := ⟨str⟩
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
 public abbrev PyStr := PyObjectView <| Py str
 
-/-- Returns whether this type is an instance of {lit}`str`. -/
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`str`. -/
 @[extern "nerodia_py_object_is_str_instance", view_method]
 public def PyObject.isStrInstance (self : @& PyObject) : Bool :=
-  self.raw.isOfKind .str
+  self.raw ⦂ str
 
 @[grind _=_] public theorem PyObject.isStrInstance_iff_hasType :
   PyObject.isStrInstance o ↔ o.raw ⦂ str
-:= Py.Raw.isOfKind_iff_hasType
+:= by simp [PyObject.isStrInstance]
 
 public instance : DecidablePy str :=
   Internal.decPy (·.isStrInstance) (·.isStrInstance_iff_hasType)
 
 @[inline] public def PyStr.mk (o : PyObject) (h : o.isStrInstance) : PyStr :=
-  ⟨o.raw, .of_isOfKind h⟩
+  ⟨o.raw, o.isStrInstance_iff_hasType.mp h⟩
 
 /-! ### bytes -/
 
@@ -494,9 +489,9 @@ public opaque bytes : Constant
 
 public protected def Typing.bytes : Typing :=
   .kind .bytes
+  deriving NonemptyPy
 
 public instance : CoeDep Constant bytes Typing := ⟨.bytes⟩
-public instance : NonemptyPy bytes := .of_kind
 
 @[inline, irreducible, expose] -- for Nerodia compiler reduction
 public protected def TypeExpr.bytes : TypeExpr :=
@@ -510,20 +505,21 @@ public abbrev PyBytes := PyBufferView <| PyObjectView <| Py bytes
 
 public instance : ToPyBuffer PyBytes  := ⟨(PyBuffer.mk ·)⟩
 
-/-- Returns whether this type is an instance of {lit}`bytes`. -/
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`bytes`. -/
 @[extern "nerodia_py_object_is_bytes_instance", view_method]
 public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
-  self.raw.isOfKind .bytes
+  self.raw ⦂ bytes
 
 @[grind _=_] public theorem PyObject.isBytesInstance_iff_hasType :
   PyObject.isBytesInstance o ↔ o.raw ⦂ bytes
-:= Py.Raw.isOfKind_iff_hasType
+:= by simp [PyObject.isBytesInstance]
 
 public instance : DecidablePy bytes :=
   Internal.decPy (·.isBytesInstance) (·.isBytesInstance_iff_hasType)
 
 @[inline] public def PyBytes.mk (o : PyObject) (h : o.isBytesInstance) : PyBytes :=
-  ⟨o.raw, .of_isOfKind h⟩
+  ⟨o.raw, o.isBytesInstance_iff_hasType.mp h⟩
 
 /-! ### int -/
 
@@ -536,9 +532,9 @@ public opaque int : Constant
 
 public protected def Typing.int : Typing :=
   .kind .int
+  deriving NonemptyPy
 
 public instance : CoeDep Constant int Typing := ⟨.int⟩
-public instance : NonemptyPy int := .of_kind
 
 @[inline, irreducible, expose] -- for Nerodia compiler reduction
 public protected def TypeExpr.int : TypeExpr :=
@@ -550,20 +546,21 @@ public instance : ToTypeExpr int := ⟨int⟩
 /-- A Python long object. That is, an instance of {lit}`int`. -/
 public abbrev PyInt := PyObjectView <| Py int
 
-/-- Returns whether this type is an instance of {lit}`int`. -/
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`int`. -/
 @[extern "nerodia_py_object_is_int_instance", view_method]
 public def PyObject.isIntInstance (self : @& PyObject) : Bool :=
-  self.raw.isOfKind .int
+  self.raw ⦂ int
 
 @[grind _=_] public theorem PyObject.isIntInstance_iff_hasType :
   PyObject.isIntInstance o ↔ o.raw ⦂ int
-:= Py.Raw.isOfKind_iff_hasType
+:= by simp [PyObject.isIntInstance]
 
 public instance : DecidablePy int :=
   Internal.decPy (·.isIntInstance) (·.isIntInstance_iff_hasType)
 
 @[inline] public def PyInt.mk (o : PyObject) (h : o.isIntInstance) : PyInt :=
-  ⟨o.raw, .of_isOfKind h⟩
+  ⟨o.raw, o.isIntInstance_iff_hasType.mp h⟩
 
 /-! ### ModuleType -/
 
@@ -576,9 +573,9 @@ public opaque moduleType : Constant
 
 public protected def Typing.moduleType : Typing :=
   .kind .module
+  deriving NonemptyPy
 
 public instance : CoeDep Constant moduleType Typing := ⟨.moduleType⟩
-public instance : NonemptyPy moduleType := .of_kind
 
 @[inline, irreducible, expose] -- for Nerodia compiler reduction
 public protected def TypeExpr.moduleType : TypeExpr :=
@@ -590,20 +587,21 @@ public instance : ToTypeExpr moduleType := ⟨moduleType⟩
 /-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
 public abbrev PyModule := PyObjectView <| Py moduleType
 
-/-- Returns whether this type is an instance of {lit}`types.ModuleType`. -/
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`types.ModuleType`. -/
 @[extern "nerodia_py_object_is_module_instance", view_method]
 public def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
-  self.raw.isOfKind .module
+  self.raw ⦂ moduleType
 
 @[grind _=_] public theorem PyObject.isModuleInstance_iff_hasType :
   PyObject.isModuleInstance o ↔ o.raw ⦂ moduleType
-:= Py.Raw.isOfKind_iff_hasType
+:= by simp [PyObject.isModuleInstance]
 
 public instance : DecidablePy moduleType :=
   Internal.decPy (·.isModuleInstance) (·.isModuleInstance_iff_hasType)
 
 @[inline] public def PyModule.mk (o : PyObject) (h : o.isModuleInstance) : PyModule :=
-  ⟨o.raw, .of_isOfKind h⟩
+  ⟨o.raw, o.isModuleInstance_iff_hasType.mp h⟩
 
 /-!
 ## BaseException Subtypes

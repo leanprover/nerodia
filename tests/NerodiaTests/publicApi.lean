@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (380)
+# Constants (381)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -230,6 +230,7 @@ Nerodia.PyObject.isNone_iff_hasType
 Nerodia.PyObject.isStrInstance
 Nerodia.PyObject.isStrInstance_iff_hasType
 Nerodia.PyObject.isTypeInstance
+Nerodia.PyObject.isTypeInstance_iff_hasType
 Nerodia.PyObject.mk
 Nerodia.PyObject.raw_mk
 Nerodia.PyObject.repr
@@ -399,7 +400,7 @@ Nerodia.typeError
 Nerodia.valueError
 Nerodia.«term_⦂_»
 
-# Instances (193)
+# Instances (194)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -451,12 +452,18 @@ Nerodia.Typing.instIsSubtypeOfBaseExceptionRuntimeError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionSystemError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionTypeError
 Nerodia.Typing.instIsSubtypeOfBaseExceptionValueError
+Nerodia.Typing.instNonemptyPyBaseException
 Nerodia.Typing.instNonemptyPyBuffer
+Nerodia.Typing.instNonemptyPyBytes
 Nerodia.Typing.instNonemptyPyEofError
 Nerodia.Typing.instNonemptyPyException
+Nerodia.Typing.instNonemptyPyInt
+Nerodia.Typing.instNonemptyPyModuleType
 Nerodia.Typing.instNonemptyPyOsError
 Nerodia.Typing.instNonemptyPyRuntimeError
+Nerodia.Typing.instNonemptyPyStr
 Nerodia.Typing.instNonemptyPySystemError
+Nerodia.Typing.instNonemptyPyType
 Nerodia.Typing.instNonemptyPyTypeError
 Nerodia.Typing.instNonemptyPyValueError
 Nerodia.Typing.instUnion
@@ -510,6 +517,7 @@ Nerodia.instDecidablePyNever
 Nerodia.instDecidablePyNone
 Nerodia.instDecidablePyObject
 Nerodia.instDecidablePyStr
+Nerodia.instDecidablePyType
 Nerodia.instDecidablePyUnionTyping
 Nerodia.instInhabitedConstant
 Nerodia.instInhabitedConstant.default
@@ -551,16 +559,10 @@ Nerodia.instMonadPyPyBaseIO
 Nerodia.instMonadPyPyIO
 Nerodia.instNonemptyPyAny
 Nerodia.instNonemptyPyAttrInit
-Nerodia.instNonemptyPyBaseException
-Nerodia.instNonemptyPyBytes
 Nerodia.instNonemptyPyEnvironment
 Nerodia.instNonemptyPyIO
-Nerodia.instNonemptyPyInt
-Nerodia.instNonemptyPyModuleType
 Nerodia.instNonemptyPyNone
 Nerodia.instNonemptyPyObject
-Nerodia.instNonemptyPyStr
-Nerodia.instNonemptyPyType
 Nerodia.instNonemptyPyUnionTyping
 Nerodia.instNonemptyPyUnionTyping_1
 Nerodia.instNonemptyTypeExpr
