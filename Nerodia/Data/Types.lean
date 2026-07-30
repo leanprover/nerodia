@@ -69,7 +69,7 @@ public instance : DecidablePy object := fun _ => isTrue .object
 
 @[inline, implicit_reducible, expose]
 public def Internal.decPy
-  (f : PyObject → Bool) (h : ∀ o, f o ↔ o.raw ⦂ T)
+  (f : PyObject → Bool) (h : ∀ o, f o ↔ o ⦂ T)
 : DecidablePy T := fun o =>
   have h : f (.mk o) ↔ o ⦂ T := by
     simpa using h (.mk o)
@@ -361,19 +361,16 @@ public abbrev PyType := PyObjectView <| Py type
 
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`type`. -/
-@[extern "nerodia_py_object_is_type_instance", view_method]
-public def PyObject.isTypeInstance (self : @& PyObject) : Bool :=
-  self.raw ⦂ type
+@[extern "nerodia_py_object_is_type_instance"]
+def PyObject.isTypeInstance (self : @& PyObject) : Bool :=
+  self ⦂ type
 
-@[grind _=_] public theorem PyObject.isTypeInstance_iff_hasType :
-  PyObject.isTypeInstance o ↔ o.raw ⦂ type
-:= by simp [PyObject.isTypeInstance]
+open PyObject in
+public instance : DecidablePy type := private_decl%
+  (Internal.decPy isTypeInstance (by simp [isTypeInstance]))
 
-public instance : DecidablePy type :=
-  Internal.decPy (·.isTypeInstance) (·.isTypeInstance_iff_hasType)
-
-@[inline] public def PyType.mk (o : PyObject) (h : o.isTypeInstance) : PyType :=
-  ⟨o.raw, o.isTypeInstance_iff_hasType.mp h⟩
+@[inline] public def PyType.mk (o : Py.Raw) (h : o ⦂ type) : PyType :=
+  ⟨o, h⟩
 
 /-! ### BaseException -/
 
@@ -423,19 +420,16 @@ end PyBaseExceptionView
 
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`BaseException`. -/
-@[extern "nerodia_py_object_is_base_exception_instance", view_method]
-public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
-  self.raw ⦂ baseException
+@[extern "nerodia_py_object_is_base_exception_instance"]
+def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
+  self ⦂ baseException
 
-@[grind _=_] public theorem PyObject.isBaseExceptionInstance_iff_hasType :
-  PyObject.isBaseExceptionInstance o ↔ o.raw ⦂ baseException
-:= by simp [PyObject.isBaseExceptionInstance]
+open PyObject in
+public instance : DecidablePy baseException := private_decl%
+  (Internal.decPy isBaseExceptionInstance (by simp [isBaseExceptionInstance]))
 
-public instance : DecidablePy baseException :=
-  Internal.decPy (·.isBaseExceptionInstance) (·.isBaseExceptionInstance_iff_hasType)
-
-@[inline] public def PyBaseException.mk (o : PyObject) (h : o.isBaseExceptionInstance) : PyBaseException :=
-  ⟨o.raw, o.isBaseExceptionInstance_iff_hasType.mp h⟩
+@[inline] public def PyBaseException.mk (o : Py.Raw) (h : o ⦂ baseException) : PyBaseException :=
+  ⟨o, h⟩
 
 /-! ### str -/
 
@@ -464,19 +458,16 @@ public abbrev PyStr := PyObjectView <| Py str
 
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`str`. -/
-@[extern "nerodia_py_object_is_str_instance", view_method]
-public def PyObject.isStrInstance (self : @& PyObject) : Bool :=
-  self.raw ⦂ str
+@[extern "nerodia_py_object_is_str_instance"]
+def PyObject.isStrInstance (self : @& PyObject) : Bool :=
+  self ⦂ str
 
-@[grind _=_] public theorem PyObject.isStrInstance_iff_hasType :
-  PyObject.isStrInstance o ↔ o.raw ⦂ str
-:= by simp [PyObject.isStrInstance]
+open PyObject in
+public instance : DecidablePy str := private_decl%
+  (Internal.decPy isStrInstance (by simp [isStrInstance]))
 
-public instance : DecidablePy str :=
-  Internal.decPy (·.isStrInstance) (·.isStrInstance_iff_hasType)
-
-@[inline] public def PyStr.mk (o : PyObject) (h : o.isStrInstance) : PyStr :=
-  ⟨o.raw, o.isStrInstance_iff_hasType.mp h⟩
+@[inline] public def PyStr.mk (o : Py.Raw) (h : o ⦂ str) : PyStr :=
+  ⟨o, h⟩
 
 /-! ### bytes -/
 
@@ -507,19 +498,16 @@ public instance : ToPyBuffer PyBytes  := ⟨(PyBuffer.mk ·)⟩
 
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`bytes`. -/
-@[extern "nerodia_py_object_is_bytes_instance", view_method]
-public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
-  self.raw ⦂ bytes
+@[extern "nerodia_py_object_is_bytes_instance"]
+def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
+  self ⦂ bytes
 
-@[grind _=_] public theorem PyObject.isBytesInstance_iff_hasType :
-  PyObject.isBytesInstance o ↔ o.raw ⦂ bytes
-:= by simp [PyObject.isBytesInstance]
+open PyObject in
+public instance : DecidablePy bytes := private_decl%
+  (Internal.decPy isBytesInstance (by simp [isBytesInstance]))
 
-public instance : DecidablePy bytes :=
-  Internal.decPy (·.isBytesInstance) (·.isBytesInstance_iff_hasType)
-
-@[inline] public def PyBytes.mk (o : PyObject) (h : o.isBytesInstance) : PyBytes :=
-  ⟨o.raw, o.isBytesInstance_iff_hasType.mp h⟩
+@[inline] public def PyBytes.mk (o : Py.Raw) (h : o ⦂ bytes) : PyBytes :=
+  ⟨o, h⟩
 
 /-! ### int -/
 
@@ -548,19 +536,16 @@ public abbrev PyInt := PyObjectView <| Py int
 
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`int`. -/
-@[extern "nerodia_py_object_is_int_instance", view_method]
-public def PyObject.isIntInstance (self : @& PyObject) : Bool :=
-  self.raw ⦂ int
+@[extern "nerodia_py_object_is_int_instance"]
+def PyObject.isIntInstance (self : @& PyObject) : Bool :=
+  self ⦂ int
 
-@[grind _=_] public theorem PyObject.isIntInstance_iff_hasType :
-  PyObject.isIntInstance o ↔ o.raw ⦂ int
-:= by simp [PyObject.isIntInstance]
+open PyObject in
+public instance : DecidablePy int := private_decl%
+  (Internal.decPy isIntInstance (by simp [isIntInstance]))
 
-public instance : DecidablePy int :=
-  Internal.decPy (·.isIntInstance) (·.isIntInstance_iff_hasType)
-
-@[inline] public def PyInt.mk (o : PyObject) (h : o.isIntInstance) : PyInt :=
-  ⟨o.raw, o.isIntInstance_iff_hasType.mp h⟩
+@[inline] public def PyInt.mk (o : Py.Raw) (h : o ⦂ int) : PyInt :=
+  ⟨o, h⟩
 
 /-! ### ModuleType -/
 
@@ -589,19 +574,16 @@ public abbrev PyModule := PyObjectView <| Py moduleType
 
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`types.ModuleType`. -/
-@[extern "nerodia_py_object_is_module_instance", view_method]
-public def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
-  self.raw ⦂ moduleType
+@[extern "nerodia_py_object_is_module_instance"]
+def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
+  self ⦂ moduleType
 
-@[grind _=_] public theorem PyObject.isModuleInstance_iff_hasType :
-  PyObject.isModuleInstance o ↔ o.raw ⦂ moduleType
-:= by simp [PyObject.isModuleInstance]
+open PyObject in
+public instance : DecidablePy moduleType := private_decl%
+  (Internal.decPy isModuleInstance (by simp [isModuleInstance]))
 
-public instance : DecidablePy moduleType :=
-  Internal.decPy (·.isModuleInstance) (·.isModuleInstance_iff_hasType)
-
-@[inline] public def PyModule.mk (o : PyObject) (h : o.isModuleInstance) : PyModule :=
-  ⟨o.raw, o.isModuleInstance_iff_hasType.mp h⟩
+@[inline] public def PyModule.mk (o : Py.Raw) (h : o ⦂ moduleType) : PyModule :=
+  ⟨o, h⟩
 
 /-!
 ## BaseException Subtypes

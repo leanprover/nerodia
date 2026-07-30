@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (381)
+# Constants (357)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -217,20 +217,8 @@ Nerodia.PyObject.getAttrByString
 Nerodia.PyObject.getType
 Nerodia.PyObject.index
 Nerodia.PyObject.int
-Nerodia.PyObject.isBaseExceptionInstance
-Nerodia.PyObject.isBaseExceptionInstance_iff_hasType
-Nerodia.PyObject.isBytesInstance
-Nerodia.PyObject.isBytesInstance_iff_hasType
-Nerodia.PyObject.isIntInstance
-Nerodia.PyObject.isIntInstance_iff_hasType
-Nerodia.PyObject.isModuleInstance
-Nerodia.PyObject.isModuleInstance_iff_hasType
 Nerodia.PyObject.isNone
 Nerodia.PyObject.isNone_iff_hasType
-Nerodia.PyObject.isStrInstance
-Nerodia.PyObject.isStrInstance_iff_hasType
-Nerodia.PyObject.isTypeInstance
-Nerodia.PyObject.isTypeInstance_iff_hasType
 Nerodia.PyObject.mk
 Nerodia.PyObject.raw_mk
 Nerodia.PyObject.repr
@@ -246,20 +234,8 @@ Nerodia.PyObjectView.index
 Nerodia.PyObjectView.index_spec
 Nerodia.PyObjectView.int
 Nerodia.PyObjectView.int_spec
-Nerodia.PyObjectView.isBaseExceptionInstance
-Nerodia.PyObjectView.isBaseExceptionInstance_spec
-Nerodia.PyObjectView.isBytesInstance
-Nerodia.PyObjectView.isBytesInstance_spec
-Nerodia.PyObjectView.isIntInstance
-Nerodia.PyObjectView.isIntInstance_spec
-Nerodia.PyObjectView.isModuleInstance
-Nerodia.PyObjectView.isModuleInstance_spec
 Nerodia.PyObjectView.isNone
 Nerodia.PyObjectView.isNone_spec
-Nerodia.PyObjectView.isStrInstance
-Nerodia.PyObjectView.isStrInstance_spec
-Nerodia.PyObjectView.isTypeInstance
-Nerodia.PyObjectView.isTypeInstance_spec
 Nerodia.PyObjectView.repr
 Nerodia.PyObjectView.repr_spec
 Nerodia.PyObjectView.str
@@ -400,7 +376,7 @@ Nerodia.typeError
 Nerodia.valueError
 Nerodia.«term_⦂_»
 
-# Instances (194)
+# Instances (195)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -420,6 +396,7 @@ Nerodia.Null.instSubsingleton
 Nerodia.NullableAddr.instDecidablePredIsNull
 Nerodia.NullableAddr.instInhabited
 Nerodia.Py.Raw.instDecidableEq
+Nerodia.Py.instCoeOutRaw
 Nerodia.Py.instNonemptyRaw
 Nerodia.PyBaseExceptionView.instCoeOutPyBaseExceptionOfToPyBaseException
 Nerodia.PyBaseIO.instMonadEvalBaseIO

@@ -18,6 +18,8 @@ public structure Py (T : Typing) where
 
 namespace Py
 
+public instance : CoeOut (Py T) Py.Raw := ⟨raw⟩
+
 attribute [simp, grind! .] Py.raw_hasType
 
 /--
