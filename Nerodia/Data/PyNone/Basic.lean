@@ -28,12 +28,12 @@ public def Typing.none : Typing :=
 public instance : CoeDep (Option α) none Typing := ⟨.none⟩
 public instance : ToTypeExpr none := ⟨none⟩
 
-theorem PyEnvironment.noneRaw_mem_none {env} : noneRaw env ∈ Typing.none := by
+theorem PyEnvironment.noneRaw_hasType_none {env} : noneRaw env ⦂ none := by
   simp [PyEnvironment.noneRaw, Typing.none]
 
 open PyEnvironment in
 public instance : NonemptyPy none :=
-  .intro (noneRaw Classical.ofNonempty) noneRaw_mem_none
+  .intro (noneRaw Classical.ofNonempty) noneRaw_hasType_none
 
 /-- A Python {lit}`None` constant. -/
 public abbrev PyNone := PyObjectView <| Py none
@@ -42,22 +42,22 @@ open Classical in
 /-- Equivalent to the Python {lit}`self is None`. -/
 @[extern "nerodia_py_object_is_none", view_method]
 public def PyObject.isNone (self : PyObject) : Bool :=
-  @decide (self.raw ∈ Typing.none) (Classical.propDecidable _)
+  @decide (self.raw ⦂ none) (Classical.propDecidable _)
 
 @[grind _=_]
-public theorem PyObject.isNone_iff_mem : isNone o ↔ o.raw ∈ Typing.none := by
+public theorem PyObject.isNone_iff_hasType : isNone o ↔ o.raw ⦂ none := by
   simp [PyObject.isNone]
 
 public instance : DecidablePy none :=
-  Internal.decPy (·.isNone) (·.isNone_iff_mem)
+  Internal.decPy (·.isNone) (·.isNone_iff_hasType)
 
 @[simp] public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
-  simp [PyObject.isNone_iff_mem]
+  simp [PyObject.isNone_iff_hasType]
 
 /-- Returns a reference to the {lit}`None` constant. -/
 @[extern "nerodia_py_environment_none"]
 public def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
-  ⟨env.noneRaw, noneRaw_mem_none⟩
+  ⟨env.noneRaw, noneRaw_hasType_none⟩
 
 /-- Returns the {lit}`None` constant of the Python environment. -/
 @[extern "nerodia_get_py_none"]

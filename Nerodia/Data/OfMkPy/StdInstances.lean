@@ -37,7 +37,7 @@ open OfPyArg (ofPyArg)
   [DecidablePy T] [ToTypeExpr T]
   (fn : String) (i : Nat) (arg : PyObject)
 : PyIO (Py T) := do
-  if h : arg.raw ∈ T then
+  if h : arg.raw ⦂ T then
     return Py.mk arg.raw h
   else raiseArgTypeMismatch fn i arg (ToTypeExpr.toTypeExpr T)
 

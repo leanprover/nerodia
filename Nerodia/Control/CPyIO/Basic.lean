@@ -129,7 +129,7 @@ its supertype, sharing the single strong reference between them.
 @[inline] def promote [IsSubtypeOf U T] (x : CPyResult (Py T)) : CPyResult (Py U) :=
   let cptr := .ofNullableAddrUnsafe x.toNullableCPtrUnsafe.nullableAddr fun h' =>
     let t := Classical.choice <| x.toNullableCPtrUnsafe.nonempty_of_not_isNull h'
-    ⟨Py.mk t.raw (infer_subtype.mem_of_mem t.raw_mem)⟩
+    ⟨Py.mk t.raw (infer_subtype.hasType_of_hasType t.raw_hasType)⟩
   .ofNullableCPtrUnsafe cptr fun _ => inferInstance
 
 /--

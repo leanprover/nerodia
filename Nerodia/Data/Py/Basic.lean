@@ -14,18 +14,18 @@ namespace Nerodia
 /-- A typed Python object. -/
 public structure Py (T : Typing) where
   raw : Py.Raw
-  raw_mem : raw ∈ T
+  raw_hasType : raw ⦂ T
 
 namespace Py
 
-attribute [simp, grind! .] Py.raw_mem
+attribute [simp, grind! .] Py.raw_hasType
 
 /--
 **Type promotion.**
 Casts a Python object from {lean}`U` to its supertype {lean}`T`.
 -/
 @[inline] public def promote (self : Py U) [IsSubtypeOf T U] : Py T :=
-  mk self.raw <| infer_subtype.mem_of_mem self.raw_mem
+  mk self.raw <| infer_subtype.hasType_of_hasType self.raw_hasType
 
 @[simp, grind =] public theorem raw_promote [IsSubtypeOf T U] :
   (promote (T := T) (U := U) o).raw = o.raw := by rfl
@@ -51,13 +51,13 @@ public instance : IsPy (Py T) := .of_py
 A typing {lean}`T` with a {lean}`DecidablePy T` instance
 has a pure type checking function.
 -/
-public abbrev DecidablePy (T : Typing) := DecidablePred (· ∈ T)
+public abbrev DecidablePy (T : Typing) := DecidablePred (· ⦂ T)
 
 public instance [DecidablePy T] [DecidablePy U] : DecidablePy (T ∪ U) :=
-  fun _ => decidable_of_iff' _ Typing.mem_union_iff_or
+  fun _ => decidable_of_iff' _ Typing.hasType_union_iff_or
 
 public instance [DecidablePy T] [DecidablePy U] : DecidablePy (T ∩ U) :=
-  fun _ => decidable_of_iff' _ Typing.mem_inter_iff_and
+  fun _ => decidable_of_iff' _ Typing.hasType_inter_iff_and
 
 /-! ## NonemptyPy -/
 
@@ -67,7 +67,7 @@ that there exists a Python object of type {lean}`T`.
 -/
 public abbrev NonemptyPy (T : Typing) := Nonempty (Py T)
 
-public theorem NonemptyPy.intro (o : Py.Raw) (h : o ∈ T) : NonemptyPy T :=
+public theorem NonemptyPy.intro (o : Py.Raw) (h : o ⦂ T) : NonemptyPy T :=
   ⟨⟨o, h⟩⟩
 
 public instance : NonemptyPy .object :=
@@ -75,11 +75,11 @@ public instance : NonemptyPy .object :=
 
 public instance [NonemptyPy T] : NonemptyPy (T ∪ U) :=
   let o : Py T := Classical.ofNonempty
-  .intro o.raw o.raw_mem.union_left
+  .intro o.raw o.raw_hasType.union_left
 
 public instance [NonemptyPy U] : NonemptyPy (T ∪ U) :=
   let o : Py U := Classical.ofNonempty
-  .intro o.raw o.raw_mem.union_right
+  .intro o.raw o.raw_hasType.union_right
 
 /-! ## ToPy -/
 

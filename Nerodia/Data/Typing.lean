@@ -47,23 +47,43 @@ public def ofFn (p : Py.Raw → Prop) : Typing :=
   p
 
 unseal Typing in
-public def Mem (T : Typing) (o : Py.Raw) : Prop :=
+public def HasType (T : Typing) (o : Py.Raw) : Prop :=
   T o
 
-public instance : Membership Py.Raw Typing := ⟨Mem⟩
+end Typing
+
+export Typing (HasType)
+
+public section
+scoped notation:50 o:51 " ⦂ " T:51 => Nerodia.HasType T o
+end
+
+recommended_spelling "hasType" for "⦂" in [«term_⦂_»]
+
+/--
+{given -show}`o : Py.Raw, T : Typing`
+The typing relation {lean}`o ⦂ T : Prop` asserts that
+the Python object {lean}`o` has the Python typing {lean}`T`.
+-/
+add_decl_doc «term_⦂_»
+
+/-- Holds if {lean}`o` has the Python typing {lean}`T`. Written as {lean}`o ⦂ T`. -/
+add_decl_doc HasType
+
+namespace Typing
 
 unseal Typing in
-@[simp, grind =] public theorem mem_ofFn_iff :
-  o ∈ ofFn p ↔ p o
+@[simp, grind =] public theorem hasType_ofFn_iff :
+  o ⦂ ofFn p ↔ p o
 := Iff.intro id id
 
 unseal Typing in
 @[ext, grind ext] public theorem ext
-  {T U : Typing} (h : ∀ o, o ∈ T ↔ o ∈ U) : T = U
+  {T U : Typing} (h : ∀ o, o ⦂ T ↔ o ⦂ U) : T = U
 := funext fun o => propext (h o)
 
 public protected def union (T : Typing) (U : Typing) : Typing :=
-  ofFn fun o => o ∈ T ∨ o ∈ U
+  ofFn fun o => o ⦂ T ∨ o ⦂ U
 
 public instance : Union Typing := ⟨Typing.union⟩
 
@@ -73,20 +93,20 @@ Written as {lean}`T ∪ U`. Equivalent to the Python `T | U`.
 -/
 add_decl_doc Typing.union
 
-@[grind =] public theorem mem_union_iff_or {T U : Typing} :
-  o ∈ T ∪ U ↔ o ∈ T ∨ o ∈ U
-:= by simp only [Union.union, Typing.union, mem_ofFn_iff]
+@[grind =] public theorem hasType_union_iff_or {T U : Typing} :
+  o ⦂ T ∪ U ↔ o ⦂ T ∨ o ⦂ U
+:= by simp only [Union.union, Typing.union, hasType_ofFn_iff]
 
-public theorem Mem.union_left
-  {T U : Typing} (h : o ∈ T) : o ∈ T ∪ U
-:= mem_union_iff_or.mpr <| .inl h
+public theorem HasType.union_left
+  {T U : Typing} (h : o ⦂ T) : o ⦂ T ∪ U
+:= hasType_union_iff_or.mpr <| .inl h
 
-public theorem Mem.union_right
-  {T U : Typing} (h : o ∈ U) : o ∈ T ∪ U
-:= mem_union_iff_or.mpr <| .inr h
+public theorem HasType.union_right
+  {T U : Typing} (h : o ⦂ U) : o ⦂ T ∪ U
+:= hasType_union_iff_or.mpr <| .inr h
 
 public protected def inter (T : Typing) (U : Typing) : Typing :=
-  ofFn fun o => o ∈ T ∧ o ∈ U
+  ofFn fun o => o ⦂ T ∧ o ⦂ U
 
 public instance : Inter Typing := ⟨Typing.inter⟩
 
@@ -100,30 +120,30 @@ as {lit}`T & U` / {lit}`Intersection[T, U]`.
 -/
 add_decl_doc Typing.inter
 
-@[grind =] public theorem mem_inter_iff_and {T U : Typing} :
-  o ∈ T ∩ U ↔ o ∈ T ∧ o ∈ U
-:= by simp only [Inter.inter, Typing.inter, mem_ofFn_iff]
+@[grind =] public theorem hasType_inter_iff_and {T U : Typing} :
+  o ⦂ T ∩ U ↔ o ⦂ T ∧ o ⦂ U
+:= by simp only [Inter.inter, Typing.inter, hasType_ofFn_iff]
 
-public nonrec theorem Mem.left
-  {T U : Typing} (h : o ∈ T ∩ U) : o ∈ T
-:= mem_inter_iff_and.mp h |>.left
+public nonrec theorem HasType.left
+  {T U : Typing} (h : o ⦂ T ∩ U) : o ⦂ T
+:= hasType_inter_iff_and.mp h |>.left
 
-public nonrec theorem Mem.right
-  {T U : Typing} (h : o ∈ T ∩ U) : o ∈ U
-:= mem_inter_iff_and.mp h |>.right
+public nonrec theorem HasType.right
+  {T U : Typing} (h : o ⦂ T ∩ U) : o ⦂ U
+:= hasType_inter_iff_and.mp h |>.right
 
 public def Subset (T : Typing) (U : Typing) : Prop :=
-  ∀ o, o ∈ T → o ∈ U
+  ∀ o, o ⦂ T → o ⦂ U
 
 public instance : HasSubset Typing := ⟨Subset⟩
 
 @[grind =] public theorem subset_iff_forall {T U : Typing} :
-  T ⊆ U ↔ ∀ o, o ∈ T → o ∈ U
+  T ⊆ U ↔ ∀ o, o ⦂ T → o ⦂ U
 := Iff.intro id id
 
-public theorem Subset.mem_of_mem
-  {T U : Typing} (h : T ⊆ U) (ho : o ∈ T)
-: o ∈ U := subset_iff_forall.mp h o ho
+public theorem Subset.hasType_of_hasType
+  {T U : Typing} (h : T ⊆ U) (ho : o ⦂ T)
+: o ⦂ U := subset_iff_forall.mp h o ho
 
 public theorem Subset.refl (T : Typing) : T ⊆ T :=
   subset_iff_forall.mpr fun _ => id
@@ -141,8 +161,8 @@ public theorem Subset.inter_right {T U : Typing} : T ∩ U ⊆ U :=
 public def object : Typing :=
   ofFn fun _ => True
 
-@[simp, grind .] public theorem Mem.object : o ∈ object := by
-  simp only [Typing.object, mem_ofFn_iff]
+@[simp, grind .] public theorem HasType.object : o ⦂ object := by
+  simp only [Typing.object, hasType_ofFn_iff]
 
 -- the below are `@[simp]` only because grind already handles them
 
@@ -150,40 +170,40 @@ public def object : Typing :=
   subset_iff_forall.mpr fun _ _ => .object
 
 @[simp] public theorem union_object : T ∪ object = object := by
-  simp [Typing.ext_iff, mem_union_iff_or]
+  simp [Typing.ext_iff, hasType_union_iff_or]
 
 @[simp] public theorem object_union : object ∪ T = object := by
-  simp [Typing.ext_iff, mem_union_iff_or]
+  simp [Typing.ext_iff, hasType_union_iff_or]
 
 @[simp] public theorem inter_object : T ∩ object = T := by
-  simp [Typing.ext_iff, mem_inter_iff_and]
+  simp [Typing.ext_iff, hasType_inter_iff_and]
 
 @[simp] public theorem object_inter : object ∩ T = T := by
-  simp [Typing.ext_iff, mem_inter_iff_and]
+  simp [Typing.ext_iff, hasType_inter_iff_and]
 
 /-- Python {lit}`Never`. The bottom (⊥) element of the set of typings. -/
 public def never : Typing :=
   ofFn fun _ => False
 
-@[simp, grind .] public theorem not_mem_never : ¬ o ∈ never := by
+@[simp, grind .] public theorem not_hasType_never : ¬ o ⦂ never := by
   simp [never]
 
 -- the below are `@[simp]` only because grind already handles them
 
 @[simp] public theorem never_subset : never ⊆ T :=
-  subset_iff_forall.mpr fun _ => not_mem_never.elim
+  subset_iff_forall.mpr fun _ => not_hasType_never.elim
 
 @[simp] public theorem union_never : T ∪ never = T := by
-  simp [Typing.ext_iff, mem_union_iff_or]
+  simp [Typing.ext_iff, hasType_union_iff_or]
 
 @[simp] public theorem never_union : never ∪ T = T := by
-  simp [Typing.ext_iff, mem_union_iff_or]
+  simp [Typing.ext_iff, hasType_union_iff_or]
 
 @[simp] public theorem inter_never : T ∩ never = never := by
-  simp [Typing.ext_iff, mem_inter_iff_and]
+  simp [Typing.ext_iff, hasType_inter_iff_and]
 
 @[simp] public theorem never_inter : never ∩ T = never := by
-  simp [Typing.ext_iff, mem_inter_iff_and]
+  simp [Typing.ext_iff, hasType_inter_iff_and]
 
 end Typing
 

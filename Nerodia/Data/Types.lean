@@ -69,9 +69,9 @@ public instance : DecidablePy object := fun _ => isTrue .object
 
 @[inline, implicit_reducible, expose]
 public def Internal.decPy
-  (f : PyObject → Bool) (h : ∀ o, f o ↔ o.raw ∈ T)
+  (f : PyObject → Bool) (h : ∀ o, f o ↔ o.raw ⦂ T)
 : DecidablePy T := fun o =>
-  have h : f (.mk o) ↔ o ∈ T := by
+  have h : f (.mk o) ↔ o ⦂ T := by
     simpa using h (.mk o)
   if ho :  f (.mk o) then
     isTrue (h.mp ho)
@@ -173,7 +173,7 @@ public abbrev PyNever := Py never
 
 /-- Anything holds from an instance of the empty type (c.f., {lean}`Empty.elim`). -/
 def PyNever.elim (self : PyNever) : α :=
-  Typing.not_mem_never self.raw_mem |>.elim
+  Typing.not_hasType_never self.raw_hasType |>.elim
 
 /-!
 ## Weak Types
@@ -217,16 +217,16 @@ def typeHint (ty : TypeExpr) : Typing :=
 
 instance : ToTypeExpr (typeHint ty) := ⟨ty⟩
 
-@[simp, grind .] theorem Py.Raw.cast_mem_typeHint :
-  Py.Raw.cast ty o ∈ typeHint ty
+@[simp, grind .] theorem Py.Raw.cast_hasType_typeHint :
+  Py.Raw.cast ty o ⦂ typeHint ty
 := by simp [typeHint, Py.Raw.cast]
 
 instance : NonemptyPy (typeHint ty) :=
-  .intro (.cast ty Classical.ofNonempty) Py.Raw.cast_mem_typeHint
+  .intro (.cast ty Classical.ofNonempty) Py.Raw.cast_hasType_typeHint
 
 @[inherit_doc Py.Raw.cast]
 def Py.cast (o : Py T) (ty : TypeExpr) : Py (typeHint ty) :=
-  ⟨o.raw.cast ty, Py.Raw.cast_mem_typeHint⟩
+  ⟨o.raw.cast ty, Py.Raw.cast_hasType_typeHint⟩
 
 /-! ### Buffer -/
 
@@ -316,31 +316,31 @@ open Internal in
 def Typing.kind (k : Py.Kind) : Typing :=
   .ofFn (·.toModel.kind = k)
 
-@[simp, grind .] theorem Py.Raw.ofKind_mem_kind :
-  Py.Raw.ofKind k ∈ Typing.kind k
+@[simp, grind .] theorem Py.Raw.ofKind_hasType_kind :
+  .ofKind k ⦂ .kind k
 := by simp [Typing.kind, Py.Raw.ofKind]
 
-@[simp] theorem Py.Raw.cast_mem_kind_iff :
-   o.cast ty ∈ Typing.kind k ↔ o ∈ Typing.kind k
+@[simp] theorem Py.Raw.cast_hasType_kind_iff :
+   o.cast ty ⦂ .kind k ↔ o ⦂ .kind k
 := by simp [Py.Raw.cast, Typing.kind]
 
-noncomputable instance : Decidable (self ∈ Typing.kind k) :=
+noncomputable instance : Decidable (self ⦂ .kind k) :=
   Classical.propDecidable _
 
 open Internal in
 noncomputable def Py.Raw.isOfKind (k : Py.Kind) (self : @& Py.Raw) : Bool :=
-  self ∈ Typing.kind k
+  self ⦂ .kind k
 
 open Classical in
-theorem Py.Raw.isOfKind_iff_mem :
-  isOfKind k o ↔ o ∈ Typing.kind k
+theorem Py.Raw.isOfKind_iff_hasType :
+  isOfKind k o ↔ o ⦂ .kind k
 := Iff.intro of_decide_eq_true decide_eq_true
 
-theorem Typing.Mem.of_isOfKind (h : o.isOfKind k)  : o ∈ kind k :=
-  Py.Raw.isOfKind_iff_mem.mp h
+theorem Typing.HasType.of_isOfKind (h : o.isOfKind k) : o ⦂ .kind k :=
+  Py.Raw.isOfKind_iff_hasType.mp h
 
 theorem NonemptyPy.of_kind : NonemptyPy (.kind k) :=
-  .intro (.ofKind k) Py.Raw.ofKind_mem_kind
+  .intro (.ofKind k) Py.Raw.ofKind_hasType_kind
 
 /-! ### type -/
 
@@ -433,12 +433,12 @@ end PyBaseExceptionView
 public def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .baseException
 
-@[grind _=_] public theorem PyObject.isBaseExceptionInstance_iff_mem :
-  PyObject.isBaseExceptionInstance o ↔ o.raw ∈ Typing.baseException
-:= Py.Raw.isOfKind_iff_mem
+@[grind _=_] public theorem PyObject.isBaseExceptionInstance_iff_hasType :
+  PyObject.isBaseExceptionInstance o ↔ o.raw ⦂ baseException
+:= Py.Raw.isOfKind_iff_hasType
 
 public instance : DecidablePy baseException :=
-  Internal.decPy (·.isBaseExceptionInstance) (·.isBaseExceptionInstance_iff_mem)
+  Internal.decPy (·.isBaseExceptionInstance) (·.isBaseExceptionInstance_iff_hasType)
 
 @[inline] public def PyBaseException.mk (o : PyObject) (h : o.isBaseExceptionInstance) : PyBaseException :=
   ⟨o.raw, .of_isOfKind h⟩
@@ -473,12 +473,12 @@ public abbrev PyStr := PyObjectView <| Py str
 public def PyObject.isStrInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .str
 
-@[grind _=_] public theorem PyObject.isStrInstance_iff_mem :
-  PyObject.isStrInstance o ↔ o.raw ∈ Typing.str
-:= Py.Raw.isOfKind_iff_mem
+@[grind _=_] public theorem PyObject.isStrInstance_iff_hasType :
+  PyObject.isStrInstance o ↔ o.raw ⦂ str
+:= Py.Raw.isOfKind_iff_hasType
 
 public instance : DecidablePy str :=
-  Internal.decPy (·.isStrInstance) (·.isStrInstance_iff_mem)
+  Internal.decPy (·.isStrInstance) (·.isStrInstance_iff_hasType)
 
 @[inline] public def PyStr.mk (o : PyObject) (h : o.isStrInstance) : PyStr :=
   ⟨o.raw, .of_isOfKind h⟩
@@ -515,12 +515,12 @@ public instance : ToPyBuffer PyBytes  := ⟨(PyBuffer.mk ·)⟩
 public def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .bytes
 
-@[grind _=_] public theorem PyObject.isBytesInstance_iff_mem :
-  PyObject.isBytesInstance o ↔ o.raw ∈ Typing.bytes
-:= Py.Raw.isOfKind_iff_mem
+@[grind _=_] public theorem PyObject.isBytesInstance_iff_hasType :
+  PyObject.isBytesInstance o ↔ o.raw ⦂ bytes
+:= Py.Raw.isOfKind_iff_hasType
 
 public instance : DecidablePy bytes :=
-  Internal.decPy (·.isBytesInstance) (·.isBytesInstance_iff_mem)
+  Internal.decPy (·.isBytesInstance) (·.isBytesInstance_iff_hasType)
 
 @[inline] public def PyBytes.mk (o : PyObject) (h : o.isBytesInstance) : PyBytes :=
   ⟨o.raw, .of_isOfKind h⟩
@@ -555,12 +555,12 @@ public abbrev PyInt := PyObjectView <| Py int
 public def PyObject.isIntInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .int
 
-@[grind _=_] public theorem PyObject.isIntInstance_iff_mem :
-  PyObject.isIntInstance o ↔ o.raw ∈ Typing.int
-:= Py.Raw.isOfKind_iff_mem
+@[grind _=_] public theorem PyObject.isIntInstance_iff_hasType :
+  PyObject.isIntInstance o ↔ o.raw ⦂ int
+:= Py.Raw.isOfKind_iff_hasType
 
 public instance : DecidablePy int :=
-  Internal.decPy (·.isIntInstance) (·.isIntInstance_iff_mem)
+  Internal.decPy (·.isIntInstance) (·.isIntInstance_iff_hasType)
 
 @[inline] public def PyInt.mk (o : PyObject) (h : o.isIntInstance) : PyInt :=
   ⟨o.raw, .of_isOfKind h⟩
@@ -595,12 +595,12 @@ public abbrev PyModule := PyObjectView <| Py moduleType
 public def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
   self.raw.isOfKind .module
 
-@[grind _=_] public theorem PyObject.isModuleInstance_iff_mem :
-  PyObject.isModuleInstance o ↔ o.raw ∈ Typing.moduleType
-:= Py.Raw.isOfKind_iff_mem
+@[grind _=_] public theorem PyObject.isModuleInstance_iff_hasType :
+  PyObject.isModuleInstance o ↔ o.raw ⦂ moduleType
+:= Py.Raw.isOfKind_iff_hasType
 
 public instance : DecidablePy moduleType :=
-  Internal.decPy (·.isModuleInstance) (·.isModuleInstance_iff_mem)
+  Internal.decPy (·.isModuleInstance) (·.isModuleInstance_iff_hasType)
 
 @[inline] public def PyModule.mk (o : PyObject) (h : o.isModuleInstance) : PyModule :=
   ⟨o.raw, .of_isOfKind h⟩
@@ -616,7 +616,7 @@ As such, instances of these subtypes are weakly typed.
 open Typing in
 instance : NonemptyPy (baseException ∩ typeHint ty) :=
   .intro (.cast ty (.ofKind .baseException)) <| by
-    simp [mem_inter_iff_and, Typing.baseException]
+    simp [hasType_inter_iff_and, Typing.baseException]
 
 /-- The typing for a {lit}`BaseException` weakly typed as {lean}`ty`. -/
 def exceptHint (ty : TypeExpr) : Typing :=
