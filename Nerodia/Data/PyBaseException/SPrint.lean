@@ -10,7 +10,7 @@ import Nerodia.Data.PyObject.Basic
 import Nerodia.Data.PyModule.Basic
 import Nerodia.Data.PyStr.Basic
 import Nerodia.Data.PyType.Basic
-meta import Nerodia.ViewMethod
+meta import Nerodia.Internal.ViewMethod
 
 /-! # Formatted Exceptions -/
 

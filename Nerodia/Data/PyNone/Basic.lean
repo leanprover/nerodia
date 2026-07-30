@@ -6,7 +6,7 @@ Authors: Mac Malone
 module
 public import Nerodia.Data.Types
 public import Nerodia.Control.CPyIO
-meta import Nerodia.ViewMethod
+meta import Nerodia.Internal.ViewMethod
 
 namespace Nerodia
 

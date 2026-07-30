@@ -5,7 +5,7 @@ Authors: Mac Malone
 -/
 module
 public import Nerodia.Data.Py.Basic
-meta import Nerodia.ViewMethod
+meta import Nerodia.Internal.ViewMethod
 
 /-! # Type Definitions -/
 

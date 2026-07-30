@@ -89,6 +89,10 @@ lean_lib Nerodia where
   moreLinkObjs := #[nerodia.o]
   moreLinkLibs := #[libpython3]
 
+-- Metaprograms used internally by Nerodia
+lean_lib Nerodia.Internal where
+  defaultFacets := #[LeanLib.staticFacet, LeanLib.sharedFacet]
+
 @[default_target]
 lean_lib Nerodia.Compiler where
   defaultFacets := #[LeanLib.staticFacet, LeanLib.sharedFacet]
