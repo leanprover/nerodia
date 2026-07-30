@@ -266,7 +266,7 @@ static pthread_mutex_t g_lean_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void lean_initialize(void);
 uint8_t lean_io_initializing(void);
-lean_obj_res nerodia_internal_set_init(uint8_t init);
+lean_obj_res lean_set_initializing(uint8_t init);
 
 /** Initializes Nerodia for use in a Python extension.  */
 LEAN_EXPORT void nerodia_initialize_lean(void) {
@@ -281,12 +281,12 @@ LEAN_EXPORT void nerodia_initialize_lean(void) {
     lean_init_task_manager();
     lean_io_mark_end_initialization();
   }
-  nerodia_internal_set_init(true);
+  lean_set_initializing(true);
 }
 
 /** Marks the end of Nerodia initialization from Python. */
 LEAN_EXPORT void nerodia_mark_end_initialization(void) {
-  nerodia_internal_set_init(false);
+  lean_set_initializing(false);
   // Remark: Must hold mutex until here to avoid races on the `Lean.initializing` flag.
   lean_mutex_unlock();
 }

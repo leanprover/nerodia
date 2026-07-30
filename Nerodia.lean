@@ -7,4 +7,3 @@ module
 public import Nerodia.Data
 public import Nerodia.Control
 public meta import Nerodia.Compiler.Meta
-public import Nerodia.InitFlag
