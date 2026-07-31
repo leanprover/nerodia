@@ -24,6 +24,10 @@ def addBit (a : Nat) (b : Fin 2) : Nat :=
 def alwaysRaise : IO Empty :=
   throw <| IO.userError "alwaysRaise() called"
 
+@[py_module_fn]
+def countbytes (bs : ByteArray) : Nat :=
+  bs.size
+
 /-- Return a standard greeting. -/
 @[py_module_fn]
 def greet : String :=

@@ -618,7 +618,7 @@ LEAN_EXPORT size_t nerodia_py_str_encode_utf8(b_lean_obj_arg o) {
   return (size_t)PyUnicode_AsUTF8String(nerodia_to_object(o));
 }
 
-/* decode : @& ByteArray -> @& String -> @& String -> BaseIO PyStr */
+/* decode : @& ByteArray -> @& String -> @& String -> CPyIO PyStr */
 LEAN_EXPORT size_t nerodia_decode(
   b_lean_obj_arg bytes, b_lean_obj_arg encoding, b_lean_obj_arg errors
 ) {
@@ -627,8 +627,8 @@ LEAN_EXPORT size_t nerodia_decode(
     lean_string_cstr(encoding), lean_string_cstr(errors));
 }
 
-/* decode : @& PyObject -> @& String -> @& String -> BaseIO PyStr */
-LEAN_EXPORT size_t nerodia_py_object_decode(
+/* decode : @& PyBuffer -> @& String -> @& String -> CPyIO PyStr */
+LEAN_EXPORT size_t nerodia_py_buffer_decode(
   b_lean_obj_arg self, b_lean_obj_arg encoding, b_lean_obj_arg errors
 ) {
   return (size_t)PyUnicode_FromEncodedObject(nerodia_to_object(self),
@@ -667,6 +667,27 @@ LEAN_EXPORT lean_obj_res nerodia_py_bytes_to_byte_array(b_lean_obj_arg self) {
   lean_object* r = lean_alloc_sarray(1, sz, sz);
   memcpy(lean_sarray_cptr(r), PyBytes_AsString(o), sz);
   return r;
+}
+
+/* checkBuffer : @& PyObject -> BaseIO  */
+LEAN_EXPORT uint8_t nerodia_py_object_check_buffer(b_lean_obj_arg o) {
+  return PyObject_CheckBuffer(nerodia_to_object(o));
+}
+
+/* getByteArray : @& PyBuffer -> PyIO ByteArray  */
+LEAN_EXPORT lean_obj_res nerodia_py_buffer_get_byte_array(b_lean_obj_arg buf) {
+  // When Nerodia supports free-threading, ensure thread-safe buffer use.
+  Py_buffer view;
+  PyObject *buf_obj = nerodia_to_object(buf);
+  if (PyObject_GetBuffer(buf_obj, &view, PyBUF_SIMPLE) < 0) {
+    return lean_box(0); // Option.none
+  }
+  lean_object* ba = lean_alloc_sarray(1, view.len, view.len);
+  memcpy(lean_sarray_cptr(ba), view.buf, view.len);
+  PyBuffer_Release(&view);
+  lean_object* opt = lean_alloc_ctor(1, 1, 0);
+  lean_ctor_set(opt, 0, ba); // Option.some
+  return opt;
 }
 
 /** ### Integers */

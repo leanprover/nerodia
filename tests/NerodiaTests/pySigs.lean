@@ -78,9 +78,8 @@ elab "#check_attr " ty:term : command => withoutModifyingEnv do
 /-- info: Buffer -/
 #guard_msgs in #check_attr PyIO PyBuffer
 
--- TODO: Support `PyBuffer` as an argument.
-/-- info: () -> Buffer -/
-#guard_msgs in #check_fn : PyIO PyBuffer
+/-- info: (buf: Buffer, /) -> Buffer -/
+#guard_msgs in #check_fn (buf : PyBuffer) : PyIO PyBuffer
 
 /-- info: type -/
 #guard_msgs in #check_attr PyIO PyType
@@ -107,6 +106,10 @@ elab "#check_attr " ty:term : command => withoutModifyingEnv do
 
 /-- info: (s: str, /) -> str -/
 #guard_msgs in #check_fn (s : String) : String
+
+-- TODO: Support `ByteArray` as a result type.
+/-- info: (b: Buffer, /) -> None -/
+#guard_msgs in #check_fn (b : ByteArray) : Unit
 
 /-- info: int -/
 #guard_msgs in #check_attr Int

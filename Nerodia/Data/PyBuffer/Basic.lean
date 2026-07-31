@@ -11,14 +11,40 @@ meta import Nerodia.Internal.ViewMethod
 
 namespace Nerodia
 
+/--
+Returns whether {lean}`self` currently supports the buffer interface.
+
+**Safety:** Users must ensure a Python context exists.
+-/
+@[extern "nerodia_py_object_check_buffer"]
+opaque PyObject.checkBufferUnsafe (self : @& PyObject) : BaseIO Bool
+
+/--
+Returns {lean}`self` as a {lean}`PyBuffer` if it currently supports the buffer
+interface.
+
+**Warning:** It is possible to for an object's type to be mutated after this
+call such that it no longer a buffer. Thus, this function comes with no strong
+typing guarantees.
+-/
+@[inline, view_method]
+public def PyObject.getPyBuffer? (self : PyObject) : PyBaseIO (Option PyBuffer) := do
+  let ok ← self.checkBufferUnsafe
+  Runtime.hold (← Internal.getPyThreadCtxUnsafe)
+  return if ok then some (Internal.mkPyBuffer self) else none
+
 namespace PyBuffer
+
+/-- Returns the bytes of the buffer as a Lean {lean}`ByteArray`. -/
+@[extern "nerodia_py_buffer_get_byte_array", view_method]
+public opaque getByteArray (self : @& PyBuffer) : PyIO ByteArray
 
 /--
 Decodes a bytes-like object into a string.
 
 This is equivalent to the Python {lit}`str(self, encoding, errors)`.
 -/
-@[extern "nerodia_py_object_decode", view_method]
+@[extern "nerodia_py_buffer_decode", view_method]
 public opaque decode (self : @& PyBuffer)
   (encoding : @& CodecEncoding) (errors : @& CodecErrors := .strict) : CPyIO PyStr
 

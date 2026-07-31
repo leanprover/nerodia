@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (355)
+# Constants (361)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -156,11 +156,14 @@ Nerodia.PyBuffer (type abbrev)
 Nerodia.PyBuffer.decode
 Nerodia.PyBuffer.decodeUTF8
 Nerodia.PyBuffer.decodeUTF8_eq_decode
+Nerodia.PyBuffer.getByteArray
 Nerodia.PyBufferView (type abbrev)
 Nerodia.PyBufferView.decode
 Nerodia.PyBufferView.decodeUTF8
 Nerodia.PyBufferView.decodeUTF8_spec
 Nerodia.PyBufferView.decode_spec
+Nerodia.PyBufferView.getByteArray
+Nerodia.PyBufferView.getByteArray_spec
 Nerodia.PyBufferView.toPyBuffer
 Nerodia.PyBufferView.toPyBuffer_eq_toPy
 Nerodia.PyBytes (type abbrev)
@@ -214,6 +217,7 @@ Nerodia.PyOSError (type abbrev)
 Nerodia.PyObject (type abbrev)
 Nerodia.PyObject.bytes
 Nerodia.PyObject.getAttrByString
+Nerodia.PyObject.getPyBuffer?
 Nerodia.PyObject.getType
 Nerodia.PyObject.index
 Nerodia.PyObject.int
@@ -226,6 +230,8 @@ Nerodia.PyObjectView.bytes
 Nerodia.PyObjectView.bytes_spec
 Nerodia.PyObjectView.getAttrByString
 Nerodia.PyObjectView.getAttrByString_spec
+Nerodia.PyObjectView.getPyBuffer?
+Nerodia.PyObjectView.getPyBuffer?_spec
 Nerodia.PyObjectView.getType
 Nerodia.PyObjectView.getType_spec
 Nerodia.PyObjectView.index
@@ -374,7 +380,7 @@ Nerodia.typeError
 Nerodia.valueError
 Nerodia.«term_⦂_»
 
-# Instances (213)
+# Instances (215)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -541,10 +547,12 @@ Nerodia.instNonemptyPyObject
 Nerodia.instNonemptyPyUnionTyping
 Nerodia.instNonemptyPyUnionTyping_1
 Nerodia.instNonemptyTypeExpr
+Nerodia.instOfPyArgByteArrayBuffer
 Nerodia.instOfPyArgFinInt
 Nerodia.instOfPyArgIntInt
 Nerodia.instOfPyArgNatInt
 Nerodia.instOfPyArgPyAnyAny
+Nerodia.instOfPyArgPyBufferBuffer
 Nerodia.instOfPyArgPyObjectObject
 Nerodia.instOfPyArgPyOfDecidablePyOfToTypeExpr
 Nerodia.instOfPyArgStringStr

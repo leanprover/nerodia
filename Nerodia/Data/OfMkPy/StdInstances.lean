@@ -13,6 +13,8 @@ public import Nerodia.Data.Exceptions
 public import Nerodia.Data.PyType.Basic
 -- interface types
 public import Nerodia.Data.PyNone.Basic
+public import Nerodia.Data.PyBuffer.Basic
+public import Nerodia.Data.PyBytes.Basic
 public import Nerodia.Data.PyStr.Basic
 public import Nerodia.Data.PyInt.Basic
 
@@ -51,6 +53,10 @@ public instance : OfPyArg PyObject object where
 
 public instance : OfPyArg PyAny any where
   ofPyArg _ _ arg := private return ⟨arg.raw, by simp⟩
+
+public instance : OfPyArg PyBuffer buffer where
+  ofPyArg fn i arg := private do (← arg.getPyBuffer?).getDM do
+    raiseArgTypeMismatch fn i arg buffer
 
 public instance : MkCPyResult (Py T) T where
   mkCPyResult o := CPyBaseIO.pure o
@@ -106,6 +112,13 @@ public instance : OfPyArg String str where
   ofPyArg fn i arg := private PyStr.toString <$> ofPyArg fn i arg
 
 public instance : MkCPyResult String str := ⟨mkPyStr⟩
+
+/-! ## ByteArray -/
+
+public instance : OfPyArg ByteArray buffer where
+  ofPyArg fn i arg := private PyBuffer.getByteArray =<< ofPyArg fn i arg
+
+-- TODO: result type (likely a `bytearray`)
 
 /-! ## Int -/
 

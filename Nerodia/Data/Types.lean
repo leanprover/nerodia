@@ -294,7 +294,7 @@ public instance [ToPyBuffer α] :
 end PyBufferView
 
 /-- Casts an object into a boffer. No check that this is valid is performed. -/
-@[inline] def PyBuffer.mk (x : PyObject) : PyBuffer := x.cast buffer
+@[inline] public def Internal.mkPyBuffer (x : PyObject) : PyBuffer := x.cast buffer
 
 /-!
 ## Strong Types
@@ -505,7 +505,7 @@ public abbrev PyBytes := PyBufferView <| PyObjectView <| Py bytes
 public instance : ViewPy bytes PyBytes := ⟨rfl⟩
 
 public instance : ToPyBuffer PyBytes where
-  toPy o := private PyBuffer.mk o
+  toPy o := private Internal.mkPyBuffer o
 
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`bytes`. -/
