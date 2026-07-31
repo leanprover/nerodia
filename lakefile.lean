@@ -24,10 +24,10 @@ input_file pyconfigSrc where
   path := "pyconfig.py"
 
 -- These must be kept in sync
-def pyTag : String := "cp314" -- CPython Limited API 3.14
-def abiTag : String := "abi3" -- Stable ABI (not free-threaded)
-def minHexVersion : Nat := 0x030E00A0 -- 3.14 (a0)
-def minPyVer : Nat := 14
+abbrev pyTag : String := "cp314" -- CPython Limited API 3.14
+abbrev abiTag : String := "abi3" -- Stable ABI (not free-threaded)
+abbrev minHexVersion : Nat := 0x030E00A0 -- 3.14 (a0)
+abbrev minPyVer : Nat := 14
 
 target pyconfig : PyConfig := do
   (← pyconfigSrc.fetch).mapM fun srcFile => do
@@ -189,6 +189,12 @@ structure ExtBuild where
 
 instance : QueryText ExtBuild := ⟨(toJson · |>.compress)⟩
 
+/--
+Relative path from the Python extension to where the shared libs are stored.
+Must stay in sync with the frontend (setuptools-lean) and the custom init test.
+-/
+abbrev libsDir : System.FilePath := "_lean.libs"
+
 module_facet nerodiaExt (mod) : ExtBuild := do
   let libFile := mod.irPath s!"nerodia.{sharedLibExt}"
   let oJob ← mod.facet `nerodia.o |>.fetch
@@ -206,7 +212,7 @@ module_facet nerodiaExt (mod) : ExtBuild := do
     /-
     Extension-specific linker arguments:
     * Unix needs RPATH set so the extension finds bundled Lean shared libs
-    in `.libs/`, whereas Windows uses dll directories set in the extension's
+    in `libsDir`, whereas Windows uses dll directories set in the extension's
     `__init__.py`.
     * MacOS requires `-undefined dynamic_lookup` so that Python C API symbols
     (provided by the interpreter at load time) don't cause link errors.
@@ -215,9 +221,9 @@ module_facet nerodiaExt (mod) : ExtBuild := do
       if System.Platform.isWindows then
         #[]
       else if System.Platform.isOSX then
-        #["-undefined", "dynamic_lookup", "-Wl,-rpath,@loader_path/.libs"]
+        #["-undefined", "dynamic_lookup", s!"-Wl,-rpath,@loader_path/{libsDir}"]
       else
-        #["-Wl,-rpath,$ORIGIN/.libs"]
+        #[s!"-Wl,-rpath,$ORIGIN/{libsDir}"]
     addPureTrace extArgs "extArgs"
     let args := info.args ++ extArgs
     /-
@@ -243,7 +249,12 @@ module_facet nerodiaExt (mod) : ExtBuild := do
     }
 
 structure BackendConfig where
-  schemaVersion : String -- not yet used
+  /--
+  Schema version of the frontend (setuptools-lean).
+  Maximum version Nerodia can emit.
+  -/
+  schemaVersion : String -- not yet checked (only 1 public schema version)
+  /-- Minimum version the frontend supports. -/
   minSchemaVersion? : Option String
   pyTag : String
   abiTag : String
@@ -253,9 +264,14 @@ structure BackendConfig where
   deriving FromJson
 
 def nerodiaSchemaVersion : Date :=
-  {year := 2026, month := 07, day := 24}
+  {year := 2026, month := 07, day := 31}
 
 structure ExtBDist where
+  /--
+  Schema version Nerodia emits.
+  Minimum of the configuration `schemaVersion` and `nerodiaSchemaVersion`.
+  -/
+  schemaVersion : Date
   pyTag : String
   abiTag : String
   builds : Array ExtBuild
@@ -311,7 +327,10 @@ script buildExt do
         mod.facet `nerodiaExt |>.fetch
     else
       return #[]
-  let bdist : ExtBDist := {pyTag, abiTag, builds}
+  let bdist : ExtBDist := {
+    pyTag, abiTag, builds
+    schemaVersion := nerodiaSchemaVersion
+  }
   IO.println (toJson bdist).compress
   return 0
 

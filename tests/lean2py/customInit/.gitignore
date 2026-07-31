@@ -5,7 +5,6 @@ __pycache__/
 *.egg-info/
 *.so
 
-.libs/
 _lean*
 
 /lake-manifest.json
