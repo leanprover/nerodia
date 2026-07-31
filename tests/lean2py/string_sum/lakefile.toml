@@ -1,0 +1,9 @@
+name = "string-sum"
+defaultTargets = ["StringSum"]
+
+[[lean_lib]]
+name = "StringSum"
+
+[[require]]
+name = "nerodia"
+path = "../../.."
