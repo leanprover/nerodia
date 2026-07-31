@@ -48,32 +48,36 @@ public instance : ToTypeExpr object := ⟨object⟩
 /-- Any Python object. That is, an instance of {lit}`object`. -/
 public abbrev PyObject := Py object
 
-@[inline] public def PyObject.mk (o : Py.Raw) : PyObject :=
-  Py.mk o .object
-
-@[simp, grind =] public theorem PyObject.raw_mk : (mk o).raw = o := by rfl
+public instance : ViewPy object PyObject := ⟨rfl⟩
 
 /-- Shorthand for {lean}`ToPy .object α` -/
 public abbrev ToPyObject := ToPy object
 
-namespace ToPyObject
+namespace Py.Raw
 
-public instance : ToPyObject Py.Raw := ⟨PyObject.mk⟩
+@[inline] public def toPyObject (self : Py.Raw) : PyObject :=
+  Py.mk self .object
 
-@[simp, grind =] public theorem toPy_eq_mk :
-  toPy (o : Py.Raw) = PyObject.mk o := by rfl
+@[simp, grind =] public theorem raw_toPyObject :
+  (toPyObject o).raw = o := by rfl
 
-end ToPyObject
+public instance : ToPyObject Py.Raw := ⟨toPyObject⟩
 
-public instance : DecidablePy object := fun _ => isTrue .object
+@[simp, grind =] public theorem toPy_eq_toPyObject :
+  toPy (o : Py.Raw) = o.toPyObject := by rfl
+
+end Py.Raw
+
+public instance : DecidablePy object := private_decl%
+  (fun _ => isTrue .object)
 
 @[inline, implicit_reducible, expose]
 public def Internal.decPy
   (f : PyObject → Bool) (h : ∀ o, f o ↔ o ⦂ T)
 : DecidablePy T := fun o =>
-  have h : f (.mk o) ↔ o ⦂ T := by
-    simpa using h (.mk o)
-  if ho :  f (.mk o) then
+  have h : f o.toPyObject ↔ o ⦂ T := by
+    simpa using h o.toPyObject
+  if ho :  f o.toPyObject then
     isTrue (h.mp ho)
   else
     isFalse ((iff_false_left ho).mp h)
@@ -120,7 +124,8 @@ public instance : CoeDep Constant any Typing := ⟨.any⟩
 public instance : NonemptyPy any :=
   ⟨⟨Classical.ofNonempty, Typing.any_eq_object ▸ .object⟩⟩
 
-public instance : DecidablePy any := fun _ => isTrue (by simp)
+public instance : DecidablePy any := private_decl%
+  (fun _ => isTrue (by simp))
 
 /--
 A Python object of unknown type. This is analgous to Python's {lit}`Any`.
@@ -144,6 +149,8 @@ will be given the the type {lit}`(o: object) -> object` by Nerodia, whereas
 will have the type {lit}`(o)` with no annotated parameter or return types.
 -/
 public abbrev PyAny := PyObjectView <| Py any
+
+public instance : ViewPy any PyAny := ⟨rfl⟩
 
 /-! ### PyNever -/
 
@@ -170,6 +177,8 @@ An instance of the empty type [{lit}`Never`][1]. There are no inhabitants.
 [1]: https://docs.python.org/3/library/typing.html#typing.Never
 -/
 public abbrev PyNever := Py never
+
+public instance : ViewPy never PyNever := ⟨rfl⟩
 
 /-- Anything holds from an instance of the empty type (c.f., {lean}`Empty.elim`). -/
 def PyNever.elim (self : PyNever) : α :=
@@ -260,6 +269,8 @@ That is, a Python object which implements the [Buffer Protocol][1].
 -/
 public abbrev PyBuffer := Py buffer
 
+public instance : ViewPy buffer PyBuffer := ⟨rfl⟩
+
 /-- Shorthand for {lean}`ToPy buffer α` -/
 public abbrev ToPyBuffer := ToPy buffer
 
@@ -283,7 +294,7 @@ public instance [ToPyBuffer α] :
 end PyBufferView
 
 /-- Casts an object into a boffer. No check that this is valid is performed. -/
-@[inline] public def PyBuffer.mk (x : PyObject) : PyBuffer := x.cast buffer
+@[inline] def PyBuffer.mk (x : PyObject) : PyBuffer := x.cast buffer
 
 /-!
 ## Strong Types
@@ -359,6 +370,8 @@ Equivalently, a [{lit}`PyTypeObject`][1] pointer managed by Lean.
 -/
 public abbrev PyType := PyObjectView <| Py type
 
+public instance : ViewPy type PyType := ⟨rfl⟩
+
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`type`. -/
 @[extern "nerodia_py_object_is_type_instance"]
@@ -368,9 +381,6 @@ def PyObject.isTypeInstance (self : @& PyObject) : Bool :=
 open PyObject in
 public instance : DecidablePy type := private_decl%
   (Internal.decPy isTypeInstance (by simp [isTypeInstance]))
-
-@[inline] public def PyType.mk (o : Py.Raw) (h : o ⦂ type) : PyType :=
-  ⟨o, h⟩
 
 /-! ### BaseException -/
 
@@ -395,6 +405,8 @@ public instance : ToTypeExpr baseException := ⟨.baseException⟩
 
 /-- A Python base exception object. That is, an instance of {lit}`BaseException`. -/
 public abbrev PyBaseException := PyObjectView <| Py baseException
+
+public instance : ViewPy baseException PyBaseException := ⟨rfl⟩
 
 /-- Shorthand for {lean}`ToPy baseException α` -/
 public abbrev ToPyBaseException := ToPy baseException
@@ -428,9 +440,6 @@ open PyObject in
 public instance : DecidablePy baseException := private_decl%
   (Internal.decPy isBaseExceptionInstance (by simp [isBaseExceptionInstance]))
 
-@[inline] public def PyBaseException.mk (o : Py.Raw) (h : o ⦂ baseException) : PyBaseException :=
-  ⟨o, h⟩
-
 /-! ### str -/
 
 /--
@@ -456,6 +465,8 @@ public instance : ToTypeExpr str := ⟨str⟩
 /-- A Python unicode object. That is, an instance of {lit}`str`. -/
 public abbrev PyStr := PyObjectView <| Py str
 
+public instance : ViewPy str PyStr := ⟨rfl⟩
+
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`str`. -/
 @[extern "nerodia_py_object_is_str_instance"]
@@ -465,9 +476,6 @@ def PyObject.isStrInstance (self : @& PyObject) : Bool :=
 open PyObject in
 public instance : DecidablePy str := private_decl%
   (Internal.decPy isStrInstance (by simp [isStrInstance]))
-
-@[inline] public def PyStr.mk (o : Py.Raw) (h : o ⦂ str) : PyStr :=
-  ⟨o, h⟩
 
 /-! ### bytes -/
 
@@ -494,7 +502,10 @@ public instance : ToTypeExpr bytes := ⟨bytes⟩
 /-- A Python bytes object. That is, an instance of {lit}`bytes`. -/
 public abbrev PyBytes := PyBufferView <| PyObjectView <| Py bytes
 
-public instance : ToPyBuffer PyBytes  := ⟨(PyBuffer.mk ·)⟩
+public instance : ViewPy bytes PyBytes := ⟨rfl⟩
+
+public instance : ToPyBuffer PyBytes where
+  toPy o := private PyBuffer.mk o
 
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`bytes`. -/
@@ -505,9 +516,6 @@ def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
 open PyObject in
 public instance : DecidablePy bytes := private_decl%
   (Internal.decPy isBytesInstance (by simp [isBytesInstance]))
-
-@[inline] public def PyBytes.mk (o : Py.Raw) (h : o ⦂ bytes) : PyBytes :=
-  ⟨o, h⟩
 
 /-! ### int -/
 
@@ -534,6 +542,8 @@ public instance : ToTypeExpr int := ⟨int⟩
 /-- A Python long object. That is, an instance of {lit}`int`. -/
 public abbrev PyInt := PyObjectView <| Py int
 
+public instance : ViewPy int PyInt := ⟨rfl⟩
+
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`int`. -/
 @[extern "nerodia_py_object_is_int_instance"]
@@ -543,9 +553,6 @@ def PyObject.isIntInstance (self : @& PyObject) : Bool :=
 open PyObject in
 public instance : DecidablePy int := private_decl%
   (Internal.decPy isIntInstance (by simp [isIntInstance]))
-
-@[inline] public def PyInt.mk (o : Py.Raw) (h : o ⦂ int) : PyInt :=
-  ⟨o, h⟩
 
 /-! ### ModuleType -/
 
@@ -572,6 +579,8 @@ public instance : ToTypeExpr moduleType := ⟨moduleType⟩
 /-- A Python module object. That is, an instance of {lit}`types.ModuleType`. -/
 public abbrev PyModule := PyObjectView <| Py moduleType
 
+public instance : ViewPy moduleType PyModule := ⟨rfl⟩
+
 open Classical in
 /-- Returns whether {lean}`self` is an instance of {lit}`types.ModuleType`. -/
 @[extern "nerodia_py_object_is_module_instance"]
@@ -581,9 +590,6 @@ def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
 open PyObject in
 public instance : DecidablePy moduleType := private_decl%
   (Internal.decPy isModuleInstance (by simp [isModuleInstance]))
-
-@[inline] public def PyModule.mk (o : Py.Raw) (h : o ⦂ moduleType) : PyModule :=
-  ⟨o, h⟩
 
 /-!
 ## BaseException Subtypes
@@ -628,6 +634,8 @@ public instance : ToTypeExpr exception := ⟨exception⟩
 /-- A weakly typed instance of {lit}`Exception`. -/
 public abbrev PyException := PyBaseExceptionView <| Py exception
 
+public instance : ViewPy exception PyException := ⟨rfl⟩
+
 /-! ### EOFError -/
 
 /--
@@ -652,6 +660,8 @@ public instance : ToTypeExpr eofError := ⟨eofError⟩
 
 /-- A weakly typed instance of {lit}`EOFError`. -/
 public abbrev PyEOFError := PyBaseExceptionView <| Py eofError
+
+public instance : ViewPy eofError PyEOFError := ⟨rfl⟩
 
 /-! ### OSError -/
 
@@ -678,6 +688,8 @@ public instance : ToTypeExpr osError := ⟨osError⟩
 /-- A weakly typed instance of {lit}`OSError`. -/
 public abbrev PyOSError := PyBaseExceptionView <| Py osError
 
+public instance : ViewPy osError PyOSError := ⟨rfl⟩
+
 /-! ### SystemError -/
 
 /--
@@ -702,6 +714,8 @@ public instance : ToTypeExpr systemError := ⟨systemError⟩
 
 /-- A weakly typed instance of {lit}`SystemError`. -/
 public abbrev PySystemError := PyBaseExceptionView <| Py systemError
+
+public instance : ViewPy systemError PySystemError := ⟨rfl⟩
 
 /-! ### TypeError -/
 
@@ -728,6 +742,8 @@ public instance : ToTypeExpr typeError := ⟨typeError⟩
 /-- A weakly typed instance of {lit}`TypeError`. -/
 public abbrev PyTypeError := PyBaseExceptionView <| Py typeError
 
+public instance : ViewPy typeError PyTypeError := ⟨rfl⟩
+
 /-! ### ValueError -/
 
 /--
@@ -753,6 +769,8 @@ public instance : ToTypeExpr valueError := ⟨valueError⟩
 /-- A weakly typed instance of {lit}`ValueError`. -/
 public abbrev PyValueError := PyBaseExceptionView <| Py valueError
 
+public instance : ViewPy valueError PyValueError := ⟨rfl⟩
+
 /-! ### RuntimeError -/
 
 /--
@@ -777,3 +795,5 @@ public instance : ToTypeExpr runtimeError := ⟨runtimeError⟩
 
 /-- A weakly typed instance of {lit}`RuntimeError`. -/
 public abbrev PyRuntimeError := PyBaseExceptionView <| Py runtimeError
+
+public instance : ViewPy runtimeError PyRuntimeError := ⟨rfl⟩

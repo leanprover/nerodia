@@ -82,6 +82,19 @@ wow
 #guard_msgs in
 #eval PyIO.toIO do (← (← mkPyInt 0).index).repr
 
+/-- info: hello; <not a str> -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let fn (o : PyObject) : PyIO String := do
+    if h : o ⦂ str then
+      let o := o.attachType h
+      return o.toString
+    else
+      return "<not a str>"
+  IO.print <| ← fn (← mkPyStr "hello")
+  IO.print "; "
+  IO.print <| ← fn (← mkPyInt 3)
+
 /-- info: None -/
 #guard_msgs in
 #eval PyIO.toIO do (← getPyNone).repr

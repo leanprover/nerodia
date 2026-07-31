@@ -38,7 +38,7 @@ open OfPyArg (ofPyArg)
   (fn : String) (i : Nat) (arg : PyObject)
 : PyIO (Py T) := do
   if h : arg ⦂ T then
-    return Py.mk arg h
+    return arg.attachType h
   else raiseArgTypeMismatch fn i arg T.toTypeExpr
 
 /-! ## Py  -/
@@ -47,7 +47,7 @@ public instance (priority := low) [DecidablePy T] [ToTypeExpr T] : OfPyArg (Py T
   ofPyArg fn i arg := private ofPyArgDecidable fn i arg
 
 public instance : OfPyArg PyObject object where
-  ofPyArg _ _ arg := private return PyObject.mk arg.raw
+  ofPyArg _ _ arg := private return arg
 
 public instance : OfPyArg PyAny any where
   ofPyArg _ _ arg := private return ⟨arg.raw, by simp⟩

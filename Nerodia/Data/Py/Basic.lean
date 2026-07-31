@@ -83,6 +83,64 @@ public instance [NonemptyPy U] : NonemptyPy (T ∪ U) :=
   let o : Py U := Classical.ofNonempty
   .intro o.raw o.raw_hasType.union_right
 
+/-! ## ViewPy -/
+
+/--
+The instance {lean}`ViewPy T α` defines {lean}`α` as
+the Lean view type corresponding to the Python typing {lean}`T`.
+
+While {lean}`Py T` is the uniform Lean data type that attaches a typing to a
+Python object, it is not equipped with the dot notation methods specific to said
+type. Instead, the dot notation is defined on definitionally equal view types
+(e.g., {name (scope := "Nerodia.Data.Types")}`PyStr`). {lean}`ViewPy` serves to
+bridge the two, synthesizing the view type {lean}`α` from its respective typing
+{lean}`T`.
+-/
+public class ViewPy (T : Typing) (α : outParam $ Type) : Prop where
+  isPyT : α = Py T
+
+public instance (priority := low) : ViewPy T (Py T) := ⟨rfl⟩
+
+@[inline] def Py.Raw.attachType
+  [ViewPy T α] (self : Py.Raw) (h : self ⦂ T)
+: α := cast ViewPy.isPyT.symm (Py.mk self h)
+
+@[simp] theorem Py.Raw.raw_attachType : (attachType o h).raw = o := by
+  simp [attachType]
+
+/--
+Types {lean}`self` as {lean}`T` using a proof of correctness.
+
+For example, the following pattern in Python:
+
+```
+if isinstance(self, T):
+  # Python type checkers would assume `self: T` in this block
+  fnT(self)
+else:
+  notT
+```
+
+can be implemented in Lean like so:
+
+{givenInstance -show}`DecidablePy T`
+{given -show}`fnT : α → Unit, notT : Unit`
+```leanTerm
+if h : self ⦂ T then
+  let self := self.attachType h
+  fnT self
+else
+  notT
+```
+-/
+@[inline] public def Py.attachType
+  [ViewPy T α] (self : Py U) (h : self ⦂ T)
+: α := self.raw.attachType h
+
+@[simp, grind =] public theorem Py.raw_attachType :
+  ((o : Py T).attachType h).raw = o.raw
+:= by simp [attachType]
+
 /-! ## ToPy -/
 
 /--

@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (357)
+# Constants (355)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -123,16 +123,20 @@ Nerodia.Py
 Nerodia.Py.Raw
 Nerodia.Py.Raw.addr
 Nerodia.Py.Raw.decEq
+Nerodia.Py.Raw.raw_toPyObject
+Nerodia.Py.Raw.toPyObject
+Nerodia.Py.Raw.toPy_eq_toPyObject
+Nerodia.Py.attachType
 Nerodia.Py.mk
 Nerodia.Py.promote
 Nerodia.Py.raw (proj)
+Nerodia.Py.raw_attachType
 Nerodia.Py.raw_hasType
 Nerodia.Py.raw_promote
 Nerodia.PyAny (type abbrev)
 Nerodia.PyAttrInit (irreducible)
 Nerodia.PyAttrInit.ofCPyIO
 Nerodia.PyBaseException (type abbrev)
-Nerodia.PyBaseException.mk
 Nerodia.PyBaseException.sprint
 Nerodia.PyBaseExceptionView (type abbrev)
 Nerodia.PyBaseExceptionView.sprint
@@ -152,7 +156,6 @@ Nerodia.PyBuffer (type abbrev)
 Nerodia.PyBuffer.decode
 Nerodia.PyBuffer.decodeUTF8
 Nerodia.PyBuffer.decodeUTF8_eq_decode
-Nerodia.PyBuffer.mk
 Nerodia.PyBufferView (type abbrev)
 Nerodia.PyBufferView.decode
 Nerodia.PyBufferView.decodeUTF8
@@ -161,7 +164,6 @@ Nerodia.PyBufferView.decode_spec
 Nerodia.PyBufferView.toPyBuffer
 Nerodia.PyBufferView.toPyBuffer_eq_toPy
 Nerodia.PyBytes (type abbrev)
-Nerodia.PyBytes.mk
 Nerodia.PyBytes.size
 Nerodia.PyBytes.sizeImpl
 Nerodia.PyBytes.size_eq
@@ -189,7 +191,6 @@ Nerodia.PyIO.toIO
 Nerodia.PyIO.tryCatchM
 Nerodia.PyIO.tryFinallyM'
 Nerodia.PyInt (type abbrev)
-Nerodia.PyInt.mk
 Nerodia.PyInt.size_toByteArrayBE_pos
 Nerodia.PyInt.size_toByteArrayLE_pos
 Nerodia.PyInt.toByteArrayBE
@@ -204,7 +205,6 @@ Nerodia.PyMethO (irreducible)
 Nerodia.PyMethO.ofPyIO
 Nerodia.PyModule (type abbrev)
 Nerodia.PyModule.addByString
-Nerodia.PyModule.mk
 Nerodia.PyModuleInit (irreducible)
 Nerodia.PyModuleInit.ofPyIO
 Nerodia.PyNever (type abbrev)
@@ -219,8 +219,6 @@ Nerodia.PyObject.index
 Nerodia.PyObject.int
 Nerodia.PyObject.isNone
 Nerodia.PyObject.isNone_iff_hasType
-Nerodia.PyObject.mk
-Nerodia.PyObject.raw_mk
 Nerodia.PyObject.repr
 Nerodia.PyObject.str
 Nerodia.PyObjectView (type abbrev)
@@ -246,7 +244,6 @@ Nerodia.PyRuntimeError (type abbrev)
 Nerodia.PyStr (type abbrev)
 Nerodia.PyStr.encode
 Nerodia.PyStr.encodeUTF8
-Nerodia.PyStr.mk
 Nerodia.PyStr.toString
 Nerodia.PySystemError (type abbrev)
 Nerodia.PyThreadCtxT (irreducible)
@@ -255,7 +252,6 @@ Nerodia.PyThreadCtxT.run'
 Nerodia.PyThreadCtxT.toM
 Nerodia.PyType (type abbrev)
 Nerodia.PyType.getQualName
-Nerodia.PyType.mk
 Nerodia.PyTypeError (type abbrev)
 Nerodia.PyValueError (type abbrev)
 Nerodia.ToPy
@@ -264,7 +260,6 @@ Nerodia.ToPy.toPy (proj)
 Nerodia.ToPyBaseException (type abbrev)
 Nerodia.ToPyBuffer (type abbrev)
 Nerodia.ToPyObject (type abbrev)
-Nerodia.ToPyObject.toPy_eq_mk
 Nerodia.ToTypeExpr
 Nerodia.ToTypeExpr.mk
 Nerodia.ToTypeExpr.toTypeExpr (proj)
@@ -340,6 +335,9 @@ Nerodia.Typing.union
 Nerodia.Typing.union_never
 Nerodia.Typing.union_object
 Nerodia.Typing.valueError
+Nerodia.ViewPy
+Nerodia.ViewPy.isPyT
+Nerodia.ViewPy.mk
 Nerodia.any
 Nerodia.baseException
 Nerodia.buffer
@@ -376,7 +374,7 @@ Nerodia.typeError
 Nerodia.valueError
 Nerodia.«term_⦂_»
 
-# Instances (195)
+# Instances (213)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -396,6 +394,7 @@ Nerodia.Null.instSubsingleton
 Nerodia.NullableAddr.instDecidablePredIsNull
 Nerodia.NullableAddr.instInhabited
 Nerodia.Py.Raw.instDecidableEq
+Nerodia.Py.Raw.instToPyObject
 Nerodia.Py.instCoeOutRaw
 Nerodia.Py.instNonemptyRaw
 Nerodia.PyBaseExceptionView.instCoeOutPyBaseExceptionOfToPyBaseException
@@ -419,7 +418,6 @@ Nerodia.PyThreadCtxT.instMonadExceptOf
 Nerodia.PyThreadCtxT.instMonadFunctor
 Nerodia.PyThreadCtxT.instMonadLift
 Nerodia.PyThreadCtxT.instMonadPyOfMonad
-Nerodia.ToPyObject.instRaw
 Nerodia.Typing.instHasSubset
 Nerodia.Typing.instInter
 Nerodia.Typing.instIsSubtypeOfBaseExceptionEofError
@@ -572,6 +570,24 @@ Nerodia.instToTypeExprSystemError
 Nerodia.instToTypeExprType
 Nerodia.instToTypeExprTypeError
 Nerodia.instToTypeExprValueError
+Nerodia.instViewPyAnyPyAny
+Nerodia.instViewPyBaseExceptionPyBaseException
+Nerodia.instViewPyBufferPyBuffer
+Nerodia.instViewPyBytesPyBytes
+Nerodia.instViewPyEofErrorPyEOFError
+Nerodia.instViewPyExceptionPyException
+Nerodia.instViewPyIntPyInt
+Nerodia.instViewPyModuleTypePyModule
+Nerodia.instViewPyNeverPyNever
+Nerodia.instViewPyObjectPyObject
+Nerodia.instViewPyOsErrorPyOSError
+Nerodia.instViewPyPy
+Nerodia.instViewPyRuntimeErrorPyRuntimeError
+Nerodia.instViewPyStrPyStr
+Nerodia.instViewPySystemErrorPySystemError
+Nerodia.instViewPyTypeErrorPyTypeError
+Nerodia.instViewPyTypePyType
+Nerodia.instViewPyValueErrorPyValueError
 -/
 #guard_msgs in
 #eval show CoreM Unit from do
