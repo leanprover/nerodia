@@ -147,6 +147,8 @@ module_facet nerodiacOut (mod) : NerodiacOutput := do
         args := #[inFile.toString, outFile.toString]
         env := #[("LEAN_PATH", some (← getAugmentedLeanPath).toString)]
       }
+      clearFileHash cFile
+      clearFileHash pyiFile
     let out ←
       match Json.parse (← IO.FS.readFile outFile) >>= fromJson? with
       | .ok (out : CompilerOutput) => pure out
