@@ -45,7 +45,13 @@ def extractPyModule (leanModule : Lean.Name) : IO ModuleDef := do
     | throw <| IO.userError "module lacks a Nerodia configuration"
   return {
     config := modCfg
-    leanInit := Lean.mkModuleInitializationFunctionName leanModule (env.getModulePackageByIdx? modIdx)
+    -- Only the runtime is initialized by default.
+    -- If a Python extension wishes to elaborate Lean code, it can either
+    -- dynamically initialize its own meta code using its symbols during the
+    -- `importModules` process or use `builtin_initialize` for its Lean
+    -- extensions (thereby acting more like a Lean plugin).
+    leanInit := Lean.mkModuleInitializationFunctionName
+      leanModule (env.getModulePackageByIdx? modIdx) (phases := .runtime)
     leanModule := leanModule
   }
 
