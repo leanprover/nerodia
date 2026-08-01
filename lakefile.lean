@@ -253,12 +253,13 @@ structure BackendConfig where
   Schema version of the frontend (setuptools-lean).
   Maximum version Nerodia can emit.
   -/
-  schemaVersion : String -- not yet checked (only 1 public schema version)
+  -- not yet checked (only 1 public schema version)
+  schemaVersion? : Option String
   /-- Minimum version the frontend supports. -/
   minSchemaVersion? : Option String
   pyTag : String
   abiTag : String
-  platformTag : String -- unused
+  platformTag? : Option String -- unused
   modules : Array String
   build : Bool
   deriving FromJson
