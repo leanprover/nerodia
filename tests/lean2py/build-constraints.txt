@@ -2,4 +2,4 @@
 #
 # This must be bumped whenever a new stable is released in order to continue
 # using prerelease versions.
-setuptools-lean>0.1.3
+setuptools-lean>=0.1.4.dev0
