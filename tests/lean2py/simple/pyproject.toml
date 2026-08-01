@@ -7,5 +7,10 @@ requires-python = ">=3.14"
 requires = ["setuptools", "setuptools-lean"]
 build-backend = "setuptools.build_meta"
 
+# Because there are no Lean directories in this test, the default
+# flat-layout automatic discovery is sufficient without the setting below.
+# [tool.setuptools]
+# packages = []
+
 [[tool.setuptools-lean.ext-modules]]
 lean-module = "Test"

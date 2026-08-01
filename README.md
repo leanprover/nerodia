@@ -57,6 +57,12 @@ requires-python = ">=3.14"
 requires = ["setuptools", "setuptools-lean"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+# setuptools-lean will generate a Python package for us.
+# Without this field, setuptools may assume Lean libraries are Python packages.
+# Python packages of your own can be added to this list.
+packages = []
+
 [[tool.setuptools-lean.ext-modules]]
 lean-module = "StringSum"
 ```
