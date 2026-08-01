@@ -1,0 +1,5 @@
+# Used to opt the test packages into `setuptools-lean` prereleases.
+#
+# This must be bumped whenever a new stable is released in order to continue
+# using prerelease versions.
+setuptools-lean>0.1.3

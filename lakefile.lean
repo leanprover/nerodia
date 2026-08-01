@@ -43,7 +43,7 @@ target pyconfig : PyConfig := do
         (pureHash py.lib3.1) s!"pyconfig: {py.lib3.1}"
       return py
     | .error e =>
-      error s!"configuration script produced unexpect output; {e}:\n{out}"
+      error s!"configuration script produced unexpected output; {e}:\n{out}"
 
 target libpython3x : Dynlib := do
   return (← pyconfig.fetch).map (sync := true) fun py =>
@@ -350,12 +350,12 @@ lean_exe pyInExe where
     else #["-Wl,--allow-shlib-undefined"]
 
 /--
-Creates an virtual enviroment in `venvDir` that has the test Python package
-named `pkg` located in `modDir` installed. Also ensures the `setuptools-lean`
-dependency is installed from the appropriate source.
+Creates a virtual envirobment in `venvDir` that has the test Python package
+located in `modDir` installed. Also ensures the `setuptools-lean` dependency
+is installed from the appropriate source.
 -/
 def installPyPkg
-  (pkg : String) (modDir  : FilePath)
+  (modDir : FilePath)
   (venvDir : FilePath := modDir / ".venv")
   (localSetuptoolsLean? : Option FilePath := none)
   (editable : Bool)
@@ -385,9 +385,8 @@ def installPyPkg
       env := buildEnv
       args :=
         if editable then #[
-          "-q", "sync", "--python", venvDir.toString,
-          "--no-build-isolation-package", pkg,
-          "--reinstall-package", pkg
+          "-q", "pip", "install", "--python", venvDir.toString,
+          "--no-build-isolation", "-e", "."
         ] else #[
           "-q", "pip", "install", "--python", venvDir.toString,
           "--no-build-isolation", "."
@@ -395,23 +394,29 @@ def installPyPkg
 
     }
   else
+    -- Opts the test packages into `setuptools-lean` prereleases.
+    -- uv 0.12 prefers stable releases and `--prerelease` does not apply to
+    -- build requirements, so a constraint is the only way to use prereleases.
+    let constraints := modDir / ".." / "build-constraints.txt"
     proc {
       cmd := "uv"
       cwd := modDir
       env := buildEnv
       args :=
         if editable then #[
-          "-q", "sync", "--python", venvDir.toString,
+          "-q", "pip", "install", "--python", venvDir.toString,
           "--default-index", "https://pypi.org/simple/",
           "--index", "https://test.pypi.org/simple/",
           "--index-strategy", "unsafe-first-match",
+          "--build-constraints", constraints.toString,
           "--reinstall-package", "setuptools-lean",
-          "--reinstall-package", pkg
+          "-e", ".",
         ] else #[
           "-q", "pip", "install", "--python", venvDir.toString,
           "--default-index", "https://pypi.org/simple/",
           "--index", "https://test.pypi.org/simple/",
           "--index-strategy", "unsafe-first-match",
+          "--build-constraints", constraints.toString,
           "--reinstall-package", "setuptools-lean",
            ".",
         ]
@@ -509,13 +514,13 @@ def testModule
   let editableVEnv := modDir / ".venv"
   let nonEditableVEnv := modDir / ".lake" / "dist-venv"
   -- The editable and non-editable installs cannot be run in parallel.
-  -- Neither uv or setuptools ensure thread safe access to `*.egg-info`.
+  -- Neither uv nor setuptools ensures thread safe access to `*.egg-info`.
   let editableJob ← withRegisterJob s!"{testName} editable install" <| Job.async do
-    installPyPkg "test" modDir editableVEnv
+    installPyPkg modDir editableVEnv
       (editable := true) localSetuptoolsLean?
   let nonEditableJob ← withRegisterJob s!"{testName} non-editable install" do
     editableJob.mapM fun _ =>
-      installPyPkg "test" modDir nonEditableVEnv
+      installPyPkg modDir nonEditableVEnv
         (editable := false) localSetuptoolsLean?
   discard <| withRegisterJob s!"{testName} test (editable)" do
     editableJob.mapM fun _ =>
@@ -554,5 +559,6 @@ script test do
     libJob.bindM (sync := true) fun _ =>
     nerodiacJob.mapM fun _ => do
       for e in ← pkgDir / "tests" / "lean2py" |>.readDir do
-        testModule s!"lean2py/{e.fileName}" e.path localSetuptoolsLean?
+        if ← e.path.isDir then
+          testModule s!"lean2py/{e.fileName}" e.path localSetuptoolsLean?
   return 0
