@@ -250,6 +250,39 @@ module_facet nerodiaExt (mod) : ExtBuild := do
       libs := (libs ++ leanDynlibs |>.push lakeDynlib).map (·.path)
     }
 
+/--
+The components of a Python wheel tag.
+
+Encoded as the standard Python tag triple (e.g., `["cp314", "abi3", "any"]`)
+rather than as an object.
+-/
+structure WheelTag where
+  py : String
+  abi : String
+  platform? : Option String := none -- unused
+
+namespace WheelTag
+
+protected def toJson (self : WheelTag) : Json :=
+  Json.arr #[toJson self.py, toJson self.abi, toJson self.platform?]
+
+instance : ToJson WheelTag := ⟨WheelTag.toJson⟩
+
+protected def fromJson? (val : Json) : Except String WheelTag := do
+  let arr ← val.getArr?
+  if h : arr.size = 3 then
+    return {
+      py := ← fromJson? arr[0]
+      abi := ← fromJson? arr[1]
+      platform? := ← fromJson? arr[2]
+    }
+  else
+    throw s!"expected a wheel tag triple, got {arr.size} elements"
+
+instance : FromJson WheelTag := ⟨WheelTag.fromJson?⟩
+
+end WheelTag
+
 structure BackendConfig where
   /--
   Schema version of the frontend (setuptools-lean).
@@ -259,41 +292,125 @@ structure BackendConfig where
   schemaVersion? : Option String
   /-- Minimum version the frontend supports. -/
   minSchemaVersion? : Option String
-  pyTag : String
-  abiTag : String
-  platformTag? : Option String -- unused
+  /-- Wheel tag to target. If `none`, no tag is validated or reported. -/
+  wheelTag? : Option WheelTag
+  /-- Whether the package's source paths should be collected. -/
+  collectSources : Bool
+  /-- Lean modules for which to generate Python extensions. -/
   modules : Array String
+  /-- Whether an extension build should actually be performed. -/
   build : Bool
-  deriving FromJson
+
+protected def BackendConfig.fromJson? (val : Json) : Except String BackendConfig := do
+  let obj ← JsonObject.fromJson? val
+  return {
+    schemaVersion? := ← obj.get? "schemaVersion"
+    minSchemaVersion? := ← obj.get? "minSchemaVersion"
+    wheelTag? := ← obj.get? "wheelTag"
+    collectSources := ← obj.get "collectSources"
+    modules := ← obj.getD "modules" #[]
+    build := ← obj.get "build"
+  }
+
+instance : FromJson BackendConfig := ⟨BackendConfig.fromJson?⟩
 
 def nerodiaSchemaVersion : Date :=
   {year := 2026, month := 07, day := 31}
 
-structure ExtBDist where
+-- Use native normalization rather than Lake's `/`-based instance.
+-- Frontends like setuptools expect paths with native separators.
+local instance : ToJson FilePath := ⟨(toJson ·.normalize)⟩ in
+structure ExtDist where
   /--
   Schema version Nerodia emits.
   Minimum of the configuration `schemaVersion` and `nerodiaSchemaVersion`.
   -/
   schemaVersion : Date
-  pyTag : String
-  abiTag : String
+  /-- Wheel tag Nerodia targets. `none` if the configuration had no tag. -/
+  wheelTag? : Option WheelTag
+  /-- Built extension modules. -/
   builds : Array ExtBuild
+  /--
+  Absolute paths to the Lean sources of the root package.
+
+  The frontend (setuptools-lean) can include these in the source distribution
+  by default, so that it carries everything Lake needs to rebuild.
+  -/
+  srcPaths : Array FilePath
   deriving ToJson
 
 /--
-Generates and builds Python extension modules from Lean modules.
+Collects the absolute paths to the sources of the package:
+* The Lake configuration, manifest, and `lean-toolchain`
+* Files specified by `input_file`  and `input_dir` targets
+* Roots of each `lean_lib` and their submodule directories
+* The source of the root module of each `lean_exe`.
+
+A library contributes its roots rather than its whole `srcDir` because
+`srcDir` defaults to the package directory, which also holds build output
+and unrelated files (e.g., the Python package the extension is bundled into).
+-/
+def getSrcPaths (pkg : Package) : IO (Array FilePath) := do
+  let mut paths : OrdHashSet FilePath := addFiles .empty
+    #[pkg.configFile, pkg.manifestFile]
+  paths ← addFileIfExists paths <| pkg.dir / "lean-toolchain"
+  for decl in pkg.targetDecls do
+    match decl.kind with
+    | InputFile.configKind =>
+      if let some input := pkg.findConfigTarget? InputFile.configKind decl.name then
+        paths := addFile paths (InputFile.path input)
+    | InputDir.configKind =>
+      if let some input := pkg.findConfigTarget? InputDir.configKind decl.name then
+        paths ← addDir paths (InputDir.path input) (InputDir.filter input)
+    | LeanLib.configKind =>
+      if let some lib := pkg.findConfigTarget? LeanLib.configKind decl.name then
+        let srcDir := LeanLib.srcDir lib
+        for root in (LeanLib.config lib).roots do
+          -- A root need not exist (e.g., a library globbing only submodules).
+          paths ← addFileIfExists paths (Lean.modToFilePath srcDir root "lean")
+          paths ← addDir paths (Lean.modToFilePath srcDir root "")
+    | LeanExe.configKind =>
+      if let some exe := pkg.findConfigTarget? LeanExe.configKind decl.name then
+        paths := addFile paths (LeanExe.root exe).leanFile
+    | _ => pure ()
+  return paths.toArray
+where
+  @[inline] addFile paths (file : FilePath) :=
+    paths.insert file
+  @[inline] addFileIfExists paths (file : FilePath) :=
+    return if ← file.pathExists then addFile paths file else paths
+  addFiles paths (files : Array FilePath) :=
+    files.foldl addFile paths -- specializes `foldl`
+  addDir paths dir (filter := fun _ => true) := do
+    unless ← dir.isDir do
+      return paths
+    (← dir.walkDir).foldlM (init := paths) fun paths file => do
+      return if filter file && !(← file.isDir) then addFile paths file else paths
+
+/--
+Generates Python extension modules from Lean modules for distribution.
 
 USAGE:
-  lake script run nerodia/buildExt
+  lake script run nerodia/preparePyDist
 
-Receives a JSON configuration through standard input, generates the C code
-and the `.pyi` type stub for each extension using `nerodiac`, builds the Python
-extension shared library, and outputs a JSON description of the results.
+Receives a JSON configuration through standard input and outputs a JSON
+description of the results.
 
-The Python plugin `setuptools-lean` uses this script to build and bundle the
-extensions for distribution.
+When the configuration sets a `wheelTag`, Nerodia validates that it supports it
+and returns the wheel tag Nerodia would prefer.
+
+When the configuration sets `collectSources := true`, Nerodia produces an
+array of absolute paths to the sources of targets Nerodia understands:
+`lean_lib`, `lean_exe`, `input_file`, `input_dir`.
+
+When the configuration sets `build := true`, Nerodia generates the C code and
+the `.pyi` type stub  for each extension using `nerodiac`, and builds the
+Python extension shared library.
+
+The Python plugin `setuptools-lean` uses this script to create both source
+and binary distributions.
 -/
-script buildExt do
+script preparePyDist do
   let input ← (← IO.getStdin).readToEnd
   let cfg ← id do
     match Json.parse input >>= fromJson? with
@@ -306,16 +423,23 @@ script buildExt do
           but this version of Nerodia only supports up to {nerodiaSchemaVersion}"
     else
       error s!"unknown minimum configuration schema: {minVer}"
-  if let some cpVer := cfg.pyTag.dropPrefix? "cp3" >>= (·.toNat?) then
-    if cpVer < minPyVer then
-      error s!"Nerodia requires CPython 3.{minPyVer}+, got 3.{cpVer}"
-  else
-    error s!"Nerodia requires CPython 3.{minPyVer}+, got {cfg.pyTag}"
-  if let some cpVer := cfg.abiTag.dropPrefix? "cp3" >>= (·.toNat?) then
-    if cpVer < minPyVer then
-      error s!"Nerodia requires Limited API 3.{minPyVer}+, got 3.{cpVer}"
-  else if cfg.abiTag != "abi3" then
-    error s!"Nerodia requires Limited API 3.{minPyVer}+, got {cfg.abiTag}"
+  if let some cfgTag := cfg.wheelTag? then
+    if let some cpVer := cfgTag.py.dropPrefix? "cp3" >>= (·.toNat?) then
+      if cpVer < minPyVer then
+        error s!"Nerodia requires CPython 3.{minPyVer}+, got 3.{cpVer}"
+    else
+      error s!"Nerodia requires CPython 3.{minPyVer}+, got {cfgTag.py}"
+    if let some cpVer := cfgTag.abi.dropPrefix? "cp3" >>= (·.toNat?) then
+      if cpVer < minPyVer then
+        error s!"Nerodia requires Limited API 3.{minPyVer}+, got 3.{cpVer}"
+    else if cfgTag.abi != "abi3" then
+      error s!"Nerodia requires Limited API 3.{minPyVer}+, got {cfgTag.abi}"
+  -- Collect source paths
+  let srcPaths ← id do
+    if cfg.collectSources then
+      getSrcPaths (← getWorkspace).root
+    else
+      return #[]
   -- always validate module names, even if no build occurs
   let mods ← cfg.modules.mapM fun modStr => do
     let modName := modStr.toName
@@ -330,11 +454,12 @@ script buildExt do
         mod.facet `nerodiaExt |>.fetch
     else
       return #[]
-  let bdist : ExtBDist := {
-    pyTag, abiTag, builds
+  let dist : ExtDist := {
+    builds, srcPaths
     schemaVersion := nerodiaSchemaVersion
+    wheelTag? := cfg.wheelTag?.map fun _ => {py := pyTag, abi := abiTag}
   }
-  IO.println (toJson bdist).compress
+  IO.println (toJson dist).compress
   return 0
 
 /-! ## Nerodia Tests -/
