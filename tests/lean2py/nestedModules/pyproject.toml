@@ -1,0 +1,22 @@
+[project]
+name = "test"
+version = "0.0.0"
+requires-python = ">=3.14"
+
+[build-system]
+requires = ["setuptools", "setuptools-lean"]
+build-backend = "setuptools.build_meta"
+
+# setuptools default flat-layout automatic discovery would make the Lean
+# source directory the sole namespace package, so the provided Python package
+# must be listed explicitly.
+[tool.setuptools]
+packages = ["testpkg"]
+
+# A generated subpackage of a package provided by this project
+[[tool.setuptools-lean.ext-modules]]
+lean-module = "Nested.Ext"
+
+# A fully generated qualified package
+[[tool.setuptools-lean.ext-modules]]
+lean-module = "Nested.Deep"

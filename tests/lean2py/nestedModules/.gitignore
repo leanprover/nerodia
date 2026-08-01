@@ -1,0 +1,12 @@
+.lake/
+.venv/
+__pycache__/
+/build/
+*.egg-info/
+*.so
+
+# Generated Python package
+/testpkg/ext/
+
+/lake-manifest.json
+/uv.lock

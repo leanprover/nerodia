@@ -1,0 +1,10 @@
+name = "test"
+defaultTargets = ["Nested"]
+
+[[require]]
+name = "nerodia"
+path = "../../.."
+
+[[lean_lib]]
+name = "Nested"
+globs = ["Nested.+"]
