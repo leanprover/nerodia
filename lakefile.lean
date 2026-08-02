@@ -1,3 +1,8 @@
+/-
+Copyright (c) 2026 Lean FRO. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Authors: Mac Malone, Claude Code
+-/
 import Lake
 open System Lake DSL
 open Lean (Json ToJson FromJson toJson fromJson?)
@@ -478,6 +483,30 @@ lean_exe pyInExe where
     else #["-Wl,--allow-shlib-undefined"]
 
 /--
+Arguments that opt a test package's build into `setuptools-lean` prereleases.
+
+uv 0.12 prefers stable releases and `--prerelease` does not apply to build
+requirements, so a constraint is the only way to use prereleases.
+-/
+def pyPrereleaseArgs (modDir : FilePath) : Array String := #[
+  "--default-index", "https://pypi.org/simple/",
+  "--index", "https://test.pypi.org/simple/",
+  "--index-strategy", "unsafe-first-match",
+  "--build-constraints", (modDir / ".." / "build-constraints.txt").toString
+]
+
+/--
+Environment for a Python build that invokes Lake.
+
+Ensures Python can find Lean's shared libraries.
+Cannot include system libraries that will conflict with `cc`.
+-/
+def getPyBuildEnv : JobM (Array (String × Option String)) := do
+  let libPath : SearchPath :=
+    (← getLeanLibDir) :: (← getLakeEnv).initSharedLibPath
+  return #[(sharedLibPathEnvVar, some libPath.toString)]
+
+/--
 Creates a virtual envirobment in `venvDir` that has the test Python package
 located in `modDir` installed. Also ensures the `setuptools-lean` dependency
 is installed from the appropriate source.
@@ -493,11 +522,7 @@ def installPyPkg
       args := #["-q", "venv", "--clear", venvDir.toString]
       cwd := modDir
     }
-  -- Ensures Python can find Lean's shared libraries
-  -- Cannot include system libraries that will conflict with `cc`
-  let libPath : SearchPath :=
-    (← getLeanLibDir) :: (← getLakeEnv).initSharedLibPath
-  let buildEnv := #[(sharedLibPathEnvVar, some libPath.toString)]
+  let buildEnv ← getPyBuildEnv
   if let some pluginDir := localSetuptoolsLean? then
     proc {
       cmd := "uv"
@@ -522,32 +547,15 @@ def installPyPkg
 
     }
   else
-    -- Opts the test packages into `setuptools-lean` prereleases.
-    -- uv 0.12 prefers stable releases and `--prerelease` does not apply to
-    -- build requirements, so a constraint is the only way to use prereleases.
-    let constraints := modDir / ".." / "build-constraints.txt"
     proc {
       cmd := "uv"
       cwd := modDir
       env := buildEnv
       args :=
-        if editable then #[
-          "-q", "pip", "install", "--python", venvDir.toString,
-          "--default-index", "https://pypi.org/simple/",
-          "--index", "https://test.pypi.org/simple/",
-          "--index-strategy", "unsafe-first-match",
-          "--build-constraints", constraints.toString,
-          "--reinstall-package", "setuptools-lean",
-          "-e", ".",
-        ] else #[
-          "-q", "pip", "install", "--python", venvDir.toString,
-          "--default-index", "https://pypi.org/simple/",
-          "--index", "https://test.pypi.org/simple/",
-          "--index-strategy", "unsafe-first-match",
-          "--build-constraints", constraints.toString,
-          "--reinstall-package", "setuptools-lean",
-           ".",
-        ]
+        #["-q", "pip", "install", "--python", venvDir.toString]
+        ++ pyPrereleaseArgs modDir
+        ++ #["--reinstall-package", "setuptools-lean"]
+        ++ (if editable then #["-e", "."] else #["."])
     }
 
 @[inline] def validateOutput
@@ -636,6 +644,69 @@ def testLPL (venvDir modDir : FilePath) : JobM Unit := do
   }
   validateOutput "Hello!" out
 
+/--
+Builds a source distribution of the test package and validates its contents.
+
+The sdist is not installed: the test packages require `nerodia` through a path
+dependency on the repository, so their source distributions are not installable.
+-/
+def testSdist
+  (venvDir modDir : FilePath) (localSetuptoolsLean? : Option FilePath)
+: JobM Unit := do
+  let outDir := modDir / ".lake" / "sdist"
+  -- Without this, `manifest_maker` reuses the `SOURCES.txt` of an earlier
+  -- build, so sources the backend stops reporting still ship. If this is
+  -- removed, verify a sdist built twice in a row still omits them.
+  for entry in ← modDir.readDir do
+    if entry.fileName.endsWith ".egg-info" then
+      IO.FS.removeDirAll entry.path
+  let buildArgs := #[
+    "-q", "build", "--sdist", "--clear", "--no-create-gitignore",
+    "--out-dir", outDir.toString, "--python", venvDir.toString
+  ]
+  proc {
+    cmd := "uv"
+    cwd := modDir
+    env := ← getPyBuildEnv
+    args :=
+      if localSetuptoolsLean?.isSome then
+        -- The venv already has the local `setuptools-lean` and `setuptools`.
+        buildArgs.push "--no-build-isolation"
+      else
+        buildArgs ++ pyPrereleaseArgs modDir
+          ++ #["--refresh-package", "setuptools-lean"]
+  }
+  let expectedFile := modDir / ".lake" / "sdist-expected.json"
+  let expected := (← getSdistPaths modDir).map (·.toString)
+  IO.FS.writeFile expectedFile (toJson expected).pretty
+  proc {
+    cmd := "uv"
+    cwd := modDir
+    args := #[
+      "-q", "run", "--python", venvDir.toString, "--no-sync",
+      "python", "-P", (modDir / ".." / "check_sdist.py").toString,
+      modDir.toString, outDir.toString, expectedFile.toString
+    ]
+  }
+where
+  /-- Returns the test module paths expected to be in the source distribution. -/
+  getSdistPaths (modDir : FilePath) : IO (Array FilePath) := do
+    let excluded := #[".lake", ".venv", "build", "__pycache__"]
+    let included := #["lean-toolchain" , "lakefile.toml",  "lake-manifest.json" ]
+    let entries ← modDir.walkDir fun dir => do
+      let some name := dir.fileName
+        | return true -- enter a root (e.g., `/`)
+      return !excluded.contains name && !name.endsWith ".egg-info"
+    entries.filterMapM fun path => do
+      let some name := path.fileName
+        | return none -- only directories can lack file names
+      -- `lakefile.lean` is covered by extension rather than inclusion
+      unless path.extension == some "lean" || included.contains name do
+        return none
+      if ← path.isDir then
+        return none
+      return some path
+
 def testModule
   (testName : String) (modDir : FilePath) (localSetuptoolsLean? : Option FilePath)
 : FetchM Unit := do
@@ -659,6 +730,10 @@ def testModule
   discard <| withRegisterJob s!"{testName} ty" do
     editableJob.mapM fun _ =>
       testTypeCheck editableVEnv modDir
+  -- Serialized with the installs: it also writes `*.egg-info`.
+  discard <| withRegisterJob s!"{testName} sdist" do
+    nonEditableJob.mapM fun _ =>
+      testSdist editableVEnv modDir localSetuptoolsLean?
   if ← (modDir / "lpl.lean").pathExists then
     discard <| withRegisterJob s!"{testName} lpl" do
       editableJob.mapM fun _ =>
