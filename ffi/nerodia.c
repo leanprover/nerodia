@@ -444,7 +444,7 @@ LEAN_EXPORT size_t nerodia_mk_py_os_error3(
     return (size_t)NULL;
   }
   PyObject* filename_obj = mk_str(filename);
-  if (filename == NULL) {
+  if (filename_obj == NULL) {
     Py_DECREF(errno_obj);
     Py_DECREF(sterror_obj);
     return (size_t)NULL;
