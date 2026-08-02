@@ -38,7 +38,7 @@ public structure CPyBaseResult (α : Type) extends toCPtrUnsafe : CPtr α where
     deriving DecidableEq
 
 /--
-Converts the {name}`CPyBaseResult` to a raw Pyton object pointer,
+Converts the {name}`CPyBaseResult` to a raw Python object pointer,
 with both sharing the strong reference.
 
 **Memory Safety:** Users must manually manage the reference's lifetime.
@@ -182,7 +182,7 @@ Runs the {lean}`CPyIO` function, returning the raw, unmanaged pointer.
 * Users must ensure a Python context exists.
 * Users must ensure the raised exception is handled on failure.
 * **Memory:** Users must ensure that a returned object reference is consumed,
-and that it does not outlive the enviroment.
+and that it does not outlive the environment.
 -/
 @[inline] def toBaseIOUnsafe (x : CPyIO α) : BaseIO (CPyResult α) :=
   x
@@ -245,7 +245,7 @@ Runs the {lean}`CPyBaseIO` function, returning the raw, unmanaged pointer.
 **Safety**
 * Users must ensure a Python context exists.
 * **Memory:** Users must ensure that the returned object reference is consumed,
-and that it  does not outlive the enviroment.
+and that it  does not outlive the environment.
 -/
 @[inline] def toBaseIOUnsafe (x : CPyBaseIO α) : BaseIO (CPyBaseResult α) :=
   x
@@ -283,7 +283,7 @@ unseal CPyUnitIO in
 /--
 Constructs a {lean}`CPyUnitIO` function from its definition.
 
-**Safety:** Users should esnure that an exception is set on error.
+**Safety:** Users should ensure that an exception is set on error.
 -/
 @[inline] def ofBaseIOUnsafe (x : BaseIO Int32) : CPyUnitIO :=
   x
@@ -400,7 +400,7 @@ open Internal in
   {α : Type} (x : PyIO α) (f : α → PyCResultIO Py.Raw)
 : PyCResultIO Py.Raw := x.bindPyResultIO f
 
-/-! ## Result Hnadling -/
+/-! ## Result Handling -/
 
 /--
 Wraps a strong Python object reference into a memory-managed Lean object,
@@ -558,13 +558,13 @@ def clearError [Bind m] [MonadPy m] [MonadLiftT BaseIO m] : m PUnit :=
 
 /--
 Constructs a {lit}`SystemError` with the string {lean}`msg`.
-Panics if the construction fails (e.g., due to lack of memeory).
+Panics if the construction fails (e.g., due to lack of memory).
 -/
 @[extern "nerodia_py_thread_ctx_system_error"]
 opaque Internal.PyThreadCtx.systemError!
   (msg : @& String) (ctx : @& PyThreadCtx) : PySystemError
 
-/-- The exception used when when no other exception is set. -/
+/-- The exception used when no other exception is set. -/
 @[inline] opaque Internal.PyThreadCtx.unsetException (ctx : PyThreadCtx) : PySystemError :=
   ctx.systemError! "no exception was set"
 
@@ -662,10 +662,10 @@ Otherwise, lift {lean}`x` into a supporting monad.
 open Internal in
 /--
 Runs the {name}`PyIO` action {name}`x`,
-encursing some other action always happens afterwards.
+ensuring some other action always happens afterwards.
 
 If {name}`x` raises an exception, catches it, runs {lean}`f none`, and then
-re-reaises the exception. Otherwise, if {name}`x` succeeds and returns
+re-raises the exception. Otherwise, if {name}`x` succeeds and returns
 {given}`a : α`, runs {lean}`f (some a)`.
 -/
 @[inline] public protected def tryFinallyM'

@@ -34,7 +34,7 @@ where
 @[extern "nerodia_mk_py_int"]
 public opaque mkPyInt (n : @& Int) : CPyIO PyInt
 
-/-- Creates a Python integer from a nonegative Lean integer (i.e., a {lean}`Nat`). -/
+/-- Creates a Python integer from a nonnegative Lean integer (i.e., a {lean}`Nat`). -/
 @[extern "nerodia_mk_py_nat"]
 public opaque mkPyNat (n : @& Nat) : CPyIO PyInt
 

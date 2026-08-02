@@ -147,7 +147,7 @@ else
 Types which can be trivially converted into Python objects of type {lean}`T`.
 
 This type class is intended to be used to convert between different
-representations of a Python object (e.g., coverting a {lean}`Py T` to a
+representations of a Python object (e.g., converting a {lean}`Py T` to a
 {given -show}`U : Typing` {lean}`Py (T ∩ U)`). It is not meant to be a
 general way to construct Python objects from arbitrary Lean types.
 -/

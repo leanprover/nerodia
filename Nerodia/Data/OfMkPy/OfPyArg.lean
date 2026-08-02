@@ -9,10 +9,10 @@ public import Nerodia.Control.CPyIO
 /-!
 # Python-to-Lean Arguments
 
-This module define the type class used
-to convert Pyton arguments to Lean objects.
+This module defines the type class used
+to convert Python arguments to Lean objects.
 
-This class is used by the by the Nerodia compiler attribute
+This class is used by the Nerodia compiler attribute
 {lit}`@[py_module_fn]`.
 -/
 

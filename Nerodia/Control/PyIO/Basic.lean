@@ -13,7 +13,7 @@ public import Nerodia.Control.MonadPy
 **Implementation Note**
 
 Any definition that signals an exception without handling it is unsafe.
-Python [expects][1] exceptions to be handled and [requires][2] that futher
+Python [expects][1] exceptions to be handled and [requires][2] that further
 Python functions are not called while an exception is set.
 
 [1]: https://docs.python.org/3/c-api/exceptions.html#exception-handling
@@ -21,7 +21,7 @@ Python functions are not called while an exception is set.
 
 Definitions that signal an exception without setting one are also unsafe.
 While CPython [will][3] set its own exception if an FFI call returns `NULL`
-without setting one, relying on this would be contray to the specification.
+without setting one, relying on this would be contrary to the specification.
 
 [3]: https://github.com/python/cpython/blob/v3.14.5/Objects/call.c#L31-L46
 -/

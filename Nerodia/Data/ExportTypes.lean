@@ -11,7 +11,7 @@ public import Nerodia.Data.OfMkPy.OfPyArg
 public import Nerodia.Control.CPyIO
 
 /-!
-# Pythom Export Types
+# Python Export Types
 
 This module defines the types of functions exported from Lean to C for Python.
 -/

@@ -93,7 +93,7 @@ Unpacks a Lean {lean}`IO.Error` and raises the corresponding Python error.
 
 An {lean}`userError` becomes a {lean}`PyRuntimeError`, a {lean}`unexpectedEof`
 becomes a {lean}`PyEOFError`, and everything else becomes a {lean}`PyOSError`
-(or one of its subsclasses).
+(or one of its subclasses).
 -/
 @[inline] public def raiseIOError (e : IO.Error) : CPyIO α :=
   Internal.raiseNew (mkIOError e)

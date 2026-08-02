@@ -270,7 +270,7 @@ lean_obj_res lean_set_initializing(uint8_t init);
 
 /** Initializes Nerodia for use in a Python extension.  */
 LEAN_EXPORT void nerodia_initialize_lean(void) {
-  // Remark: This function many be called from multiple Lean extension imports,
+  // Remark: This function may be called from multiple Lean extension imports,
   // or if Lean code imports a Python module which imports Lean code, so it must
   // be idempotent and race-free in all cases.
   lean_mutex_lock();
@@ -293,7 +293,7 @@ LEAN_EXPORT void nerodia_mark_end_initialization(void) {
 
 lean_obj_res lean_io_error_to_string(lean_obj_arg e);
 
-/** Sets a Python exeception on an Lean module initialization failure.  */
+/** Sets a Python exception on a Lean module initialization failure.  */
 LEAN_EXPORT void nerodia_set_init_error(lean_obj_arg init_res, const char *mod_name) {
   lean_object* err = lean_io_result_get_error(init_res);
   lean_inc_ref(err);

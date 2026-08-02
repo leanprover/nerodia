@@ -12,5 +12,5 @@ public import Nerodia.Data.OfMkPy.StdInstances
 # Lean ↔ Python Bridge
 
 These modules define the type classes and instances used to convert Python
-argumens to Lean objects and Lean returns to Pyton objects.
+arguments to Lean objects and Lean returns to Python objects.
 -/

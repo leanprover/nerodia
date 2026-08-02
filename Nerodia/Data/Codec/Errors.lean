@@ -9,7 +9,7 @@ module
 
 namespace Nerodia
 
-/-- Identifier of a registed Python error handler for codecs. -/
+/-- Identifier of a registered Python error handler for codecs. -/
 public structure CodecErrors where
   ofString ::
     protected toString : String
@@ -32,14 +32,14 @@ The Lean names of these Python identifiers follow Lean naming conventions
 @[inline] public def ignore : CodecErrors := ⟨"ignore"⟩
 
 /--
-Replace unspported characters with a replacement marker. On encoding,
+Replace unsupported characters with a replacement marker. On encoding,
 use `?` (the ASCII character). On decoding, use `�` (U+FFFD, the official
 Unicode replacement character).
 -/
 @[inline] public def replace : CodecErrors := ⟨"replace"⟩
 
 /--
-Replace unspported characters with backslashed escape sequences.
+Replace unsupported characters with backslashed escape sequences.
 On encoding,  use hexadecimal form of Unicode code point with formats
 {lit}`\xhh`, {lit}`\uxxxx`, {lit}`\Uxxxxxxxx`. On decoding, use hexadecimal
 form of byte value with format {lit}`\xhh`.
@@ -62,14 +62,14 @@ treat the presence of a lone surrogate as an error.
 @[inline] public def surrogatePass : CodecErrors := ⟨"surrogatepass"⟩
 
 /--
-When encoding text, replace unspported characters with XML/HTML numeric
+When encoding text, replace unsupported characters with XML/HTML numeric
 character reference, which is a decimal form of Unicode code point with
 format `&#num;`.
 -/
 @[inline] public def xmlCharRefReplace : CodecErrors := ⟨"xmlcharrefreplace"⟩
 
 /--
-When encoding text, replace unspported characters with {lit}`\N{...}`
+When encoding text, replace unsupported characters with {lit}`\N{...}`
 escape sequences. What appears in the braces is the {lit}`Name` property
 from the Unicode Character Database.
 -/

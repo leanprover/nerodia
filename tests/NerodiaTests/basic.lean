@@ -8,7 +8,7 @@ import Nerodia
 open Nerodia
 
 /-- info: -1 -/
-#guard_msgsin #eval mkPyInt (-1)
+#guard_msgs in #eval mkPyInt (-1)
 /-- info: 13 -/
 #guard_msgs in #eval mkPyInt 13
 /-- info: 420 -/

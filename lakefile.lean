@@ -507,7 +507,7 @@ def getPyBuildEnv : JobM (Array (String × Option String)) := do
   return #[(sharedLibPathEnvVar, some libPath.toString)]
 
 /--
-Creates a virtual envirobment in `venvDir` that has the test Python package
+Creates a virtual environment in `venvDir` that has the test Python package
 located in `modDir` installed. Also ensures the `setuptools-lean` dependency
 is installed from the appropriate source.
 -/

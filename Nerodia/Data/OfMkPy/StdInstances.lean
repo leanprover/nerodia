@@ -21,8 +21,8 @@ public import Nerodia.Data.PyInt.Basic
 /-!
 # Lean ↔ Python Instances
 
-These module defines the standard Nerodia instances used to convert Python
-argumens to Lean objects and Lean returns to Pyton objects.
+These modules define the standard Nerodia instances used to convert Python
+arguments to Lean objects and Lean returns to Python objects.
 -/
 
 namespace Nerodia

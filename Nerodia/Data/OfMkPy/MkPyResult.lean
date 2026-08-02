@@ -7,11 +7,12 @@ module
 public import Nerodia.Control.CPyIO
 
 /-!
-# Lean-to-Pyton Returns
+# Lean-to-Python Returns
 
-These module define the type Lean returns to Pyton objects.
+These modules define the type classes used to
+convert Lean returns to Python objects.
 
-These classes are used by the by the Nerodia compiler attributes
+These classes are used by the Nerodia compiler attributes
 {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
 -/
 

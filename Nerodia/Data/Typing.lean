@@ -12,7 +12,7 @@ public import Nerodia.Data.Py.Raw.Type
 namespace Nerodia
 
 /--
-A typing predicate for Puthon objects.
+A typing predicate for Python objects.
 
 This is the propositional equivalent of a Python type expression.
 However, it can express more complex types (e.g., intersections) than Python's

@@ -18,7 +18,7 @@ Similar to {lean}`Lean.Parser.Category`, definitions of this type have no
 content, they simply reserve names that can be coerced into other types (e.g.,
 {lean}`TypeExpr` or {lean}`Typing`) via {lean}`CoeDep`.
 
-**Users of Neroida should not define values of this type themselves.**
+**Users of Nerodia should not define values of this type themselves.**
 -/
 public structure Constant where
   private mk ::
@@ -105,7 +105,7 @@ end PyObjectView
 
 /--
 A special indicator signifying any acceptable value.
-This is analgous to Python's [{lit}`Any`][1].
+This is analogous to Python's [{lit}`Any`][1].
 
 As a typing, this is propositionally equivalent to {lean}`object`,
 but it has different type class instances.
@@ -128,7 +128,7 @@ public instance : DecidablePy any := private_decl%
   (fun _ => isTrue (by simp))
 
 /--
-A Python object of unknown type. This is analgous to Python's {lit}`Any`.
+A Python object of unknown type. This is analogous to Python's {lit}`Any`.
 
 As Lean is statically typed, there is little utility in using this type
 instead of {name}`PyObject` within Lean code. However, it exists to enable
@@ -140,7 +140,7 @@ For example, a module function defined as
 @[py_module_fn] def foo (o : PyObject) : PyObject := ...
 ```
 
-will be given the the type {lit}`(o: object) -> object` by Nerodia, whereas
+will be given the type {lit}`(o: object) -> object` by Nerodia, whereas
 
 ```
 @[py_module_fn] def foo (o : PyAny) : PyAny := ...
@@ -293,7 +293,7 @@ public instance [ToPyBuffer α] :
 
 end PyBufferView
 
-/-- Casts an object into a boffer. No check that this is valid is performed. -/
+/-- Casts an object into a buffer. No check that this is valid is performed. -/
 @[inline] public def Internal.mkPyBuffer (x : PyObject) : PyBuffer := x.cast buffer
 
 /-!
@@ -301,15 +301,15 @@ end PyBufferView
 
 Not all typing in Nerodia is weak. While the Python specification leaves
 the mutability of an object's type undefined, the CPython implementation has
-notable restrictions on this mutablility. Notably, it prevents reassignment
+notable restrictions on this mutability. Notably, it prevents reassignment
 between many builtin types (e.g., {lit}`str`).
 
-Nerodia lverages this provide pure type checks (e.g., {lit}`isStrInstance`)
+Nerodia leverages this to provide pure type checks (e.g., {lit}`isStrInstance`)
 for these functions. Their static types (e.g., {lit}`PyStr`) then hold a proof
 of this check. Since many builtin types are also immutable, the data of such
 types can be safely accessed in a pure manner (e.g., {lit}`PyStr.toString`).
 
-Nonethless, there are caveats. Foremost, this is not strictly in accordance
+Nonetheless, there are caveats. Foremost, this is not strictly in accordance
 with the Python specification, which leaves the mutability of an object's type
 undefined. However, CPython's implementation strongly assumes confusion between
 builtin types cannot happen (e.g., retyping an {lit}`int` to/from a {lit}`str`
@@ -385,7 +385,7 @@ public instance : DecidablePy type := private_decl%
 /-! ### BaseException -/
 
 /--
-The ultimate base class of Python excpetions, [{lit}`BaseException`][1].
+The ultimate base class of Python exceptions, [{lit}`BaseException`][1].
 
 [1]: https://docs.python.org/3/library/exceptions.html#BaseException
 -/
@@ -747,7 +747,7 @@ public instance : ViewPy typeError PyTypeError := ⟨rfl⟩
 /-! ### ValueError -/
 
 /--
-The Python exception for invalud values, [{lit}`ValueError`][1].
+The Python exception for invalid values, [{lit}`ValueError`][1].
 
 [1]: https://docs.python.org/3/library/exceptions#ValueError
 -/

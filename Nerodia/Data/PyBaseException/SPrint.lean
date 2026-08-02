@@ -40,7 +40,7 @@ namespace PyIO
 /--
 Runs the {lean}`PyIO` function in {lean}`IO`.
 
-If a exeception is raised, it will formatted in the standard Python manner
+If an exception is raised, it will be formatted in the standard Python manner
 (see {name}`PyBaseException.sprint`) and reported as an {lean}`IO.userError`.
 
 This creates a new temporary Python context for the call.

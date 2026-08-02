@@ -10,7 +10,7 @@ import Lean.Data.Json.FromToJson
 import Nerodia.Compiler.Emit.C
 import Nerodia.Compiler.Emit.Pyi
 import Nerodia.Compiler.Meta.Extension
--- some public Lean.* import is required to esnure Lean is initialized
+-- some public Lean.* import is required to ensure Lean is initialized
 public import Lean.Data.Name
 
 open System (FilePath)

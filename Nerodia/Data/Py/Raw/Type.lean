@@ -12,7 +12,7 @@ namespace Nerodia
 
 namespace Internal
 
-/-- A fixed enumartion of builtin base types. -/
+/-- A fixed enumeration of builtin base types. -/
 -- A very simple model, it could be made more dynamic in the future.
 public inductive Py.Kind
 | type

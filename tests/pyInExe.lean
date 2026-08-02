@@ -8,7 +8,7 @@ import Nerodia
 
 open Nerodia
 
-/- Mirrors the example in `PyIO.toIO`'s docustring. -/
+/- Mirrors the example in `PyIO.toIO`'s docstring. -/
 public def main : IO Unit := do
   let pyVer ← PyIO.toIO do
     let sys ← Nerodia.import "sys"
