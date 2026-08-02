@@ -311,18 +311,27 @@ Constructs a {lean}`CPyUnitIO` that fails.
 @[inline] def failureUnsafe : CPyUnitIO :=
   ofBaseIOUnsafe <| pure (-1)
 
+/--
+Runs {lean}`e` if {lean}`x` has set an exception.
+
+**Safety:** {lean}`e` must handle the set exception (i.e., at least clear it).
+-/
+@[inline] def orElseUnsafe
+  [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
+  (x : CPyUnitIO) (e : m PUnit)
+: m PUnit := do if (← x.toBaseIOUnsafe) < 0 then e
+
 open Internal in
 /--
 Lifts the {lean}`CPyUnitIO` function into {lean}`PyIO`,
 reusing its Python context.
 -/
 @[inline] public def toPyIO (x : CPyUnitIO) : PyIO Unit := do
-  if (← x.toBaseIOUnsafe) < 0 then
-    .failureUnsafe
-
-public instance : Coe CPyUnitIO (PyIO Unit) := ⟨toPyIO⟩
+  x.orElseUnsafe .failureUnsafe
 
 end CPyUnitIO
+
+public instance : Coe CPyUnitIO (PyIO Unit) := ⟨CPyUnitIO.toPyIO⟩
 
 open Internal in
 /--
@@ -444,7 +453,7 @@ Runs {lean}`e` if {lean}`x` has set an exception.
 
 **Safety:** {lean}`e` must handle the set exception (i.e., at least clear it).
 -/
-@[inline] def CPyIO.tryCatchUnsafe
+@[inline] def CPyIO.orElseUnsafe
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
   (x : CPyIO α) (e : m α)
 : m α := do
@@ -453,16 +462,6 @@ Runs {lean}`e` if {lean}`x` has set an exception.
     e
   else
     ofBaseResultUnsafe (res.toCPyBaseResultUnsafe h)
-
-/--
-Runs {lean}`e` if {lean}`x` has set an exception.
-
-**Safety:** {lean}`e` must handle the set exception (i.e., at least clear it).
--/
-@[inline] def CPyUnitIO.tryCatchUnsafe
-  [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
-  (x : CPyUnitIO) (e : m PUnit)
-: m PUnit := do if (← x.toBaseIOUnsafe) < 9 then e
 
 /-- Returns a new strong reference to Python object's raw unmanaged C pointer. -/
 @[extern "nerodia_py_object_new_ref"]
@@ -582,7 +581,7 @@ If none, instead returns {name}`getUnsetException`.
 -/
 @[inline] def getRaisedException
   [Monad m] [MonadPy m] [MonadLiftT BaseIO m]
-: m PyBaseException := getCRaisedException.tryCatchUnsafe getUnsetException
+: m PyBaseException := getCRaisedException.orElseUnsafe getUnsetException
 
 open Internal Nerodia in
 /-- Returns the currently raised exception or {name}`unsetException` if none. -/
@@ -712,7 +711,7 @@ If a Python error occurs, it is raised via {name}`throw`.
   [Monad m] [MonadPy m]
   [MonadExcept PyBaseException m] [MonadLiftT BaseIO m]
   (x : CPyIO α)
-: m α := x.tryCatchUnsafe do throw (← getRaisedException)
+: m α := x.orElseUnsafe do throw (← getRaisedException)
 
 /--
 Runs the {lean}`CPyIO` function in a supporting monad
@@ -725,7 +724,7 @@ If a Python error occurs, it is set as the exception.
 open Internal in
 /-- Lifts the {lean}`CPyIO` function into {lean}`PyIO`, reusing its Python context. -/
 @[inline] public def toPyIO (x : CPyIO α) : PyIO α :=
-  x.tryCatchUnsafe .failureUnsafe
+  x.orElseUnsafe .failureUnsafe
 
 public instance : MonadLift CPyIO PyIO := ⟨toPyIO⟩
 
@@ -748,7 +747,7 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
   [Monad m] [MonadPy m]
   [Alternative m] [MonadLiftT BaseIO m]
   (x : CPyIO α)
-: m α := x.tryCatchUnsafe do
+: m α := x.orElseUnsafe do
   clearError
   failure
 
@@ -780,7 +779,7 @@ public instance : MonadRaise CPyIO := ⟨CPyIO.raise⟩
 @[inline] public protected def tryCatchM
   [Monad m] [MonadLiftT BaseIO m] [MonadPy m]
   (x : CPyIO α) (f : PyBaseException → m α)
-: m α := x.tryCatchUnsafe do f (← getRaisedException)
+: m α := x.orElseUnsafe do f (← getRaisedException)
 
 end CPyIO
 
@@ -794,7 +793,7 @@ If a Python error occurs, it is raised via {name}`throw`.
   [Monad m] [MonadPy m]
   [MonadExcept PyBaseException m] [MonadLiftT BaseIO m]
   (x : CPyUnitIO)
-: m PUnit := x.tryCatchUnsafe do throw (← getRaisedException)
+: m PUnit := x.orElseUnsafe do throw (← getRaisedException)
 
 /--
 Runs the {lean}`CPyUnitIO` function in a supporting monad
@@ -823,6 +822,6 @@ If a Python error occurs, it is cleared and {name}`failure` is called.
   [Monad m] [MonadPy m]
   [Alternative m] [MonadLiftT BaseIO m]
   (x : CPyUnitIO)
-: m PUnit := x.tryCatchUnsafe do clearError; failure
+: m PUnit := x.orElseUnsafe do clearError; failure
 
 end CPyUnitIO

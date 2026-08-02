@@ -390,7 +390,6 @@ Nerodia.CPyIO.instMonadEvalIO
 Nerodia.CPyIO.instMonadLiftPyIO
 Nerodia.CPyIO.instMonadRaise
 Nerodia.CPyIO.instNonempty
-Nerodia.CPyUnitIO.instCoePyIOUnit
 Nerodia.CPyUnitIO.instNonempty
 Nerodia.CodecEncoding.instToString
 Nerodia.CodecErrors.instToString
@@ -448,6 +447,7 @@ Nerodia.Typing.instNonemptyPyType
 Nerodia.Typing.instNonemptyPyTypeError
 Nerodia.Typing.instNonemptyPyValueError
 Nerodia.Typing.instUnion
+Nerodia.instCoeCPyUnitIOPyIOUnit
 Nerodia.instCoeDepConstantAnyTyping
 Nerodia.instCoeDepConstantBaseExceptionTyping
 Nerodia.instCoeDepConstantBufferTypeExpr

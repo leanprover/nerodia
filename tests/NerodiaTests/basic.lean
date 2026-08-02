@@ -104,6 +104,9 @@ open Internal Nerodia in
 #guard_msgs in
 #eval PyIO.failureUnsafe (α := Empty)
 
+-- Verify `CPyUnitIO.ok` error check (previosuly broken)
+#guard_msgs in #eval CPyUnitIO.ok.toPyIO
+
 /-- error: AttributeError: module 'sys' has no attribute 'bogus' -/
 #guard_msgs in
 #eval PyIO.toIO do
