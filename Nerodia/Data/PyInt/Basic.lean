@@ -21,14 +21,11 @@ partial def mkBigPyInt (n : Int) : CPyIO PyInt :=
   mkPyIntLE (toByteArrayLE n)
 where
   @[inline] toByteArrayLE (n : Int) : ByteArray :=
-    let bs := ByteArray.emptyWithCapacity 32
-    loop (bs.push n.toInt8.toUInt8) (n / 256)
+    loop (ByteArray.emptyWithCapacity 32) n
   loop bs n :=
     let n' := n / 256
-    if n = n' then
-      bs
-    else
-      loop (bs.push n.toInt8.toUInt8) n'
+    let bs := bs.push n.toInt8.toUInt8
+    if n = n' then bs else loop bs n'
 
 /-- Creates a Python integer from a Lean integer. -/
 @[extern "nerodia_mk_py_int"]

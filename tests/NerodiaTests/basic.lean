@@ -7,18 +7,36 @@ import Nerodia
 
 open Nerodia
 
+/-- info: 0 -/
+#guard_msgs in #eval mkPyNat 0 -- base case
+/-- info: 0 -/
+#guard_msgs in #eval mkPyInt 0
 /-- info: -1 -/
 #guard_msgs in #eval mkPyInt (-1)
 /-- info: 13 -/
+#guard_msgs in #eval mkPyNat 13 -- one byte
+/-- info: 13 -/
 #guard_msgs in #eval mkPyInt 13
+/-- info: -13 -/
+#guard_msgs in #eval mkPyInt (-13)
+/-- info: 420 -/
+#guard_msgs in #eval mkPyNat 420 -- multi-byte
 /-- info: 420 -/
 #guard_msgs in #eval mkPyInt 420
 /-- info: -420 -/
-#guard_msgs in  #eval mkPyInt (-420)
-/-- info: 36893488147419103232 -/
-#guard_msgs in  #eval mkPyInt (2^65)
- /-- info: -36893488147419103232 -/
-#guard_msgs in #eval mkPyInt (-(2^65))
+#guard_msgs in #eval mkPyInt (-420)
+/-- info: 9223372036854775808 -/
+#guard_msgs in #eval mkPyNat (2^63) -- big scalar / negative MSB
+/-- info: 9223372036854775808 -/
+#guard_msgs in #eval mkPyInt (2^63)
+/-- info: -9223372036854775808 -/
+#guard_msgs in #eval mkPyInt (-(2^63))
+/-- info: 18446744073709551616 -/
+#guard_msgs in #eval mkPyNat (2^64) -- big non-scalar / positive MSB
+/-- info: 18446744073709551616 -/
+#guard_msgs in #eval mkPyInt (2^64)
+/-- info: -18446744073709551616 -/
+#guard_msgs in #eval mkPyInt (-(2^64))
 
 /-- info: "hello" -/
 #guard_msgs in
@@ -104,7 +122,7 @@ open Internal Nerodia in
 #guard_msgs in
 #eval PyIO.failureUnsafe (α := Empty)
 
--- Verify `CPyUnitIO.ok` error check (previosuly broken)
+-- Verify `CPyUnitIO.ok` error check (previously broken)
 #guard_msgs in #eval CPyUnitIO.ok.toPyIO
 
 /-- error: AttributeError: module 'sys' has no attribute 'bogus' -/
