@@ -70,6 +70,7 @@ lean-module = "StringSum"
 This Python package can then be built and run like any other. For instance, with the [`uv`](https://github.com/astral-sh/uv) package manager, a single `uv run python` is all it takes to start using the module.
 
 ```shell
+# From within the `string_sum` package directory
 $ uv run python
 >>> import string_sum
 >>> string_sum.sum_as_string(5, 20)
