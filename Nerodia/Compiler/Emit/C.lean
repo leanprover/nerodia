@@ -17,9 +17,8 @@ public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
     #include <Python.h>\n\
     #include <lean/lean.h>\n"
   -- Module initialization
-  c.putStr "\nvoid nerodia_initialize_lean(void);"
-  c.putStr "\nvoid nerodia_mark_end_initialization(void);"
-  c.putStr "\nvoid nerodia_set_init_error(lean_obj_arg init_res, const char *mod_name);"
+  c.putStr "\nbool nerodia_initialize_lean(const char *mod_name);"
+  c.putStr "\nbool nerodia_mark_end_initialization(lean_obj_arg res);"
   c.putStr s!"\nlean_obj_res {mod.leanInit}(uint8_t builtin);"
   for a in mod.attrs do
     c.putStr s!"\nsize_t {a.cSym}(void);"
@@ -28,14 +27,8 @@ public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   let lb := "{"
   c.putStr s!"\n\
     \nstatic int module_exec(PyObject *m) {lb}\
-    \n  nerodia_initialize_lean();\
-    \n  lean_object* res = {mod.leanInit}(true);\
-    \n  nerodia_mark_end_initialization();\
-    \n  if (lean_io_result_is_error(res)) {lb}\
-    \n    nerodia_set_init_error(res, {mod.leanModule.toString.quote});\
-    \n    return -1;\
-    \n  }\
-    \n  lean_dec_ref(res);"
+    \n  if (!nerodia_initialize_lean({mod.leanModule.toString.quote})) return -1;\
+    \n  if (!nerodia_mark_end_initialization({mod.leanInit}(true))) return -1;"
   for a in mod.attrs do
     c.putStr s!"\n  if (PyModule_Add(m, {a.name.quote}, (PyObject*){a.cSym}()) != 0) return -1;"
   for fn in mod.inits do

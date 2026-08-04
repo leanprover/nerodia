@@ -255,55 +255,92 @@ static BOOL CALLBACK lean_init_mutex(PINIT_ONCE once, PVOID param, PVOID *ctx) {
   InitializeCriticalSection(&g_lean_mutex);
   return TRUE;
 }
-#define lean_mutex_lock()   (InitOnceExecuteOnce(&g_lean_mutex_once, lean_init_mutex, NULL, NULL), \
+#define lean_mutex_lock() (InitOnceExecuteOnce(&g_lean_mutex_once, lean_init_mutex, NULL, NULL), \
                            EnterCriticalSection(&g_lean_mutex))
 #define lean_mutex_unlock() LeaveCriticalSection(&g_lean_mutex)
 #else
-static pthread_mutex_t g_lean_mutex = PTHREAD_MUTEX_INITIALIZER;
-#define lean_mutex_lock()   pthread_mutex_lock(&g_lean_mutex)
+static pthread_mutex_t g_lean_mutex;
+static pthread_once_t g_lean_mutex_once = PTHREAD_ONCE_INIT;
+static void lean_init_mutex(void) {
+  pthread_mutexattr_t attr;
+  pthread_mutexattr_init(&attr);
+  pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+  pthread_mutex_init(&g_lean_mutex, &attr);
+  pthread_mutexattr_destroy(&attr);
+}
+#define lean_mutex_lock() (pthread_once(&g_lean_mutex_once, lean_init_mutex), \
+                           pthread_mutex_lock(&g_lean_mutex))
 #define lean_mutex_unlock() pthread_mutex_unlock(&g_lean_mutex)
 #endif
 
 void lean_initialize(void);
 uint8_t lean_io_initializing(void);
+uint8_t l_Lean_initializing(void);
 lean_obj_res lean_set_initializing(uint8_t init);
 
+static const char* g_mod_initializing = NULL;
+
 /** Initializes Nerodia for use in a Python extension.  */
-LEAN_EXPORT void nerodia_initialize_lean(void) {
+LEAN_EXPORT bool nerodia_initialize_lean(const char *mod_name) {
   // Remark: This function may be called from multiple Lean extension imports,
   // or if Lean code imports a Python module which imports Lean code, so it must
   // be idempotent and race-free in all cases.
   lean_mutex_lock();
+  // TODO: Distinguish module initialization initiated by the Lean rumtime from
+  // initialization of the Lean rumtime itself (likely requires a core change).
   if (lean_io_initializing()) {
     // Remark: Consider use of `lean_setup_args` via `Py_GetArgcArgv`.
     // However, it is not clear whether there is a good way to keep them in sync.
     lean_initialize();
     lean_init_task_manager();
     lean_io_mark_end_initialization();
+  } else if (g_mod_initializing) {
+    PyErr_Format(PyExc_ImportError, // TODO: Error class for Lean errors
+      "Cannot initialize Lean module '%s' via Python during "
+      "the initialization of '%s'. Recursive initialization is not supported.",
+      mod_name, g_mod_initializing);
+    lean_mutex_unlock();
+    return false;
+  } else if (l_Lean_initializing()) {
+    PyErr_Format(PyExc_ImportError,
+      "Cannot initialize Lean module '%s' via Python during "
+      "Lean initialization. Recursive initialization is not supported.",
+      mod_name);
+    lean_mutex_unlock();
+    return false;
   }
+  g_mod_initializing = mod_name;
   lean_set_initializing(true);
-}
-
-/** Marks the end of Nerodia initialization from Python. */
-LEAN_EXPORT void nerodia_mark_end_initialization(void) {
-  lean_set_initializing(false);
-  // Remark: Must hold mutex until here to avoid races on the `Lean.initializing` flag.
-  lean_mutex_unlock();
+  return true;
 }
 
 lean_obj_res lean_io_error_to_string(lean_obj_arg e);
 
-/** Sets a Python exception on a Lean module initialization failure.  */
-LEAN_EXPORT void nerodia_set_init_error(lean_obj_arg init_res, const char *mod_name) {
-  lean_object* err = lean_io_result_get_error(init_res);
-  lean_inc_ref(err);
+/**
+Marks the end of Nerodia initialization from Python.
+
+`init_res` is result of the Lean module initialization.
+*/
+LEAN_EXPORT bool nerodia_mark_end_initialization(lean_obj_arg init_res) {
+  assert(g_mod_initializing);
+  bool ok = lean_io_result_is_ok(init_res);
+  if (!ok) {
+    lean_object* err = lean_io_result_get_error(init_res);
+    lean_inc_ref(err);
+    err = lean_io_error_to_string(err);
+    PyErr_Format(PyExc_ImportError, // TODO: Error class for Lean errors
+      "Failed to initialize Lean module '%s': %s",
+      g_mod_initializing, lean_string_cstr(err));
+    lean_dec_ref(err);
+  }
   lean_dec_ref(init_res);
-  err = lean_io_error_to_string(err);
-  PyErr_Format(PyExc_ImportError, // TODO: Error class for Lean errors
-    "Failed to initialize Lean module '%s': %s",
-    mod_name, lean_string_cstr(err));
-  lean_dec_ref(err);
+  g_mod_initializing = NULL;
+  // Remark: Must hold mutex until here to avoid races on the `Lean.initializing` flag.
+  lean_set_initializing(false);
+  lean_mutex_unlock();
+  return ok;
 }
+
 /* ## Lean API */
 
 /* addr : @& PyObject -> Addr */
