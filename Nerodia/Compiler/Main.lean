@@ -36,10 +36,12 @@ def readConfig (path : FilePath) : IO Config := do
     throw <| IO.userError s!"invalid configuration: {e}"
 
 def extractPyModule (leanModule : Lean.Name) : IO ModuleDef := do
-  unsafe Lean.enableInitializersExecution
   Lean.initSearchPath (← Lean.findSysroot)
+  -- Extensions are not loaded and initializers not executed.
+  -- Neither is required to read the configuration of an imported module,
+  -- which is part of its module data, not the loaded extension.
   let env ← Lean.importModules #[leanModule] .empty
-    (leakEnv := true) (loadExts := true) (level := .private)
+    (leakEnv := true) (loadExts := false) (level := .private)
   let modIdx := env.getModuleIdx? leanModule |>.get!
   let some modCfg := modCfgExt.getStateByIdx? env modIdx |>.join
     | throw <| IO.userError "module lacks a Nerodia configuration"
