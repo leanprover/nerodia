@@ -37,27 +37,27 @@ opaque mkPyRuntimeError (msg : @& String) : CPyIO PyRuntimeError
   Internal.raiseNew <| (mkPyRuntimeError msg).promote
 
 @[extern "nerodia_mk_py_os_error2"]
-opaque mkPyOSError2 (errno : UInt32) (sterror : @& String) : CPyIO PyOSError
+opaque mkPyOSError2 (errno : UInt32) (strerror : @& String) : CPyIO PyOSError
 
 @[extern "nerodia_mk_py_os_error3"]
 opaque mkPyOSError3
-  (errno : UInt32) (sterror : @& String) (filename : @& System.FilePath)
+  (errno : UInt32) (strerror : @& String) (filename : @& System.FilePath)
 : CPyIO PyOSError
 
 @[inline_if_reduce] def mkPyOSError
-  (errno : UInt32) (sterror : String) (filename? : Option System.FilePath)
+  (errno : UInt32) (strerror : String) (filename? : Option System.FilePath)
 : CPyIO PyOSError :=
   match filename? with
-  | some filename => mkPyOSError3 errno sterror filename
-  | none => mkPyOSError2 errno sterror
+  | some filename => mkPyOSError3 errno strerror filename
+  | none => mkPyOSError2 errno strerror
 
 /--
 Raises a {lean}`PyOSError` (possibly a subclass) corresponding to the OS-specific
-{lean}`errno` with the system error message {lean}`sterror` and optional filename.
+{lean}`errno` with the system error message {lean}`strerror` and optional filename.
 -/
 @[inline] public def raisePyOSError
-  (errno : UInt32) (sterror : String) (filename? : Option System.FilePath := none)
-: CPyIO α := Internal.raiseNew <| (mkPyOSError errno sterror filename?).promote
+  (errno : UInt32) (strerror : String) (filename? : Option System.FilePath := none)
+: CPyIO α := Internal.raiseNew <| (mkPyOSError errno strerror filename?).promote
 
 /-- Unpacks a Lean {lean}`IO.Error` and returns the corresponding Python error. -/
 @[inline_if_reduce] def mkIOError (e : IO.Error) : CPyIO PyBaseException :=

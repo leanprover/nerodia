@@ -449,47 +449,47 @@ LEAN_EXPORT size_t nerodia_mk_py_runtime_error(b_lean_obj_arg msg) {
 
 /* UInt32 -> @& String -> CPyIO PyOSError */
 LEAN_EXPORT size_t nerodia_mk_py_os_error2(
-  uint32_t errno, b_lean_obj_arg sterror
+  uint32_t errno, b_lean_obj_arg strerror
 ) {
   PyObject* errno_obj = PyLong_FromUInt32(errno);
   if (errno_obj == NULL) {
     return (size_t)NULL;
   }
-  PyObject* sterror_obj = mk_str(sterror);
-  if (sterror_obj == NULL) {
+  PyObject* strerror_obj = mk_str(strerror);
+  if (strerror_obj == NULL) {
     Py_DECREF(errno_obj);
     return (size_t)NULL;
   }
   PyObject* ex = PyObject_CallFunctionObjArgs(
-    PyExc_OSError, errno_obj, sterror_obj, NULL);
+    PyExc_OSError, errno_obj, strerror_obj, NULL);
   Py_DECREF(errno_obj);
-  Py_DECREF(sterror_obj);
+  Py_DECREF(strerror_obj);
   return (size_t)ex;
 }
 
 /* UInt32 -> @& String -> @& System.FilePath -> CPyIO PyOSError */
 LEAN_EXPORT size_t nerodia_mk_py_os_error3(
-  uint32_t errno, b_lean_obj_arg sterror, b_lean_obj_arg filename
+  uint32_t errno, b_lean_obj_arg strerror, b_lean_obj_arg filename
 ) {
   PyObject* errno_obj = PyLong_FromUInt32(errno);
   if (errno_obj == NULL) {
     return (size_t)NULL;
   }
-  PyObject* sterror_obj = mk_str(sterror);
-  if (sterror_obj == NULL) {
+  PyObject* strerror_obj = mk_str(strerror);
+  if (strerror_obj == NULL) {
     Py_DECREF(errno_obj);
     return (size_t)NULL;
   }
   PyObject* filename_obj = mk_str(filename);
   if (filename_obj == NULL) {
     Py_DECREF(errno_obj);
-    Py_DECREF(sterror_obj);
+    Py_DECREF(strerror_obj);
     return (size_t)NULL;
   }
   PyObject* ex = PyObject_CallFunctionObjArgs(
-    PyExc_OSError, errno_obj, sterror_obj, filename_obj, NULL);
+    PyExc_OSError, errno_obj, strerror_obj, filename_obj, NULL);
   Py_DECREF(errno_obj);
-  Py_DECREF(sterror_obj);
+  Py_DECREF(strerror_obj);
   Py_DECREF(filename_obj);
   return (size_t)ex;
 }
