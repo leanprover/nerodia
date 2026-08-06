@@ -286,8 +286,8 @@ LEAN_EXPORT bool nerodia_initialize_lean(const char *mod_name) {
   // or if Lean code imports a Python module which imports Lean code, so it must
   // be idempotent and race-free in all cases.
   lean_mutex_lock();
-  // TODO: Distinguish module initialization initiated by the Lean rumtime from
-  // initialization of the Lean rumtime itself (likely requires a core change).
+  // TODO: Distinguish module initialization initiated by the Lean runtime from
+  // initialization of the Lean runtime itself (likely requires a core change).
   if (lean_io_initializing()) {
     // Remark: Consider use of `lean_setup_args` via `Py_GetArgcArgv`.
     // However, it is not clear whether there is a good way to keep them in sync.
