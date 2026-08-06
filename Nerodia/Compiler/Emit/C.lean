@@ -36,9 +36,12 @@ public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   c.putStr "\
     \n  return 0;\
     \n}\n"
+  -- Free-threading and multiple interpreters are not currently supported.
   c.putStr "\
     \nstatic PyModuleDef_Slot module_slots[] = {\
     \n  {Py_mod_exec, module_exec},\
+    \n  {Py_mod_multiple_interpreters, Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED},\
+    \n  {Py_mod_gil, Py_MOD_GIL_USED},\
     \n  {0, NULL}\
     \n};\n"
   -- Module methods
