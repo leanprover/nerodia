@@ -7,6 +7,7 @@ module
 import Lean
 public import Lean.Elab.Command
 public import Lean.DocString.Extension
+public meta import Nerodia.Compiler.Meta.PyName
 public meta import Nerodia.Compiler.Meta.Extension
 
 /-! # Nerodiac Commands -/
@@ -27,7 +28,7 @@ public meta def elabPyModuleCmd : CommandElab := fun stx => do
   let `(command| $[$doc?]? py_module%$tk $name) := stx
     | throwError "ill-formed `py_module` syntax"
   withRef tk do
-  let name := name.getString
+  let name ← mkPyModName name
   let doc? ← doc?.mapM fun doc => do
     return doc.getDocString.removeLeadingSpaces.trimAscii.copy
   if hasModuleConfig (← getEnv) then

@@ -11,7 +11,9 @@ import Lean.Meta.SynthInstance
 import Lean.Meta.DecLevel
 import Lean.AddDecl
 import Lean.DocString
+import Lean.PrivateName
 import Lean.Meta.ReduceEval
+import Nerodia.Compiler.Meta.PyName
 import Nerodia.Compiler.Meta.Extension
 
 /-! # Nerodiac Attributes -/
@@ -131,8 +133,8 @@ def mkAuxSym
   }
   getFnSymbol name
 
-@[inline] def mkPyName (name : Name) : String :=
-  name.getString! -- TODO: validate / mangle Lean name for Python
+@[inline] def mkPyDoc? (env : Environment) (declName : Name) : IO (Option String) := do
+  return (← findDocString? env declName).map (·.trimAscii.copy)
 
 @[inline_if_reduce]
 def CallConv.ofTypeName? (n : Name) : Option CallConv :=
@@ -172,7 +174,7 @@ def mkArgChain
     let (ma, pyTy?) ← mkCArg fn i ldecl.type cargs
     let lam ← mkLambdaFVars #[a] body
     let body := mkPyBind ldecl.type ma lam
-    let pyName := mkPyName ldecl.userName
+    let pyName ← mkPyArgName ldecl.userName (i.toNat+1)
     let pySig :=
       match pyTy? with
       | some pyTy => s!"{pyName}: {pyTy}, {pySig}"
@@ -223,7 +225,7 @@ def mkMethodDef
           let a := as[0]
           let ldecl ← getFVarLocalDecl a
           let (ma, pyTy?) ← mkArg fn 0 ldecl.type arg
-          let pyName := mkPyName ldecl.userName
+          let pyName ← mkPyArgName ldecl.userName 0
           let pySig := pySigD <|
             match pyTy? with
             | some pyTy => s!"({pyName}: {pyTy}, /)"
@@ -267,9 +269,8 @@ initialize
       let some moduleCfg := modCfgExt.getState env
         | throwAttrWithoutModuleConfig attrName
       let decl ← getConstInfo declName
-      -- TODO: Validate the name is a legal Python identifier
-      let name := name?.elim declName.getString! (·.getString)
-      let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
+      let name ← mkPyDeclName declName name?
+      let doc? ← mkPyDoc? env declName
       let df ← MetaM.run' <| mkMethodDef decl moduleCfg.name name doc? pySig?
       modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
   }
@@ -312,9 +313,8 @@ initialize
       let decl ← getConstInfo declName
       unless hasModuleConfig env do
         throwAttrWithoutModuleConfig attrName
-      -- TODO: Validate the name is a legal Python identifier
-      let name := name?.elim declName.getString! (·.getString)
-      let doc? := (← findDocString? env declName).map (·.trimAscii.copy)
+      let name ← mkPyDeclName declName name?
+      let doc? ← mkPyDoc? env declName
       let df ← MetaM.run' <| mkAttrDef decl name doc? ty?
       modifyModuleConfig fun cfg => {cfg with attrs := cfg.attrs.push df}
   }

@@ -25,7 +25,8 @@ elab "#check_fn " sig:declSig : command => withoutModifyingEnv do
   elabCommand <| ← `(
     set_option linter.unusedVariables.funArgs false in
     @[py_module_fn] opaque $(mkIdent `test) $sig)
-  let df := Compiler.modCfgExt.getState (← getEnv) |>.get!.methods.back!
+  let some df := Compiler.modCfgExt.getState (← getEnv) |>.get!.methods.back?
+    | return
   logInfo df.pySig
 
 open Lean Elab Command in
@@ -33,10 +34,82 @@ elab "#check_attr " ty:term : command => withoutModifyingEnv do
   elabCommand <| ← `(
     set_option linter.unusedVariables.funArgs false in
     @[py_module_attr] opaque $(mkIdent `test) : $ty)
-  let df := Compiler.modCfgExt.getState (← getEnv) |>.get!.attrs.back!
+  let some df := Compiler.modCfgExt.getState (← getEnv) |>.get!.attrs.back?
+    | return
   logInfo (df.ty?.getD "")
 
+open Lean Elab Command in
+elab "#check_name " name:(ident <|> str) : command => withoutModifyingEnv do
+  if name.raw.isIdent then
+    let name : Ident := ⟨name.raw⟩
+    elabCommand <| ← `(
+      set_option linter.unusedVariables.funArgs false in
+      @[py_module_fn] opaque $name : Unit)
+  else
+    let name : StrLit := ⟨name.raw⟩
+    elabCommand <| ← `(
+      set_option linter.unusedVariables.funArgs false in
+      @[py_module_fn $name] opaque $(mkIdent `test) : Unit)
+  let some df := Compiler.modCfgExt.getState (← getEnv) |>.get!.methods.back?
+    | return
+  logInfo df.name
+
 /-! ## Tests -/
+
+/-! ### Naming -/
+
+/-- info: (_: str, /) -> None -/
+#guard_msgs in #check_fn (_x : String) : Unit
+
+/-- info: (_1: str, _2: str, /) -> None -/
+#guard_msgs in #check_fn (_ _ : String) : Unit
+
+/-- error: Invalid argument name 'α': non-ASCII names are not supported -/
+#guard_msgs in #check_fn (α : String) : Unit
+
+/-- error: Invalid argument name '0': not a valid Python name -/
+#guard_msgs in #check_fn («0» : String) : Unit
+
+/-- error: Invalid argument name 'lambda': reserved Python keyword -/
+#guard_msgs in #check_fn (lambda : String) : Unit
+
+open Lean Elab Command in
+/-- info: (_: str, /) -> None -/
+#guard_msgs in run_cmd elabCommand <|
+  ← `(#check_fn (x : String) : Unit)
+
+open Lean Elab Command in
+/-- info: (_: str, /) -> None -/
+#guard_msgs in run_cmd elabCommand <|
+  ← `(#check_fn ($(mkIdent (.num .anonymous 0)) : String) : Unit)
+
+open Lean Elab Command in
+/-- error: invalid binder name `x.0`, it must be atomic -/
+#guard_msgs in run_cmd elabCommand <|
+  ← `(#check_fn ($(mkIdent (`x |>.num 0)) : String) : Unit)
+
+/-- info: input -/
+#guard_msgs in #check_name input -- keyword (`in`) as prefix
+
+/-- info: input -/
+#guard_msgs in #check_name "input"
+
+/-- info: __int__ -/
+#guard_msgs in #check_name __int__
+
+/-- info: __int__ -/
+#guard_msgs in #check_name "__int__"
+
+/-- error: Invalid declaration name 'lambda': reserved Python keyword -/
+#guard_msgs in #check_name lambda
+
+/-- error: Invalid declaration name 'lambda': reserved Python keyword -/
+#guard_msgs in #check_name "lambda"
+
+open Lean Elab Command in
+/-- error: Invalid declaration name 'x.0': Lean name does not end with a string -/
+#guard_msgs in run_cmd elabCommand <|
+  ← `(#check_name $(mkIdent (`x |>.num 0)))
 
 /-! ### Monads -/
 

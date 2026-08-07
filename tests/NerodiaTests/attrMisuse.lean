@@ -35,7 +35,18 @@ A Python module must first be configured with `py_module`.
 #guard_msgs in
 @[py_module_fn] opaque fnNoModule : Unit
 
-py_module "test"
+/-! ## {kw}`py_module` misuse -/
+
+/-- error: Invalid module name 'α': non-ASCII names are not supported -/
+#guard_msgs in py_module "a.α"
+
+/-- error: Invalid module name '0': not a valid Python name -/
+#guard_msgs in py_module "foo.0.bar"
+
+/-- error: Invalid module name 'lambda': reserved Python keyword -/
+#guard_msgs in py_module "lambda.λ"
+
+py_module "test.ok"
 
 /-! ## {attr}`@[py_module_init]` -/
 
