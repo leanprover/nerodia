@@ -73,33 +73,6 @@ static lean_external_class* g_py_environment_external_class = NULL;
 static lean_external_class* g_py_thread_ctx_external_class = NULL;
 static lean_external_class* g_py_object_external_class = NULL;
 
-static inline void py_finalize(void) {
-  if (g_py_env.is_finalizing) {
-    // mutex is already locked and the GIL is still held by the finalizer
-    --g_py_ctx.holders;
-    return;
-  }
-  py_mutex_lock();
-  // `g_py_env.holders > 0` implies we raced with the environment initializer,
-  // they acquired the lock first, and they want the environment alive.
-  if (atomic_load(&g_py_env.holders) == 0) {
-    if (g_py_env.is_initializer) {
-      // `Py_Finalize` may reenter Nerodia
-      g_py_env.is_finalizing = true;
-      Py_Finalize();
-      g_py_ctx.holders = 0;
-      g_py_env.is_finalizing = false;
-      g_py_env.is_held = false;
-      py_mutex_unlock();
-      return;
-    }
-    g_py_env.is_held = false;
-  }
-  py_mutex_unlock();
-  g_py_ctx.holders = 0;
-  PyGILState_Release(g_py_ctx.gil);
-}
-
 static inline void py_ctx_init(void) {
   g_py_ctx.gil = PyGILState_Ensure();
 }
@@ -124,9 +97,41 @@ static inline void py_gil_release(void) {
   }
 }
 
+static inline void py_finalize(void) {
+  if (g_py_env.is_finalizing) {
+    // mutex is already locked and the GIL is still held by the finalizer
+    return;
+  }
+  py_mutex_lock();
+  if (!g_py_env.is_held) {
+    // somebody else resurrected and finalized the environment first
+    py_mutex_unlock();
+    return;
+  }
+  // `g_py_env.holders > 0` implies we raced with the environment initializer,
+  // they acquired the lock first, and they want the environment alive.
+  if (atomic_load(&g_py_env.holders) == 0) {
+    if (g_py_env.is_initializer) {
+      // Must take GIL within the mutex to avoid deadlock with the mutex.
+      // No environment holders implies no context holders / Nerodia GIL holders.
+      g_py_ctx.holders = 1;
+      py_ctx_init();
+      // `Py_Finalize` may reenter Nerodia
+      g_py_env.is_finalizing = true;
+      Py_Finalize();
+      g_py_ctx.holders = 0;
+      g_py_env.is_finalizing = false;
+      g_py_env.is_held = false;
+      py_mutex_unlock();
+      return;
+    }
+    g_py_env.is_held = false;
+  }
+  py_mutex_unlock();
+}
+
 static void py_environment_finalize(void* p) {
   if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
-    py_gil_ensure();
     py_finalize();
   }
 }
@@ -138,25 +143,20 @@ static void py_thread_ctx_foreach(void* p, b_lean_obj_arg f) {
 }
 
 static void py_thread_ctx_finalize(void* p) {
-  if (g_py_ctx.holders == 1) {
+  if (--g_py_ctx.holders == 0) {
+    PyGILState_Release(g_py_ctx.gil);
     if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
       py_finalize();
-    } else {
-      g_py_ctx.holders = 0;
-      PyGILState_Release(g_py_ctx.gil);
     }
-  } else {
-    --g_py_ctx.holders;
   }
 }
 
 static void py_object_finalize(void* p) {
   py_gil_ensure();
   Py_DECREF(p);
+  py_gil_release();
   if (atomic_fetch_sub(&g_py_env.holders, 1) == 1) {
     py_finalize();
-  } else {
-    py_gil_release();
   }
 }
 
