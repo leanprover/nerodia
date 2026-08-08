@@ -769,6 +769,8 @@ LEAN_EXPORT size_t nerodia_mk_py_nat(b_lean_obj_arg n) {
 }
 
 static inline lean_obj_res py_int_to_byte_array(b_lean_obj_arg self, int flags) {
+  // Note: `PyLong_AsNativeBytes` is only called with arguments that cannot
+  // error, and a Python `int` is immutable, so we do not need a context here.
   PyObject *v = nerodia_to_object(self);
   assert(PyLong_Check(v));
   Py_ssize_t n_bytes = PyLong_AsNativeBytes(v, NULL, 0, flags);
