@@ -1,3 +1,7 @@
+<p align="center">
+  <a href="https://github.com/leanprover/nerodia/tree/master/images"><img width="200" alt="Nerodia Logo" src="https://github.com/leanprover/nerodia/blob/master/images/nerodia.svg?raw=true"/></a>
+</p>
+
 # Nerodia
 
 Nerodia is a library for Lean/Python FFI inspired by [PyO3](https://github.com/PyO3/pyo3). It utilizes Lake, Lean's build system, to provide seamless integration. The name of the library comes from the genus _Nerodia_, a type of water snake. That is, a snake you would find in a lake.
