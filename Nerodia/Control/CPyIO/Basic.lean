@@ -541,8 +541,19 @@ open Internal in
 /-- Constructs a {lean}`PyCResultIO` that returns {lean}`o`. -/
 @[inline] public protected def PyCResultIO.pure (o : Py T) : PyCResultIO (Py T) :=
   .ofPyBaseIOUnsafe <| liftM (m := BaseIO) do
-    -- `newRef` does not require an attached thread state,
-    -- so we do not need to keep hold of the context (via `Runetime.hold`)
+    /-
+    Due to the unique requirements of `pure` and `newRef`,
+    the context does not need to be held (e.g., via `Runtime.hold`).
+
+    1. `newRef` does not require an attached thread state.
+    2. `newRef` is atomic on free-threaded builds.
+    3. `PyCResultIO` requires the GIL held on non-free-threaded builds.
+
+    `PyCResultIO` actions only lift to `CPyIO`, which requires a context to be
+    held throughout its duration (either a Nerodia one or Python's own through
+    a method call). Therefore, the GIL is held when not free-threaded, and the
+    environment is always held throughout.
+    -/
     return .ofCPyBaseResultUnsafe (← o.newRef.toBaseIOUnsafe)
 
 /-! ## Exception Handling -/
