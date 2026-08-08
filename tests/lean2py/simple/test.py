@@ -24,9 +24,9 @@ assert testmodule.addBit(42, 1) == 43
 
 assert testmodule.countbytes(b'ab') == 2
 
-assert testmodule.greet() == "Hello!"
+assert testmodule.greet() == "Olá!"
 
-assert testmodule.greet.__doc__ == "Return a standard greeting."
+assert testmodule.greet.__doc__ == 'Return a standard greeting ("Olá!").'
 
 assert testmodule.greeting == "Hello!"
 

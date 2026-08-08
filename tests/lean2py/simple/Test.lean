@@ -28,10 +28,10 @@ def alwaysRaise : IO Empty :=
 def countbytes (bs : ByteArray) : Nat :=
   bs.size
 
-/-- Return a standard greeting. -/
+/-- Return a standard greeting ("Olá!"). -/
 @[py_module_fn]
 def greet : String :=
-  s!"Hello!"
+  s!"Olá!"
 
 /-- Return a greeting. -/
 @[py_module_fn "greeting_for"]

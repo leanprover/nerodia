@@ -10,6 +10,38 @@ open System (FilePath)
 
 namespace Nerodia.Compiler
 
+/--
+Converts a string to its representation as a C string literal.
+
+Similar to Lean's private {lit}`Lean.Compiler.LCNF.EmitC.quoteString`, this
+parallels {name}`String.quote`, but produces C syntax rather than Lean syntax.
+Control characters are escaped as 3-digit octals: a C hex escape is unbounded,
+so the literal {lit}`"\x0beta"` is a single, out-of-range escape, whereas an
+octal consumes 3 digits.
+
+Non-ASCII bytes are escaped as well, keeping the literal pure ASCII.
+A narrow string literal is decoded from the compiler's source character set
+and re-encoded into its execution character set. The C standard fixes neither.
+An octal escape denotes a byte value directly, so it passes through both
+conversions unchanged.
+-/
+public def cstr (s : String) : String :=
+  s.toUTF8.foldl (init := "\"") (· ++ escape ·) ++ "\""
+where
+  escape (b : UInt8) : String :=
+    if b == '\n'.toUInt8 then "\\n"
+    else if b == '\r'.toUInt8 then "\\r"
+    else if b == '\t'.toUInt8 then "\\t"
+    else if b == '\"'.toUInt8 then "\\\""
+    else if b == '\\'.toUInt8 then "\\\\"
+    else if b == '?'.toUInt8 then "\\?" -- Avoids trigraphs (removed in C23)
+    else if ' '.toUInt8 ≤ b ∧ b ≤ '~'.toUInt8 then String.singleton (Char.ofNat b.toNat)
+    else
+      let n := b.toNat
+      String.ofList ['\\', octDigit (n / 64), octDigit (n / 8 % 8), octDigit (n % 8)]
+  octDigit (n : Nat) : Char :=
+    Char.ofNat ('0'.toNat + n)
+
 public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   let c ← IO.FS.Handle.mk path .write
   c.putStr "\
@@ -27,10 +59,10 @@ public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   let lb := "{"
   c.putStr s!"\n\
     \nstatic int module_exec(PyObject *m) {lb}\
-    \n  if (!nerodia_initialize_lean({mod.leanModule.toString.quote})) return -1;\
+    \n  if (!nerodia_initialize_lean({cstr mod.leanModule.toString})) return -1;\
     \n  if (!nerodia_mark_end_initialization({mod.leanInit}(true))) return -1;"
   for a in mod.attrs do
-    c.putStr s!"\n  if (PyModule_Add(m, {a.name.quote}, (PyObject*){a.cSym}()) != 0) return -1;"
+    c.putStr s!"\n  if (PyModule_Add(m, {cstr a.name}, (PyObject*){a.cSym}()) != 0) return -1;"
   for fn in mod.inits do
     c.putStr s!"\n  if ({fn}((size_t)m) != 0) return -1;"
   c.putStr "\
@@ -53,10 +85,10 @@ public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   for m in mod.methods do
     c.putStr s!"\
       \n \{\
-      \n    .ml_name = {m.name.quote},\
+      \n    .ml_name = {cstr m.name},\
       \n    .ml_meth = (PyCFunction){m.cSym},\
       \n    .ml_flags = {m.flags},\
-      \n    .ml_doc = {m.doc?.elim "NULL" (·.quote)},\
+      \n    .ml_doc = {m.doc?.elim "NULL" cstr},\
       \n  },"
   c.putStr "\
     \n {NULL, NULL, 0, NULL}\
@@ -65,11 +97,11 @@ public def writeCFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
   c.putStr s!"\
     \nstatic PyModuleDef module = {lb}\
     \n  .m_base = PyModuleDef_HEAD_INIT,\
-    \n  .m_name = \"{mod.name}._lean\",\
+    \n  .m_name = {cstr s!"{mod.name}._lean"},\
     \n  .m_size = 0,\
     \n  .m_methods = module_methods,\
     \n  .m_slots = module_slots,\
-    \n  .m_doc = {mod.doc?.elim "NULL" (·.quote)},\
+    \n  .m_doc = {mod.doc?.elim "NULL" cstr},\
     \n};\n"
   c.putStr "\
     \nPyMODINIT_FUNC PyInit__lean(void) {\
