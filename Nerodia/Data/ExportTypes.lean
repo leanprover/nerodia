@@ -36,7 +36,7 @@ public structure CPyArg (T : Typing := .object) where
 /--
 Wraps a borrowed Python object reference into a memory-managed Lean object.
 
-**Memory Safety:** Users must ensure the reference currently valid
+**Memory Safety:** Users must ensure the reference is currently valid
 (e.g., it has not escaped its original function).
 -/
 @[extern "nerodia_py_thread_ctx_mk_arg"]
@@ -83,7 +83,7 @@ open Internal (getPyThreadCtxUnsafe CPyArg CPyArgs)
 The type of a Python method with no arguments.
 
 **API Caveat:** The definition of {name}`PyMethNoArgs` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyMethNoArgs :=
@@ -106,10 +106,10 @@ unseal PyMethNoArgs in
 /-! ### PyMethFastCall -/
 
 /--
-The type of a Python method with a single positional argument.
+The type of a Python method using Python's fast calling convention.
 
 **API Caveat:** The definition of {name}`PyMethFastCall` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyMethFastCall :=
@@ -145,7 +145,7 @@ unseal PyMethFastCall in
 The type of a Python method with a single positional argument.
 
 **API Caveat:** The definition of {name}`PyMethO` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyMethO :=
@@ -174,7 +174,7 @@ unseal PyMethO in
 The type of a Python module initialization function.
 
 **API Caveat:** The definition of {name}`PyModuleInit` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyModuleInit :=
@@ -195,7 +195,7 @@ public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ => return⟩
 The type of a Python module attribute initialization function.
 
 **API Caveat:** The definition of {name}`PyAttrInit` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyAttrInit :=

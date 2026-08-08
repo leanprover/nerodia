@@ -33,10 +33,10 @@ open Internal (PyThreadCtx)
 /-! ## PyThreadCtxT -/
 
 /--
-Monad transfer to equip a monad with a Python context.
+Monad transformer to equip a monad with a Python context.
 
 **API Caveat:** The definition of {name}`PyThreadCtxT` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyThreadCtxT (m : Type → Type u) (α : Type) :=
@@ -133,7 +133,7 @@ end PyThreadCtxT
 A monad for impure code using Python. It cannot error.
 
 **API Caveat:** The definition of {name}`PyBaseIO` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyBaseIO :=
@@ -200,7 +200,7 @@ end PyBaseIO
 The primary monad for code using Python.
 
 **API Caveat:** The definition of {name}`PyIO` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyIO :=

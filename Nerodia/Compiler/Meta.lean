@@ -15,6 +15,6 @@ These modules define the Nerodia metaprograms used to annotate Lean modules
 with Python module metadata. This metadata is then processed by the Nerodia
 compiler to generate extension files for Python.
 
-When using Nerodia via the standard `import Neordia`, these modules are
+When using Nerodia via the standard `import Nerodia`, these modules are
 transitively included via a `meta import`.
 -/

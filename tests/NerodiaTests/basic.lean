@@ -82,6 +82,15 @@ wow
   -- Test that `toString` handles lone surrogates
   return str.toString
 
+/-- info: "��" -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let bytes ← mkPyBytes (.mk #[0xED, 0xA0, 0x80, 0xED, 0xA0, 0xBD])
+  let str ← bytes.decode .utf8 .surrogatePass
+  -- Adjacent lone surrogates must not merge: one `�` per surrogate keeps
+  -- Lean and Python string lengths in agreement.
+  return str.toString
+
 /-- info: b'\x00' -/
 #guard_msgs in
 #eval PyIO.toIO do (← (← mkPyBytes <| .mk #[0]).bytes).repr

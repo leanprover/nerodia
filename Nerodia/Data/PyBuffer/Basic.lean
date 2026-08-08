@@ -23,9 +23,9 @@ opaque PyObject.checkBufferUnsafe (self : @& PyObject) : BaseIO Bool
 Returns {lean}`self` as a {lean}`PyBuffer` if it currently supports the buffer
 interface.
 
-**Warning:** It is possible to for an object's type to be mutated after this
-call such that it no longer a buffer. Thus, this function comes with no strong
-typing guarantees.
+**Warning:** It is possible for an object's type to be mutated after this
+call such that it is no longer a buffer. Thus, this function comes with no
+strong typing guarantees.
 -/
 @[inline, view_method]
 public def PyObject.getPyBuffer? (self : PyObject) : PyBaseIO (Option PyBuffer) := do

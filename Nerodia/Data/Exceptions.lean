@@ -33,7 +33,7 @@ opaque mkPyValueError (msg : @& String) : CPyIO PyValueError
 opaque mkPyRuntimeError (msg : @& String) : CPyIO PyRuntimeError
 
 /-- Raises a {lean}`PyRuntimeError` with the given message {lean}`msg`. -/
-@[inline] public def raisePyRuntimeError(msg : String) : CPyIO α :=
+@[inline] public def raisePyRuntimeError (msg : String) : CPyIO α :=
   Internal.raiseNew <| (mkPyRuntimeError msg).promote
 
 @[extern "nerodia_mk_py_os_error2"]

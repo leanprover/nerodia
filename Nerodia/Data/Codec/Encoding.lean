@@ -5,7 +5,7 @@ Authors: Mac Malone
 -/
 module
 
-/-! # Codec Error Handling -/
+/-! # Codec Encoding -/
 
 namespace Nerodia
 
@@ -24,8 +24,8 @@ public instance : ToString CodecEncoding := ⟨CodecEncoding.toString⟩
 The Lean names of these Python identifiers follow Lean naming conventions
 (i.e., lower camel case).
 
-See the [Python documentation][1] for a for a full list of encodings and
-what languages they support.
+See the [Python documentation][1] for a full list of encodings and what
+languages they support.
 
 [1]: https://docs.python.org/3/library/codecs.html#standard-encodings
 -/

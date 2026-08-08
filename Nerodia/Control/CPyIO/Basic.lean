@@ -160,7 +160,7 @@ and may raise an exception.
 Not a monad itself, but lifts into monads equipped with a Python context.
 
 **API Caveat:** The definition of {name}`CPyIO` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def CPyIO (α) :=
@@ -226,7 +226,7 @@ and cannot raise an exception.
 Not a monad itself, but lifts into monads equipped with a Python context.
 
 **API Caveat:** The definition of {name}`CPyBaseIO` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def CPyBaseIO (α) :=
@@ -271,7 +271,7 @@ a Python object.
 Not a monad itself, but lifts into monads equipped with a Python context.
 
 **API Caveat:** The definition of {name}`CPyUnitIO` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def CPyUnitIO :=

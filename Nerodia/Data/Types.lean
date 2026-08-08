@@ -181,7 +181,7 @@ public abbrev PyNever := Py never
 public instance : ViewPy never PyNever := ⟨rfl⟩
 
 /-- Anything holds from an instance of the empty type (c.f., {lean}`Empty.elim`). -/
-def PyNever.elim (self : PyNever) : α :=
+public def PyNever.elim (self : PyNever) : α :=
   Typing.not_hasType_never self.raw_hasType |>.elim
 
 /-!
@@ -194,8 +194,8 @@ their inheritance tree change by reassigning {lit}`__bases__`.
 As such, most type relations in Python do not hold statically and therefore
 cannot be modelled correctly and safely by a pure relation in Lean. Nonetheless,
 statically typing Python objects in Lean is still useful, so Nerodia provides
-a mechanism for *weak typing*. Objects can be freely annotated with *type hints*
-in the  form of Python type expressions (i.e., {lean}`TypeExpr`) manually cast
+a mechanism for *weak typing*. Objects are annotated with *type hints* in the
+form of Python type expressions (i.e., {lean}`TypeExpr`) and are manually cast
 between types without proof.
 -/
 

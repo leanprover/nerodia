@@ -22,7 +22,7 @@ more advanced type checkers (e.g., [{lit}`ty`][1]).
 [1]: https://github.com/astral-sh/ty
 
 **API Caveat:** The definition of {name}`Typing` is not part of Nerodia's
-public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
+public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def Typing : Type :=

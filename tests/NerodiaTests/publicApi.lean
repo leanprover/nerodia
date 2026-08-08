@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (361)
+# Constants (362)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -211,6 +211,7 @@ Nerodia.PyModule.addByString
 Nerodia.PyModuleInit (irreducible)
 Nerodia.PyModuleInit.ofPyIO
 Nerodia.PyNever (type abbrev)
+Nerodia.PyNever.elim
 Nerodia.PyNone (type abbrev)
 Nerodia.PyNone.isNone_eq_true
 Nerodia.PyOSError (type abbrev)
