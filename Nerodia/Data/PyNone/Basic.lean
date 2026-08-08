@@ -42,7 +42,7 @@ public abbrev PyNone := PyObjectView <| Py none
 open Classical in
 /-- Equivalent to the Python {lit}`self is None`. -/
 @[extern "nerodia_py_object_is_none", view_method]
-public def PyObject.isNone (self : PyObject) : Bool :=
+public def PyObject.isNone (self : @& PyObject) : Bool :=
   self ⦂ none
 
 @[grind _=_]

@@ -35,9 +35,21 @@ public def PyObject.getPyBuffer? (self : PyObject) : PyBaseIO (Option PyBuffer) 
 
 namespace PyBuffer
 
+/--
+Returns the bytes of the buffer as a Lean {lean}`ByteArray`.
+
+**Safety:** Users must ensure a Python context exists.
+-/
+@[extern "nerodia_py_buffer_get_byte_array"]
+opaque getByteArrayUnsafe (self : @& PyBuffer) : BaseIO (Option ByteArray)
+
+open Internal Nerodia in
 /-- Returns the bytes of the buffer as a Lean {lean}`ByteArray`. -/
-@[extern "nerodia_py_buffer_get_byte_array", view_method]
-public opaque getByteArray (self : @& PyBuffer) : PyIO ByteArray
+@[view_method]
+public opaque getByteArray (self : @& PyBuffer) : PyIO ByteArray := .ofPyBaseIOUnsafe do
+  let a? ← self.getByteArrayUnsafe
+  Runtime.hold (← Internal.getPyThreadCtxUnsafe)
+  return a?
 
 /--
 Decodes a bytes-like object into a string.

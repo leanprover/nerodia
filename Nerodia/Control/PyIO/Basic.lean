@@ -40,7 +40,7 @@ public API. Nevertheless, it exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def PyThreadCtxT (m : Type → Type u) (α : Type) :=
-  PyThreadCtx → m α
+  @& PyThreadCtx → m α
 
 namespace Internal.Nerodia.PyThreadCtxT
 
@@ -213,24 +213,31 @@ namespace Internal.Nerodia.PyIO
 
 unseal PyIO in
 /--
-Constructs a {name}`PyIO` from the equivalent {name}`PyThreadCtxT`.
+Constructs a {name}`PyIO` from the equivalent {name}`OptionT`.
 
 **Safety:** Users should ensure that an exception is set on {lean}`x`'s failure.
 -/
 @[inline] public def ofOptionTUnsafe (x : OptionT PyBaseIO α) : PyIO α :=
   x
 
+/--
+Constructs a {name}`PyIO` from the equivalent {name}`PyBaseIO`.
+
+**Safety:** Users should ensure that an exception is set on {lean}`x`'s failure.
+-/
+@[inline] public def ofPyBaseIOUnsafe (x : PyBaseIO (Option α)) : PyIO α :=
+  ofOptionTUnsafe <| .mk x
 
 unseal PyIO in
 /--
-Converts a {name}`PyIO` to the equivalent {name}`PyThreadCtxT`.
+Converts a {name}`PyIO` to the equivalent {name}`OptionT`.
 
 **Safety:** Users must handle the raised exception on failure.
 -/
 @[inline] public def toOptionTUnsafe (x : PyIO α) : OptionT PyBaseIO α :=
   x
 
-open Internal Nerodia in
+open Internal in
 /--
 Runs the {name}`PyIO` function, returning {name}`none` if an exception was raised.
 
@@ -240,7 +247,7 @@ Runs the {name}`PyIO` function, returning {name}`none` if an exception was raise
   x.toOptionTUnsafe.run
 
 
-open Internal Nerodia in
+open Internal in
 /--
 Runs the {name}`PyIO` function, returning {name}`none` if an exception was raised.
 

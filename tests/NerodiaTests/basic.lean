@@ -53,6 +53,7 @@ open Nerodia
 info: 3
 3
 [119, 111, 119]
+[119, 111, 119]
 wow
 -/
 #guard_msgs in
@@ -61,6 +62,7 @@ wow
   IO.println bytes.size
   IO.println bytes.usize
   IO.println bytes.toByteArray
+  IO.println (← bytes.getByteArray)
   let str ← bytes.decodeUTF8
   IO.println str
 
