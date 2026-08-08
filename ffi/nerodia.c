@@ -194,13 +194,13 @@ static void py_env_ensure(void) {
   py_mutex_unlock();
 }
 
-/* init :  BaseIO PyEnvironment */
+/* getOrInit : BaseIO PyEnvironment */
 LEAN_EXPORT lean_obj_res nerodia_py_environment_get_or_init(void) {
   py_env_ensure();
   return lean_alloc_external(g_py_environment_external_class, NULL);
 }
 
-/* init :  BaseIO PyThreadCtx */
+/* getOrInit : BaseIO PyThreadCtx */
 LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_get_or_init(void) {
   if (py_ctx_acquire()) {
     py_env_ensure();
@@ -218,7 +218,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_mk(b_lean_obj_arg env) {
   return lean_alloc_external(g_py_thread_ctx_external_class, NULL);
 }
 
-/* env :  @& PyThreadCtx -> PyEnvironment */
+/* env : @& PyThreadCtx -> PyEnvironment */
 LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_env(b_lean_obj_arg ctx) {
   atomic_fetch_add(&g_py_env.holders, 1);
   // Remark: Consider caching this object if performance becomes an issue.
@@ -349,7 +349,7 @@ LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
 }
 
 /* decEq : @& PyObject -> @& PyObject -> Decidable (self = other) */
-LEAN_EXPORT size_t nerodia_py_object_dec_eq(b_lean_obj_arg self, b_lean_obj_arg other) {
+LEAN_EXPORT uint8_t nerodia_py_object_dec_eq(b_lean_obj_arg self, b_lean_obj_arg other) {
   return nerodia_to_object(self) == nerodia_to_object(other);
 }
 
@@ -358,7 +358,7 @@ LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
   return (size_t)Py_NewRef(nerodia_to_object(self));
 }
 
-/* mkObjectUnsafe : @& PyEnvironment|PyThreadCtx -> CPy α -> α */
+/* mkObjectUnsafe : @& PyEnvironment|PyThreadCtx -> CPyBaseResult α -> α */
 LEAN_EXPORT lean_obj_res nerodia_mk_object(b_lean_obj_arg env_or_ctx, size_t ptr) {
   return nerodia_of_object((PyObject*)ptr, env_or_ctx);
 }
@@ -391,7 +391,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_clear_error(b_lean_obj_arg ctx) {
   return lean_box(0);
 }
 
-/* getRaisedException : CPyIO PyBaseException */
+/* getCRaisedException : CPyIO PyBaseException */
 LEAN_EXPORT size_t nerodia_get_raised_exception(void) {
   return (size_t)PyErr_GetRaisedException();
 }
@@ -432,30 +432,30 @@ static inline size_t calls(PyObject* err, b_lean_obj_arg msg) {
   return (size_t)ex;
 }
 
-/* @& String -> CPyIO PyTypeError */
+/* mkPyTypeError : @& String -> CPyIO PyTypeError */
 LEAN_EXPORT size_t nerodia_mk_py_type_error(b_lean_obj_arg msg) {
   return calls(PyExc_TypeError, msg);
 }
 
-/* @& String -> CPyIO PyValueError */
+/* mkPyValueError : @& String -> CPyIO PyValueError */
 LEAN_EXPORT size_t nerodia_mk_py_value_error(b_lean_obj_arg msg) {
   return calls(PyExc_ValueError, msg);
 }
 
-/* @& String -> CPyIO PyRuntimeError */
+/* mkPyRuntimeError : @& String -> CPyIO PyRuntimeError */
 LEAN_EXPORT size_t nerodia_mk_py_runtime_error(b_lean_obj_arg msg) {
   return calls(PyExc_RuntimeError, msg);
 }
 
-/* UInt32 -> @& String -> CPyIO PyOSError */
+/* mkPyOSError2 : UInt32 -> @& String -> CPyIO PyOSError */
 LEAN_EXPORT size_t nerodia_mk_py_os_error2(
-  uint32_t errno, b_lean_obj_arg strerror
+  uint32_t errno_l, b_lean_obj_arg strerror_l
 ) {
-  PyObject* errno_obj = PyLong_FromUInt32(errno);
+  PyObject* errno_obj = PyLong_FromUInt32(errno_l);
   if (errno_obj == NULL) {
     return (size_t)NULL;
   }
-  PyObject* strerror_obj = mk_str(strerror);
+  PyObject* strerror_obj = mk_str(strerror_l);
   if (strerror_obj == NULL) {
     Py_DECREF(errno_obj);
     return (size_t)NULL;
@@ -467,15 +467,15 @@ LEAN_EXPORT size_t nerodia_mk_py_os_error2(
   return (size_t)ex;
 }
 
-/* UInt32 -> @& String -> @& System.FilePath -> CPyIO PyOSError */
+/* mkPyOSError3 : UInt32 -> @& String -> @& System.FilePath -> CPyIO PyOSError */
 LEAN_EXPORT size_t nerodia_mk_py_os_error3(
-  uint32_t errno, b_lean_obj_arg strerror, b_lean_obj_arg filename
+  uint32_t errno_l, b_lean_obj_arg strerror_l, b_lean_obj_arg filename
 ) {
-  PyObject* errno_obj = PyLong_FromUInt32(errno);
+  PyObject* errno_obj = PyLong_FromUInt32(errno_l);
   if (errno_obj == NULL) {
     return (size_t)NULL;
   }
-  PyObject* strerror_obj = mk_str(strerror);
+  PyObject* strerror_obj = mk_str(strerror_l);
   if (strerror_obj == NULL) {
     Py_DECREF(errno_obj);
     return (size_t)NULL;
@@ -521,7 +521,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_system_error(b_lean_obj_arg msg, 
 
 /* ### Etc */
 
-/* none : @& PyEnvironment -> CPyIO PyNone */
+/* none : @& PyEnvironment -> PyNone */
 LEAN_EXPORT lean_obj_res nerodia_py_environment_none(b_lean_obj_arg env) {
   return nerodia_of_immortal_object(Py_None, env);
 }
@@ -542,7 +542,7 @@ LEAN_EXPORT size_t nerodia_import(b_lean_obj_arg mod_name) {
 }
 
 /* addByString : @& String -> @& PyObject -> @& Module -> CPyUnitIO */
-LEAN_EXPORT int32_t nerodia_py_module_add_by_string
+LEAN_EXPORT uint32_t nerodia_py_module_add_by_string
   (b_lean_obj_arg name, b_lean_obj_arg val, b_lean_obj_arg mod)
 {
   return PyModule_AddObjectRef(nerodia_to_object(mod),
@@ -642,7 +642,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_str_to_string(b_lean_obj_arg self) {
   nerodia_exception_panic();
 }
 
-/* encode : @& PySTr -> @& String -> @& String -> BaseIO PyBytes */
+/* encode : @& PyStr -> @& String -> @& String -> CPyIO PyBytes */
 LEAN_EXPORT size_t nerodia_py_str_encode(
   b_lean_obj_arg self, b_lean_obj_arg encoding, b_lean_obj_arg errors
 ) {
@@ -706,12 +706,12 @@ LEAN_EXPORT lean_obj_res nerodia_py_bytes_to_byte_array(b_lean_obj_arg self) {
   return r;
 }
 
-/* checkBuffer : @& PyObject -> BaseIO  */
+/* checkBufferUnsafe : @& PyObject -> BaseIO Bool */
 LEAN_EXPORT uint8_t nerodia_py_object_check_buffer(b_lean_obj_arg o) {
   return PyObject_CheckBuffer(nerodia_to_object(o));
 }
 
-/* getByteArray : @& PyBuffer -> PyIO ByteArray  */
+/* getByteArrayUnsafe : @& PyBuffer -> BaseIO (Option ByteArray) */
 LEAN_EXPORT lean_obj_res nerodia_py_buffer_get_byte_array(b_lean_obj_arg buf) {
   // When Nerodia supports free-threading, ensure thread-safe buffer use.
   Py_buffer view;
