@@ -1,4 +1,4 @@
-name = "string-sum"
+name = "lean-string-sum"
 defaultTargets = ["StringSum"]
 
 [[lean_lib]]

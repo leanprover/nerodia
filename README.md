@@ -4,6 +4,18 @@ Nerodia is a library for Lean/Python FFI inspired by [PyO3](https://github.com/P
 
 **Important:** Nerodia is still a **work-in-progress** and currently has a very limited API. It is released to the public primarily as a proof-of-concept and to obtain feedback on its design and build process.
 
+## Requirements
+
+In order to build a Nerodia project, all of the following are required:
+
+* Lean 4.33 or greater
+* CPython 3.14 or greater (shared; not free-threaded)
+* A C compiler which supports both (e.g., recent GCC or Clang; MSYS2's CLANG64 toolchain)
+
+A standard CPython distribution should usually be sufficient. [`uv`](https://github.com/astral-sh/uv) and the [python.org installers](https://www.python.org/downloads/) provide the necessary components. Some system package managers may also require a separate development package (e.g., `python3-dev`).
+
+Nonetheless, it is possible to write a Nerodia project without Python or a C compiler. These elements are only required to build and link the Python extension (or to use `precompileModules`) and thus could be delegated to a CI (e.g., GitHub Actions) that can vendor these properly. Similarly, the Python extension can be distributed as a prebuilt binary (i.e., wheel), so users of the extension do not need Lean or a C compiler.
+
 ## A Python Package in Pure Lean
 
 Nerodia allows you to write native Python modules in pure Lean. To demonstrate this, the following steps adapt the `string_sum` example from PyO3's [README](https://github.com/PyO3/pyo3#using-rust-from-python).
@@ -12,7 +24,8 @@ First, create a new Lake package and add Nerodia as a dependency. This can be do
 
 **lakefile.toml**
 ```toml
-name = "string-sum"
+# The package name need not match anything
+name = "lean-string-sum"
 defaultTargets = ["StringSum"]
 
 [[lean_lib]]
@@ -49,7 +62,8 @@ You can then build and distribute this module as a Python package with minimal c
 **pyproject.toml**
 ```toml
 [project]
-name = "sum-string"
+# The project name need not match anything
+name = "py-string-sum"
 version = "1.0.0"
 requires-python = ">=3.14"
 
