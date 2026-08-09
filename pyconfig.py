@@ -3,9 +3,16 @@ import sys
 import json
 import sysconfig
 
+free_threaded = bool(sysconfig.get_config_var('Py_GIL_DISABLED'))
+
 libdir = sysconfig.get_config_var('LIBDIR')
 ldlib = sysconfig.get_config_var('LDLIBRARY')
 ldversion = sysconfig.get_config_var('LDVERSION')
+
+# A static CPython's LDLIBRARY is an archive (libpython{LDVERSION}.a).
+# Py_ENABLE_SHARED is absent on Windows, which always ships python3.dll.
+is_shared = (sys.platform == 'win32' or
+  bool(sysconfig.get_config_var('Py_ENABLE_SHARED')))
 
 if ldlib and libdir and sys.platform != 'win32':
   # POSIX: use the versioned library in LIBDIR.
@@ -46,10 +53,12 @@ cfg = {
   "exe": sys.executable,
   "version": sys.version,
   "hexVersion": sys.hexversion,
+  "freeThreaded": free_threaded,
   "includeDirs": include_dirs,
   "libDir": libdir,
   "lib3": (lib3_name, lib3_path),
   "lib3x": (lib3x_name, lib3x_path),
+  "isShared": is_shared,
 }
 
 json.dump(cfg, sys.stdout)

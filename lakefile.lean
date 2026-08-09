@@ -16,10 +16,12 @@ structure PyConfig where
   exe : FilePath
   version : String
   hexVersion : Nat
+  freeThreaded : Bool
   includeDirs : Array FilePath
   libDir : FilePath
   lib3 : String × FilePath
   lib3x : String × FilePath
+  isShared : Bool
   deriving ToJson, FromJson
 
 instance : QueryText PyConfig := ⟨(toJson · |>.compress)⟩
@@ -42,10 +44,22 @@ target pyconfig : PyConfig := do
     let out ← captureProc {cmd := python3, args := #[srcFile.toString]}
     match Json.parse out >>= fromJson? with
     | .ok py =>
+      if py.freeThreaded then
+        error s!"Nerodia does not support free-threaded Python, got:\
+          \n  {py.version}"
       unless py.hexVersion ≥ minHexVersion do
-        error s!"Nerodia requires Python 3.{minPyVer}+, got {py.version}"
-      setTrace <| .ofHash
-        (pureHash py.lib3.1) s!"pyconfig: {py.lib3.1}"
+        error s!"Nerodia requires Python 3.{minPyVer}+, got:\
+          \n  {py.version}"
+      unless py.isShared do
+        -- TODO: Soften to linking executables and using `precompileModules`
+        error s!"Nerodia requires a Python distribution with shared libraries, got:\
+          \n  {py.lib3.2}"
+      -- Use minimum Python in trace due to Stable ABI use, and
+      -- rebuild only when library name changes due to host Python change.
+      -- Other properties are constrained and thus cannot vary.
+      let caption := s!"pyconfig: Python 3.{minPyVer}, {py.lib3.1}"
+      let hash := (pureHash py.lib3.1).mix (pureHash minHexVersion)
+      setTrace (.ofHash hash caption)
       return py
     | .error e =>
       error s!"configuration script produced unexpected output; {e}:\n{out}"
