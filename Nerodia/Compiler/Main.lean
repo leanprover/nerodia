@@ -42,20 +42,28 @@ def extractPyModule (leanModule : Lean.Name) : IO ModuleDef := do
   -- which is part of its module data, not the loaded extension.
   let env ← Lean.importModules #[leanModule] .empty
     (leakEnv := true) (loadExts := false) (level := .private)
-  let modIdx := env.getModuleIdx? leanModule |>.get!
-  let some modCfg := modCfgExt.getStateByIdx? env modIdx |>.join
+  let some modIdx := env.getModuleIdx? leanModule
+    | -- should not be reachable
+      throw <| IO.userError "(internal) import without module index"
+  let some config := modCfgExt.getStateByIdx? env modIdx |>.join
     | throw <| IO.userError "module lacks a Nerodia configuration"
-  return {
-    config := modCfg
-    -- Only the runtime is initialized by default.
-    -- If a Python extension wishes to elaborate Lean code, it can either
-    -- dynamically initialize its own meta code using its symbols during the
-    -- `importModules` process or use `builtin_initialize` for its Lean
-    -- extensions (thereby acting more like a Lean plugin).
-    leanInit := Lean.mkModuleInitializationFunctionName
-      leanModule (env.getModulePackageByIdx? modIdx) (phases := .runtime)
-    leanModule := leanModule
-  }
+  -- Only the runtime is initialized by default when possible.
+  -- If a Python extension wishes to elaborate Lean code, it can either
+  -- dynamically initialize its own meta code using its symbols during the
+  -- `importModules` process or use `builtin_initialize` for its Lean
+  -- extensions (thereby acting more like a Lean plugin).
+  let phases ← id do
+    let modIdx : Nat := modIdx
+    if h : modIdx < env.header.moduleData.size then
+      let isModule := env.header.moduleData[modIdx].isModule
+      return if isModule then .runtime else .all
+    else
+      -- should not be reachable
+      throw <| IO.userError s!"(internal) invalid module index: \
+        {modIdx} is not less than {env.header.moduleData.size}"
+  let leanInit := Lean.mkModuleInitializationFunctionName
+    leanModule (env.getModulePackageByIdx? modIdx) phases
+  return {config, leanInit, leanModule}
 
 def run
   (cfgFile : FilePath) (outFile? : Option FilePath := none)

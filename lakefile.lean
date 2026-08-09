@@ -9,6 +9,7 @@ open Lean (Json ToJson FromJson toJson fromJson?)
 
 package nerodia where
   leanOptions := #[⟨`doc.verso, true⟩]
+  requiresModuleSystem := true
 
 /-! ## Python -/
 
@@ -487,6 +488,7 @@ lean_lib NerodiaTests where
   srcDir := "tests"
   globs := #[`NerodiaTests.+]
   precompileModules := true
+  allowNonModules := true
 
 lean_exe pyInExe where
   srcDir := "tests"
