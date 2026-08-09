@@ -13,14 +13,3 @@ open Internal in
 @[extern "nerodia_py_object_addr"]
 public def addr (self : @& Py.Raw) : Addr :=
   self.toModel.addr
-
-/--
-Returns whether two objects are identical (are the same pointer).
-
-This is equivalent to the Python {lit}`self is other`.
--/
-@[extern "nerodia_py_object_dec_eq"]
-public def decEq (self other : @& Py.Raw) : Decidable (self = other) :=
-  Classical.propDecidable _
-
-public instance : DecidableEq Py.Raw := decEq

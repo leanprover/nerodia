@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (362)
+# Constants (361)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -122,7 +122,6 @@ Nerodia.OfPyArg.ofPyArg (proj)
 Nerodia.Py
 Nerodia.Py.Raw
 Nerodia.Py.Raw.addr
-Nerodia.Py.Raw.decEq
 Nerodia.Py.Raw.raw_toPyObject
 Nerodia.Py.Raw.toPyObject
 Nerodia.Py.Raw.toPy_eq_toPyObject
@@ -381,7 +380,7 @@ Nerodia.typeError
 Nerodia.valueError
 Nerodia.«term_⦂_»
 
-# Instances (215)
+# Instances (214)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -399,7 +398,6 @@ Nerodia.Null.instInhabited
 Nerodia.Null.instSubsingleton
 Nerodia.NullableAddr.instDecidablePredIsNull
 Nerodia.NullableAddr.instInhabited
-Nerodia.Py.Raw.instDecidableEq
 Nerodia.Py.Raw.instToPyObject
 Nerodia.Py.instCoeOutRaw
 Nerodia.Py.instNonemptyRaw

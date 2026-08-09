@@ -348,11 +348,6 @@ LEAN_EXPORT size_t nerodia_py_object_addr(b_lean_obj_arg self) {
   return (size_t)nerodia_to_object(self);
 }
 
-/* decEq : @& PyObject -> @& PyObject -> Decidable (self = other) */
-LEAN_EXPORT uint8_t nerodia_py_object_dec_eq(b_lean_obj_arg self, b_lean_obj_arg other) {
-  return nerodia_to_object(self) == nerodia_to_object(other);
-}
-
 /* newRef : @& Py T -> CPyBaseIO (Py T) */
 LEAN_EXPORT size_t nerodia_py_object_new_ref(b_lean_obj_arg self) {
   return (size_t)Py_NewRef(nerodia_to_object(self));
