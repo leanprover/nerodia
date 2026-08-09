@@ -186,13 +186,14 @@ module_facet nerodiacOut (mod) : NerodiacOutput := do
 
 module_facet nerodia.o (mod) : FilePath := do
   let pyJob ← pyconfig.fetch
-  let nerodiac ← mod.facet `nerodiacOut |>.fetch
-  nerodiac.bindM (sync := true) fun out =>
+  let nerodiacOut ← mod.facet `nerodiacOut |>.fetch
+  nerodiacOut.bindM (sync := true) fun out =>
   pyJob.mapM fun py => do
     let cc := (← IO.getEnv "CC").getD "cc"
     let oFile := mod.irPath "nerodia.o"
     -- `Py_LIMITED_API` must always be defined for abi3-tagged wheels
     let args := #[s!"-DPy_LIMITED_API={minHexVersion}", "-fPIC", "-std=c17"]
+    addLeanTrace
     addPureTrace args "traceArgs"
     addPlatformTrace -- object files are platform-dependent artifacts
     let art ← buildArtifactUnlessUpToDate oFile (ext := "o") do
@@ -229,6 +230,7 @@ module_facet nerodiaExt (mod) : ExtBuild := do
     let objs := info.objs.push oFile
     let lakeDynlib ← getLakeSharedDynlib
     let leanDynlibs ← getLeanSharedDynlibs
+    -- Force Lean to link its shared libraries to the extension
     let libs := info.libs ++ leanDynlibs
     /-
     Extension-specific linker arguments:
@@ -250,15 +252,13 @@ module_facet nerodiaExt (mod) : ExtBuild := do
     /-
     On Windows, all symbols must be resolved at link time.
     On Unix, Python symbols are provided by the interpreter at load time.
-    Thus, on Unix, we need to exclude Python from the dependencies.
+    Thus, we need to exclude Python from the link dependencies on Unix,
+    and exclude it from the bundle list on both platforms.
     -/
-    let libs ← id do
-      if System.Platform.isWindows then
-        return libs
-      else
-        -- eagerly flatten dep tree to exclude trans deps
-        return (← mkLinkOrder libs).filter fun lib => lib.name != pyLib.name
-    let libFile ← buildLeanSharedLibSync out.name libFile objs libs args
+    -- Eagerly flatten dep tree to build full list for Python
+    let depLibs := (← mkLinkOrder libs).filter fun lib => lib.name != pyLib.name
+    let linkLibs := if System.Platform.isWindows then libs else depLibs
+    let libFile ← buildLeanSharedLibSync out.name libFile objs linkLibs args
       (linkDeps := true) -- extension should load deps when loaded in Python
     return {
       name := out.name
@@ -266,7 +266,7 @@ module_facet nerodiaExt (mod) : ExtBuild := do
       lib := libFile
       -- Lake is linked implicitly on an "as-needed" basis.
       -- Thus, it should be available in the bundle.
-      libs := (libs ++ leanDynlibs |>.push lakeDynlib).map (·.path)
+      libs := (depLibs.push lakeDynlib).map (·.path)
     }
 
 /--
