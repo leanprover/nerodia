@@ -374,7 +374,7 @@ This creates a new temporary Python context for the call.
   x.runUnsafe (← PyThreadCtx.getOrInit)
 
 /--
-Converts a {lean}`PyCResultIO` returning a
+Converts a {lean}`PyCResultIO` returning an
 arbitrary type to one returning {lean}`Py.Raw`.
 -/
 @[inline] public def raw (x : PyCResultIO α) : PyCResultIO Py.Raw :=
@@ -382,7 +382,7 @@ arbitrary type to one returning {lean}`Py.Raw`.
 
 end PyCResultIO
 
-/-- Lifts a {lean}`CPyIO` action into {lean}`toPyResultIO`. -/
+/-- Lifts a {lean}`CPyIO` action into {lean}`PyCResultIO`. -/
 @[inline] public def CPyIO.toPyResultIO
   (x : CPyIO α)
 : PyCResultIO α := .ofPyBaseIOUnsafe do
@@ -725,7 +725,7 @@ If a Python error occurs, it is raised via {name}`throw`.
 : m α := x.orElseUnsafe do throw (← getRaisedException)
 
 /--
-Runs the {lean}`CPyIO` function in a supporting monad
+Runs the {lean}`CPyIO` function in a supporting monad.
 If a Python error occurs, it is set as the exception.
 -/
 @[inline] public def toExceptT
@@ -797,7 +797,7 @@ end CPyIO
 namespace CPyUnitIO
 
 /--
-Runs the {lean}`CPyIO` function in a supporting monad.
+Runs the {lean}`CPyUnitIO` function in a supporting monad.
 If a Python error occurs, it is raised via {name}`throw`.
 -/
 @[inline] public def toM
@@ -807,7 +807,7 @@ If a Python error occurs, it is raised via {name}`throw`.
 : m PUnit := x.orElseUnsafe do throw (← getRaisedException)
 
 /--
-Runs the {lean}`CPyUnitIO` function in a supporting monad
+Runs the {lean}`CPyUnitIO` function in a supporting monad.
 If a Python error occurs, it is set as the exception.
 -/
 @[inline] public def toExceptT

@@ -391,7 +391,7 @@ LEAN_EXPORT size_t nerodia_get_raised_exception(void) {
   return (size_t)PyErr_GetRaisedException();
 }
 
-/* setRaisedExceptionUnsafe : PyBaseException -> BaseIO Unit */
+/* setRaisedExceptionUnsafe : @& PyBaseException -> BaseIO Unit */
 LEAN_EXPORT lean_obj_res nerodia_set_raised_exception(b_lean_obj_arg e) {
   PyErr_SetRaisedException((PyObject*)Py_NewRef(nerodia_to_object(e)));
   return lean_box(0);

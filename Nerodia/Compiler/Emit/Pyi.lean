@@ -27,7 +27,7 @@ public def writePyiFile (path : FilePath) (mod : ModuleDef) : IO Unit := do
       pyi.putStr ": "
       pyi.putStr ty
     else
-      pyi.putStr "= ..."
+      pyi.putStr " = ..."
     if let some doc := df.doc? then
       pyi.putStr "\n"
       pyi.putStr doc.quote
