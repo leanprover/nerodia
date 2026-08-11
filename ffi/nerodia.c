@@ -501,7 +501,7 @@ LEAN_NORETURN void nerodia_exception_panic(void) {
 /* systemError : @& String -> @& PyThreadCtx -> PySystemError */
 LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_system_error(b_lean_obj_arg msg, b_lean_obj_arg ctx) {
   py_gil_ensure();
-  PyObject* msg_obj = PyUnicode_FromString(lean_string_cstr(msg));
+  PyObject* msg_obj = mk_str(msg);
   if (LEAN_LIKELY(msg_obj != NULL)) {
     PyObject* ex = PyObject_CallFunctionObjArgs(
       PyExc_SystemError, msg_obj, NULL);
