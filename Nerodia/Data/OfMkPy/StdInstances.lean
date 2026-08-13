@@ -129,17 +129,11 @@ public instance : MkCPyResult Int int := ⟨mkPyInt⟩
 
 /-! ## Nat -/
 
-@[extern "lean_int_to_nat"] -- in `lean.h` but no def in core
-def intToNat (n : Int) (h : 0 ≤ n) : Nat :=
-  n.natAbs
-
 public instance : OfPyArg Nat int where
   ofPyArg fn i arg := private do
-    let n ← ofPyArg (α := Int) fn i arg
-    if h : n < 0 then
+    let n ← ofPyArg (α := PyInt) fn i arg
+    n.toNat?.getDM do
       raisePyValueError s!"{fn} argument {i} must be a nonnegative integer, got {n}"
-    else
-      return intToNat n (Int.le_of_not_gt h)
 
 public instance : MkCPyResult Nat int := ⟨mkPyNat⟩
 
@@ -153,4 +147,64 @@ public instance : OfPyArg (Fin n) int where
     else
       raisePyValueError s!"{fn} argument {i} must be less than {n}, got {m}"
 
-public instance : MkCPyResult (Fin n) int := ⟨(mkPyNat ·)⟩
+public instance : MkCPyResult (Fin n) int := ⟨mkPyFin⟩
+
+/-! ## Fixed-Width Integers -/
+
+@[inline] def ofPyArgInt?
+  (fn : String) (i : Nat) (arg : PyObject)
+  (what : String) (f : PyInt → Option α)
+: PyIO α := do
+  let n ← ofPyArg (α := PyInt) fn i arg
+  (f n).getDM <| raisePyValueError s!"{fn} argument {i} \
+    must fit within {what}, got {n}"
+
+public instance : OfPyArg ISize int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "a signed word" (·.toISize?)
+
+public instance : MkCPyResult ISize int := ⟨mkPyISize⟩
+
+public instance : OfPyArg USize int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "an unsigned word" (·.toUSize?)
+
+public instance : MkCPyResult USize int := ⟨mkPyUSize⟩
+
+public instance : OfPyArg Int64 int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "a 64-bit signed integer" (·.toInt64?)
+
+public instance : MkCPyResult Int64 int := ⟨mkPyInt64⟩
+
+public instance : OfPyArg UInt64 int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "a 64-bit unsigned integer" (·.toUInt64?)
+
+public instance : MkCPyResult UInt64 int := ⟨mkPyUInt64⟩
+
+public instance : OfPyArg Int32 int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "a 32-bit signed integer" (·.toInt32?)
+
+public instance : MkCPyResult Int32 int := ⟨mkPyInt32⟩
+
+public instance : OfPyArg UInt32 int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "a 32-bit unsigned integer" (·.toUInt32?)
+
+public instance : MkCPyResult UInt32 int := ⟨mkPyUInt32⟩
+
+public instance : OfPyArg Int16 int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "a 16-bit signed integer" (·.toInt16?)
+
+public instance : MkCPyResult Int16 int := ⟨mkPyInt16⟩
+
+public instance : OfPyArg UInt16 int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "a 16-bit unsigned integer" (·.toUInt16?)
+
+public instance : MkCPyResult UInt16 int := ⟨mkPyUInt16⟩
+
+public instance : OfPyArg Int8 int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "an 8-bit signed integer" (·.toInt8?)
+
+public instance : MkCPyResult Int8 int := ⟨mkPyInt8⟩
+
+public instance : OfPyArg UInt8 int where
+  ofPyArg fn i arg := private ofPyArgInt? fn i arg "an 8-bit unsigned integer" (·.toUInt8?)
+
+public instance : MkCPyResult UInt8 int := ⟨mkPyUInt8⟩

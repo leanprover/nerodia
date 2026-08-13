@@ -763,6 +763,36 @@ LEAN_EXPORT size_t nerodia_mk_py_nat(b_lean_obj_arg n) {
   }
 }
 
+/* mkPyISize : ISize -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_isize(size_t n) {
+  return (size_t)PyLong_FromSsize_t((Py_ssize_t)n);
+}
+
+/* mkPyUSize: USize -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_usize(size_t n) {
+  return (size_t)PyLong_FromSize_t(n);
+}
+
+/* mkPyInt64 : Int64 -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_int64(uint64_t n) {
+  return (size_t)PyLong_FromInt64((int64_t)n);
+}
+
+/* mkPyUInt64 : UInt64 -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_uint64(uint64_t n) {
+  return (size_t)PyLong_FromUInt64(n);
+}
+
+/* mkPyInt32 : Int32 -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_int32(uint32_t n) {
+  return (size_t)PyLong_FromInt32((int32_t)n);
+}
+
+/* mkPyUInt32 : UInt32 -> CPyIO PyInt */
+LEAN_EXPORT size_t nerodia_mk_py_uint32(uint32_t n) {
+  return (size_t)PyLong_FromUInt32(n);
+}
+
 static inline lean_obj_res py_int_to_byte_array(b_lean_obj_arg self, int flags) {
   // Note: `PyLong_AsNativeBytes` is only called with arguments that cannot
   // error, and a Python `int` is immutable, so we do not need a context here.

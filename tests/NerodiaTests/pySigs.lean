@@ -201,3 +201,65 @@ open Lean Elab Command in
 
 /-- info: (n: int, /) -> int -/
 #guard_msgs in #check_fn (n : Fin 0) : Fin 1
+
+/-! #### Fixed-Width Integers -/
+
+/-- info: int -/
+#guard_msgs in #check_attr ISize
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : ISize) : ISize
+
+/-- info: int -/
+#guard_msgs in #check_attr USize
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : USize) : USize
+
+/-- info: int -/
+#guard_msgs in #check_attr Int64
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : Int64) : Int64
+
+/-- info: int -/
+#guard_msgs in #check_attr UInt64
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : UInt64) : UInt64
+
+/-- info: int -/
+#guard_msgs in #check_attr Int32
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : Int32) : Int32
+
+/-- info: int -/
+#guard_msgs in #check_attr UInt32
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : UInt32) : UInt32
+
+/-- info: int -/
+#guard_msgs in #check_attr Int16
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : Int16) : Int16
+
+/-- info: int -/
+#guard_msgs in #check_attr UInt16
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : UInt16) : UInt16
+
+/-- info: int -/
+#guard_msgs in #check_attr Int8
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : Int8) : Int8
+
+/-- info: int -/
+#guard_msgs in #check_attr UInt8
+
+/-- info: (n: int, /) -> int -/
+#guard_msgs in #check_fn (n : UInt8) : UInt8
