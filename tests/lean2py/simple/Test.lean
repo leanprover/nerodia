@@ -25,8 +25,12 @@ def alwaysRaise : IO Empty :=
   throw <| IO.userError "alwaysRaise() called"
 
 @[py_module_fn]
-def countbytes (bs : ByteArray) : Nat :=
-  bs.size
+def countbytes (bs : ByteArray) : USize :=
+  bs.usize
+
+@[py_module_fn]
+def tripleAdd (u8 : UInt8) (i32 : Int32) (usize : USize) : Int64 :=
+  u8.toInt8.toInt64 + i32.toInt64 + usize.toUInt64.toInt64
 
 /-- Return a standard greeting ("Olá!"). -/
 @[py_module_fn]

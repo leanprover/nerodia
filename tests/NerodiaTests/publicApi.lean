@@ -17,7 +17,7 @@ open Lean
 
 /--
 info:
-# Constants (361)
+# Constants (384)
 Nerodia.Addr
 Nerodia.Addr.not_isNull
 Nerodia.Addr.ofNullableAddr
@@ -197,8 +197,20 @@ Nerodia.PyInt.size_toByteArrayBE_pos
 Nerodia.PyInt.size_toByteArrayLE_pos
 Nerodia.PyInt.toByteArrayBE
 Nerodia.PyInt.toByteArrayLE
+Nerodia.PyInt.toFin?
+Nerodia.PyInt.toISize?
 Nerodia.PyInt.toInt
+Nerodia.PyInt.toInt16?
+Nerodia.PyInt.toInt32?
+Nerodia.PyInt.toInt64?
+Nerodia.PyInt.toInt8?
+Nerodia.PyInt.toNat?
 Nerodia.PyInt.toString
+Nerodia.PyInt.toUInt16?
+Nerodia.PyInt.toUInt32?
+Nerodia.PyInt.toUInt64?
+Nerodia.PyInt.toUInt8?
+Nerodia.PyInt.toUSize?
 Nerodia.PyMethFastCall (irreducible)
 Nerodia.PyMethFastCall.ofPyIO
 Nerodia.PyMethNoArgs (irreducible)
@@ -355,9 +367,20 @@ Nerodia.getPyNone
 Nerodia.import
 Nerodia.int
 Nerodia.mkPyBytes
+Nerodia.mkPyFin
+Nerodia.mkPyISize
 Nerodia.mkPyInt
+Nerodia.mkPyInt16
+Nerodia.mkPyInt32
+Nerodia.mkPyInt64
+Nerodia.mkPyInt8
 Nerodia.mkPyNat
 Nerodia.mkPyStr
+Nerodia.mkPyUInt16
+Nerodia.mkPyUInt32
+Nerodia.mkPyUInt64
+Nerodia.mkPyUInt8
+Nerodia.mkPyUSize
 Nerodia.moduleType
 Nerodia.never
 Nerodia.object
@@ -380,7 +403,7 @@ Nerodia.typeError
 Nerodia.valueError
 Nerodia.«term_⦂_»
 
-# Instances (214)
+# Instances (234)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -511,6 +534,11 @@ Nerodia.instMkCPyResultBaseIO
 Nerodia.instMkCPyResultEmptyNever
 Nerodia.instMkCPyResultFinInt
 Nerodia.instMkCPyResultIO
+Nerodia.instMkCPyResultISizeInt
+Nerodia.instMkCPyResultInt16Int
+Nerodia.instMkCPyResultInt32Int
+Nerodia.instMkCPyResultInt64Int
+Nerodia.instMkCPyResultInt8Int
 Nerodia.instMkCPyResultIntInt
 Nerodia.instMkCPyResultNatInt
 Nerodia.instMkCPyResultOfMkPyResult
@@ -520,6 +548,11 @@ Nerodia.instMkCPyResultPy
 Nerodia.instMkCPyResultPyBaseIO
 Nerodia.instMkCPyResultPyIO
 Nerodia.instMkCPyResultStringStr
+Nerodia.instMkCPyResultUInt16Int
+Nerodia.instMkCPyResultUInt32Int
+Nerodia.instMkCPyResultUInt64Int
+Nerodia.instMkCPyResultUInt8Int
+Nerodia.instMkCPyResultUSizeInt
 Nerodia.instMkPyResultBaseIO
 Nerodia.instMkPyResultIO
 Nerodia.instMkPyResultOfMkCPyResult
@@ -548,6 +581,11 @@ Nerodia.instNonemptyPyUnionTyping_1
 Nerodia.instNonemptyTypeExpr
 Nerodia.instOfPyArgByteArrayBuffer
 Nerodia.instOfPyArgFinInt
+Nerodia.instOfPyArgISizeInt
+Nerodia.instOfPyArgInt16Int
+Nerodia.instOfPyArgInt32Int
+Nerodia.instOfPyArgInt64Int
+Nerodia.instOfPyArgInt8Int
 Nerodia.instOfPyArgIntInt
 Nerodia.instOfPyArgNatInt
 Nerodia.instOfPyArgPyAnyAny
@@ -555,6 +593,11 @@ Nerodia.instOfPyArgPyBufferBuffer
 Nerodia.instOfPyArgPyObjectObject
 Nerodia.instOfPyArgPyOfDecidablePyOfToTypeExpr
 Nerodia.instOfPyArgStringStr
+Nerodia.instOfPyArgUInt16Int
+Nerodia.instOfPyArgUInt32Int
+Nerodia.instOfPyArgUInt64Int
+Nerodia.instOfPyArgUInt8Int
+Nerodia.instOfPyArgUSizeInt
 Nerodia.instToPyBufferPyBytes
 Nerodia.instToPyPy
 Nerodia.instToPyPyOfIsSubtypeOf

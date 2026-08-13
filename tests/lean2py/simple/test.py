@@ -8,7 +8,7 @@ import testmodule
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
 expected = [
   "addBit", "alwaysRaise", "countbytes", "greet", "greet2",
-  "greetUser", "greeting", "greeting_for", "my_add", "setUser"
+  "greetUser", "greeting", "greeting_for", "my_add", "setUser", "tripleAdd"
 ]
 assert exports == expected, exports
 
@@ -23,6 +23,8 @@ assert testmodule.addBit.__doc__ is None
 assert testmodule.addBit(42, 1) == 43
 
 assert testmodule.countbytes(b'ab') == 2
+
+assert testmodule.tripleAdd(1, -1, 1) == 1
 
 assert testmodule.greet() == "Olá!"
 
@@ -69,6 +71,24 @@ try:
   raise AssertionError('expected ValueError')
 except ValueError as e:
   assert str(e) == "testmodule.addBit() argument 2 must be less than 2, got 3"
+
+try:
+  testmodule.tripleAdd(-1, 1, -1)
+  raise AssertionError('expected ValueError')
+except ValueError as e:
+  assert str(e) == "testmodule.tripleAdd() argument 1 must fit within an 8-bit unsigned integer, got -1"
+
+try:
+  testmodule.tripleAdd(0, -2**32, 0)
+  raise AssertionError('expected ValueError')
+except ValueError as e:
+  assert str(e) == "testmodule.tripleAdd() argument 2 must fit within a 32-bit signed integer, got -4294967296"
+
+try:
+  testmodule.tripleAdd(0, 0, 2**64)
+  raise AssertionError('expected ValueError')
+except ValueError as e:
+  assert str(e) == "testmodule.tripleAdd() argument 3 must fit within an unsigned word, got 18446744073709551616"
 
 try:
   testmodule.countbytes(0) # type: ignore[ty:invalid-argument-type]
