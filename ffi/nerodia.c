@@ -549,6 +549,17 @@ LEAN_EXPORT size_t nerodia_py_object_get_attr_by_string(b_lean_obj_arg self, b_l
   return (size_t)PyObject_GetAttrString(nerodia_to_object(self), lean_string_cstr(attr_name));
 }
 
+/* call0 : @& PyObject -> CPyIO PyObject */
+LEAN_EXPORT size_t nerodia_py_object_call0(b_lean_obj_arg self) {
+  return (size_t)PyObject_CallNoArgs(nerodia_to_object(self));
+}
+
+/* call1 : @& PyObject -> @& PyObject -> CPyIO PyObject */
+LEAN_EXPORT size_t nerodia_py_object_call1(b_lean_obj_arg self, b_lean_obj_arg arg) {
+  return (size_t)PyObject_CallFunctionObjArgs(
+    nerodia_to_object(self), nerodia_to_object(arg), NULL);
+}
+
 /* ### Types */
 
 /** getType : @& PyObject -> CPyBaseIO PyType  */

@@ -8,6 +8,12 @@ public import Nerodia.Data.Types
 public import Nerodia.Control.CPyIO
 meta import Nerodia.Internal.ViewMethod
 
+/-!
+# Object Basics
+
+This module defines functions usable on all Python objects.
+-/
+
 namespace Nerodia.PyObject
 
 /--
@@ -25,6 +31,8 @@ This is equivalent to the Python expression {lit}`repr(self)`.
 -/
 @[extern "nerodia_py_object_repr", view_method]
 public opaque repr (self : @& PyObject) : CPyIO PyStr
+
+/-! ## Conversions -/
 
 /--
 Computes a string representation of the object {lean}`self`.
@@ -59,6 +67,8 @@ This is equivalent to the Python expression {lit}`operator.index(self)`.
 @[extern "nerodia_py_object_index", view_method]
 public opaque index (self : @& PyObject) : CPyIO PyInt
 
+/-! ## Attributes -/
+
 /--
 Returns the attribute named {lean}`attr` on {lean}`self`.
 
@@ -67,3 +77,21 @@ This is equivalent to the Python expression {lit}`getattr(self, attr)`.
 @[extern "nerodia_py_object_get_attr_by_string", view_method]
 public opaque getAttrByString
   (self : @& PyObject) (attr : @& String) : CPyIO PyObject
+
+/-! ## Function Calls -/
+
+/--
+Call {lean}`self` with no arguments.
+
+This is equivalent to the Python expression {lit}`self()`.
+-/
+@[extern "nerodia_py_object_call0", view_method]
+public opaque call0 (self : @& PyObject) : CPyIO PyObject
+
+/--
+Call {lean}`self` with a single argument, {lean}`arg`.
+
+This is equivalent to the Python expression {lit}`self(arg)`.
+-/
+@[extern "nerodia_py_object_call1", view_method]
+public opaque call1 (self : @& PyObject) (arg : @& PyObject) : CPyIO PyObject

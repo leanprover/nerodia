@@ -112,6 +112,35 @@ open Internal Nerodia in
   let val ← sys.getAttrByString "bogus"
   val.str
 
+/-- info: None -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let sys ← Nerodia.import "builtins"
+  let globals ← sys.getAttrByString "globals"
+  (← globals.call0).repr
+
+/-- error: TypeError: abs() takes exactly one argument (0 given) -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let sys ← Nerodia.import "builtins"
+  let abs ← sys.getAttrByString "abs"
+  discard <| abs.call0
+  return ()
+
+/-- info: 1 -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let sys ← Nerodia.import "builtins"
+  let abs ← sys.getAttrByString "abs"
+  IO.println (← (← abs.call1 (← mkPyInt (-1))).repr)
+
+/-- error: TypeError: bad operand type for abs(): 'NoneType' -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let sys ← Nerodia.import "builtins"
+  let abs ← sys.getAttrByString "abs"
+  IO.println (← (← abs.call1 (← getPyNone)).repr)
+
 /-- error: EOFError -/
 #guard_msgs in
 #eval raisePyEOFError (α := Empty)
