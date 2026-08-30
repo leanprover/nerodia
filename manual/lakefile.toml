@@ -1,0 +1,19 @@
+name = "nerodia-manual"
+defaultTargets = ["NerodiaManual", "docs"]
+
+[[require]]
+name = "verso"
+git = "https://github.com/leanprover/verso"
+rev = "v4.33.0"
+
+[[require]]
+name = "nerodia"
+path = ".."
+
+[[lean_lib]]
+name = "NerodiaManual"
+allowNonModules = true
+
+[[lean_exe]]
+name = "docs"
+root = "Main"
