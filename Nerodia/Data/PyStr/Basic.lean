@@ -11,6 +11,16 @@ meta import Nerodia.Internal.ViewMethod
 
 namespace Nerodia
 
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`str`. -/
+@[extern "nerodia_py_object_is_str_instance"]
+def PyObject.isStrInstance (self : @& PyObject) : Bool :=
+  self ⦂ str
+
+open PyObject in
+public instance : DecidablePy str := private_decl%
+  (Internal.decPy isStrInstance (by simp [isStrInstance]))
+
 /-- Creates a Python string from a Lean string. -/
 @[extern "nerodia_mk_py_str"]
 public opaque mkPyStr (s : @& String) : CPyIO PyStr

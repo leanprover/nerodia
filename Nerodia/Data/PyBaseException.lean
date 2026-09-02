@@ -4,4 +4,5 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
+public import Nerodia.Data.PyBaseException.Basic
 public import Nerodia.Data.PyBaseException.SPrint

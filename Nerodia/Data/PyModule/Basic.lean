@@ -9,6 +9,16 @@ public import Nerodia.Control.CPyIO
 
 namespace Nerodia
 
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`types.ModuleType`. -/
+@[extern "nerodia_py_object_is_module_instance"]
+def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
+  self ⦂ moduleType
+
+open PyObject in
+public instance : DecidablePy moduleType := private_decl%
+  (Internal.decPy isModuleInstance (by simp [isModuleInstance]))
+
 /--
 Imports the module named {lean}`modName`.
 
