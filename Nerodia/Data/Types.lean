@@ -372,16 +372,6 @@ public abbrev PyType := PyObjectView <| Py type
 
 public instance : ViewPy type PyType := ⟨rfl⟩
 
-open Classical in
-/-- Returns whether {lean}`self` is an instance of {lit}`type`. -/
-@[extern "nerodia_py_object_is_type_instance"]
-def PyObject.isTypeInstance (self : @& PyObject) : Bool :=
-  self ⦂ type
-
-open PyObject in
-public instance : DecidablePy type := private_decl%
-  (Internal.decPy isTypeInstance (by simp [isTypeInstance]))
-
 /-! ### BaseException -/
 
 /--
@@ -430,16 +420,6 @@ public instance [ToPyBaseException α] :
 
 end PyBaseExceptionView
 
-open Classical in
-/-- Returns whether {lean}`self` is an instance of {lit}`BaseException`. -/
-@[extern "nerodia_py_object_is_base_exception_instance"]
-def PyObject.isBaseExceptionInstance (self : @& PyObject) : Bool :=
-  self ⦂ baseException
-
-open PyObject in
-public instance : DecidablePy baseException := private_decl%
-  (Internal.decPy isBaseExceptionInstance (by simp [isBaseExceptionInstance]))
-
 /-! ### str -/
 
 /--
@@ -466,16 +446,6 @@ public instance : ToTypeExpr str := ⟨str⟩
 public abbrev PyStr := PyObjectView <| Py str
 
 public instance : ViewPy str PyStr := ⟨rfl⟩
-
-open Classical in
-/-- Returns whether {lean}`self` is an instance of {lit}`str`. -/
-@[extern "nerodia_py_object_is_str_instance"]
-def PyObject.isStrInstance (self : @& PyObject) : Bool :=
-  self ⦂ str
-
-open PyObject in
-public instance : DecidablePy str := private_decl%
-  (Internal.decPy isStrInstance (by simp [isStrInstance]))
 
 /-! ### bytes -/
 
@@ -544,16 +514,6 @@ public abbrev PyInt := PyObjectView <| Py int
 
 public instance : ViewPy int PyInt := ⟨rfl⟩
 
-open Classical in
-/-- Returns whether {lean}`self` is an instance of {lit}`int`. -/
-@[extern "nerodia_py_object_is_int_instance"]
-def PyObject.isIntInstance (self : @& PyObject) : Bool :=
-  self ⦂ int
-
-open PyObject in
-public instance : DecidablePy int := private_decl%
-  (Internal.decPy isIntInstance (by simp [isIntInstance]))
-
 /-! ### ModuleType -/
 
 /--
@@ -580,16 +540,6 @@ public instance : ToTypeExpr moduleType := ⟨moduleType⟩
 public abbrev PyModule := PyObjectView <| Py moduleType
 
 public instance : ViewPy moduleType PyModule := ⟨rfl⟩
-
-open Classical in
-/-- Returns whether {lean}`self` is an instance of {lit}`types.ModuleType`. -/
-@[extern "nerodia_py_object_is_module_instance"]
-def PyObject.isModuleInstance (self : @& PyObject) : Bool :=
-  self ⦂ moduleType
-
-open PyObject in
-public instance : DecidablePy moduleType := private_decl%
-  (Internal.decPy isModuleInstance (by simp [isModuleInstance]))
 
 /-!
 ## BaseException Subtypes
