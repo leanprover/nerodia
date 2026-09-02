@@ -16,6 +16,16 @@ Lean types and computing basic properties about them.
 
 namespace Nerodia
 
+open Classical in
+/-- Returns whether {lean}`self` is an instance of {lit}`int`. -/
+@[extern "nerodia_py_object_is_int_instance"]
+def PyObject.isIntInstance (self : @& PyObject) : Bool :=
+  self ⦂ int
+
+open PyObject in
+public instance : DecidablePy int := private_decl%
+  (Internal.decPy isIntInstance (by simp [isIntInstance]))
+
 /-! ## Lean to {name}`PyInt` Conversion -/
 
 /--
