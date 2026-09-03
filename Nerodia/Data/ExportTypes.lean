@@ -125,7 +125,7 @@ unseal PyMethFastCall in
   x self args
 
 /-- Raises a {lean}`PyTypeError` indicating {lit}`fn` was called with the wrong number of arguments. -/
-@[inline] def raiseArityNotEq (fn : String) (expected given : USize) : CPyIO α :=
+@[inline] def raiseArityNotEq (fn : String) (expected «given» : USize) : CPyIO α :=
   raisePyTypeError s!"{fn} takes exactly {expected} arguments ({given} given)"
 
 unseal PyMethFastCall in
