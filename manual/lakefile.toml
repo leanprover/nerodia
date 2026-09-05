@@ -1,5 +1,6 @@
 name = "nerodia-manual"
 defaultTargets = ["NerodiaManual", "docs"]
+moreGlobalServerArgs = ["-Dweak.skipExamples=true"]
 
 [[require]]
 name = "verso"
