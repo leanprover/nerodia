@@ -5,11 +5,11 @@ Author: Mac Malone
 -/
 
 import VersoManual
+import Verso.Doc.Elab.Monad
 import NerodiaManual.Meta.Toml
-import NerodiaManual.Meta.LeanModule
-import Nerodia
+import NerodiaManual.Meta.Example
 
-open Verso.Genre Manual
+open Verso.Genre Manual InlineLean
 
 namespace NerodiaManual
 
@@ -26,8 +26,9 @@ First, create a new Lake package and add Nerodia as a dependency.
 This can be done by running `lake new string_sum lib.toml` and then updating
 `string_sum/lakefile.toml` to the following:
 
+:::nerodiaExample
 *lakefile.toml*
-```toml
+```inputToml "lakefile.toml"
 # The package name need not match anything
 name = "lean-string-sum"
 defaultTargets = ["StringSum"]
@@ -47,7 +48,7 @@ and add the following code. (If you used `lake new`, you can also delete the
 `StringSum` directory as it will not be needed.)
 
 *StringSum.lean*
-```leanModule -keep
+```inputLean "StringSum.lean"
 module
 import Nerodia
 open scoped Nerodia
@@ -62,6 +63,7 @@ py_module "string_sum"
 def sumAsString (a b : Nat) : String :=
   toString (a + b)
 ```
+:::
 
 This defines a Python module named `string_sum` that has a single module
 function named `sum_as_string` that is implemented by our `sumAsString` Lean
