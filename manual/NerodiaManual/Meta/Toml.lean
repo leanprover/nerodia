@@ -1,14 +1,16 @@
 /-
 Copyright (c) 2025 Lean FRO LLC. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
-Author: David Thrane Christiansen
+Author: David Thrane Christiansen, Mac Malone
 -/
-import VersoManual
+module
 
-import Lake.Toml.Decode
-import Lake.Load.Toml
-import Lake.Toml.Grammar
-import Lake.Util.Lift
+public import VersoManual
+
+public meta import Lake.Toml.Decode
+public meta import Lake.Load.Toml
+public meta import Lake.Toml.Grammar
+public meta import Lake.Util.Lift
 
 open Verso ArgParse Doc Elab Genre.Manual Html Code Highlighted.WebAssets Multi
 open SubVerso.Highlighting Highlighted
@@ -17,6 +19,8 @@ open Lean Elab
 open scoped Lean.Doc.Syntax
 
 open Lean.Elab.Tactic.GuardMsgs
+
+public meta section
 
 namespace NerodiaManual
 
@@ -61,7 +65,7 @@ instance : Quote Token where
 
 end Highlighted
 
-inductive Highlighted where
+public inductive Highlighted where
   | token : Highlighted.Token → String → Highlighted
   | key (fullPath : Option String) : Highlighted → Highlighted
   | text : String → Highlighted
@@ -344,11 +348,11 @@ partial def Highlighted.toHtml (urlLinks : Bool := true) : Highlighted -> Html
 
 end Toml
 
-def Block.toml (highlighted : Toml.Highlighted) (link : Bool := true) : Block where
+public def Block.toml (highlighted : Toml.Highlighted) (link : Bool := true) : Block where
   name := decl_name%
   data := toJson (highlighted, link)
 
-def Inline.toml (highlighted : Toml.Highlighted) : Inline where
+public def Inline.toml (highlighted : Toml.Highlighted) : Inline where
   name := decl_name%
   data := toJson highlighted
 
@@ -418,10 +422,10 @@ pre.toml {
 }
 "#
 
-structure TomlParams where
+public structure TomlParams where
   link : Bool := true
 
-instance : FromArgs TomlParams m where
+public meta instance : FromArgs TomlParams m where
   fromArgs := TomlParams.mk <$> ArgParse.flag `link true
 
 open Lean.Parser in
