@@ -4,7 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Mac Malone
 -/
 import VersoManual
+
+import NerodiaManual.Changelog
 import NerodiaManual.Requirements
+import NerodiaManual.Stability
 import NerodiaManual.Tutorials
 
 open Verso.Genre Manual
@@ -31,4 +34,6 @@ as a proof-of-concept and to obtain feedback on its design and build process.
 [1]: https://github.com/PyO3/pyo3
 
 {include 0 NerodiaManual.Requirements}
+{include 0 NerodiaManual.Stability}
+{include 0 NerodiaManual.Changelog}
 {include 0 NerodiaManual.Tutorials}
