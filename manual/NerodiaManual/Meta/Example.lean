@@ -18,9 +18,22 @@ open Lean.Elab.Term (mkFreshIdent)
 namespace NerodiaManual
 
 structure ExampleContext where
-  lean? : Option (Name × Ident) := none
-  inputFiles : Array (System.FilePath × StrLit) := #[]
+  files : Array (System.FilePath × String) := #[]
   deriving Repr
+
+@[inline] meta def ExampleContext.empty : ExampleContext := {}
+
+@[inline] meta def ExampleContext.addFile
+  (name : System.FilePath) (contents : String) (ctx : ExampleContext)
+: ExampleContext := {ctx with files := ctx.files.push (name, contents)}
+
+@[inline] meta def ExampleContext.withTempDir
+  [Monad m] [MonadFinally m] [MonadLiftT IO m]
+  (ctx : ExampleContext) (x : System.FilePath → m α)
+: m α := IO.FS.withTempDir fun dir => do
+  for (name, contents) in ctx.files do
+    IO.FS.writeFile (dir / name) contents
+  x dir
 
 meta initialize exampleCtx : EnvExtension (Option ExampleContext) ←
   Lean.registerEnvExtension (pure none)
@@ -50,40 +63,37 @@ meta def getSubVersoExtractMod : IO System.FilePath := do
   subversoExtractModRef.set (some path)
   return path
 
-meta def check
-  (modName : Name) (inputFiles : Array (System.FilePath × StrLit))
-: DocElabM Highlighted := IO.FS.withTempDir fun dirname => do
-  -- Write example
-  let toolchain : String ← IO.FS.readFile "lean-toolchain"
-  IO.FS.writeFile (dirname / "lean-toolchain") toolchain
-  for (f, i) in inputFiles do
-    IO.FS.writeFile (dirname / f) i.getString
-  -- Build example
+meta def buildLean
+  (dir : System.FilePath) (modName : Name)
+: DocElabM Unit := do
   let out ← IO.Process.output {
-    cmd := "lake", args := #["build"],
-    cwd := some dirname
+    cmd := "lake", args := #["build", modName.toString],
+    cwd := some dir
   }
   if out.exitCode != 0 then
     throwError m!"\
-      When running 'lake build' in {dirname}, \
+      When running 'lake build' in {dir}, \
         the exit code was {out.exitCode}\n\
       Stderr:\n{out.stderr}\n\n\
       Stdout:\n{out.stdout}\n\n"
-  -- Extract highlighted Lean
+
+meta def extractHighlights
+  (dir : System.FilePath) (modName : Name)
+: DocElabM Highlighted := do
   let jsonFile := s!"{modName}.json"
   let extractMod ← getSubVersoExtractMod
   let out ← IO.Process.output {
     cmd := extractMod.toString
     args := #[modName.toString, jsonFile]
-    cwd := some dirname
+    cwd := some dir
   }
   if out.exitCode != 0 then
     throwError m!"\
-      When running '{extractMod} {modName} {jsonFile}' in {dirname}, \
+      When running '{extractMod} {modName} {jsonFile}' in {dir}, \
         the exit code was {out.exitCode}\n\
       Stderr:\n{out.stderr}\n\n\
       Stdout:\n{out.stdout}\n\n"
-  let json ← IO.FS.readFile (dirname / jsonFile)
+  let json ← IO.FS.readFile (dir / jsonFile)
   let json ← IO.ofExcept <| Json.parse json
   match SubVerso.Module.Module.fromJson? json with
   | .ok v => return v.items.foldl (init := .empty) fun hl item => hl ++ item.code
@@ -92,69 +102,82 @@ meta def check
       {indentD e}\n\
     JSON: {json}"
 
-meta def startExample : DocElabM Unit := do
-  match exampleCtx.getState (← getEnv) with
-  | some _ => throwError "Can't initialize - already in a context"
-  | none => modifyEnv fun env => exampleCtx.setState env (some {})
+meta register_option skipExamples : Bool := {
+  defValue := false
+}
 
-meta def endExample (body : Term) : DocElabM Term := do
-  match exampleCtx.getState (← getEnv) with
-  | none => throwErrorAt body "Can't end example - never started"
-  | some {lean?, inputFiles, ..} => do
-    modifyEnv fun env =>
-      exampleCtx.setState env none
-    let some (modName, hlVar) := lean?
-      | throwError "No code specified"
-    let hlLean ← check modName inputFiles
-    `(let $hlVar : Highlighted := $(quote hlLean)
-      $body)
+meta def getExampleContext : DocElabM ExampleContext := do
+  if let some ctx := exampleCtx.getState (← getEnv) then
+    return ctx
+  else
+    let toolchain : String ← IO.FS.readFile "lean-toolchain"
+    let ctx := ExampleContext.empty.addFile "lean-toolchain" toolchain
+    modifyEnv fun env => exampleCtx.setState env (some ctx)
+    return ctx
 
-meta def saveInputFile (name : System.FilePath) (src : StrLit) : DocElabM Unit := do
-  match exampleCtx.getState (← getEnv) with
-  | none => throwError "Can't save file - not in an Nerodia example"
-  | some st =>
-    modifyEnv fun env => exampleCtx.setState env <|
-      some {st with inputFiles := st.inputFiles.push (name, src)}
+meta def addExampleFile (name : System.FilePath) (src : StrLit) : DocElabM Unit := do
+  let ctx ← getExampleContext
+  let ctx := ctx.addFile name src.getString
+  modifyEnv fun env => exampleCtx.setState env (some ctx)
 
-meta def saveLeanFile (name : System.FilePath) (src : StrLit) : DocElabM Ident := do
-  match exampleCtx.getState (← getEnv) with
-  | none => throwError "Can't set Lean code - not in an Nerodia example"
-  | some st =>
-    if st.lean?.isSome then
-      throwError "Code already specified"
-    let hlVar ← mkFreshIdent (← getRef)
-    let modName := (name.withExtension "").components.foldl .str .anonymous
-    modifyEnv fun env => exampleCtx.setState env <| some {st with
-      lean? := some (modName, hlVar),
-      inputFiles := st.inputFiles.push (name, src)
+meta def saveLeanFile (name : System.FilePath) (src : StrLit) : DocElabM Term := do
+  let ctx ← getExampleContext
+  let ctx := ctx.addFile name src.getString
+  modifyEnv fun env => exampleCtx.setState env (some ctx)
+  if skipExamples.get (← getOptions) then
+    ``(Block.empty)
+  else
+    ctx.withTempDir fun dir => do
+      let modName := (name.withExtension "").components.foldl .str .anonymous
+      buildLean dir modName
+      let hl ← extractHighlights dir modName
+      return quote hl
+
+@[code_block]
+public meta def exampleToml : CodeBlockExpanderOf FileConfig | opts, str => do
+  addExampleFile opts.name str
+  if opts.show then
+    let hl ← tomlContent str
+    ``(Block.other (Block.toml $(quote hl)) #[Block.code $(quote str.getString)])
+  else
+    ``(Block.empty)
+
+@[code_block]
+public meta def exampleLean : CodeBlockExpanderOf FileConfig | opts, str => do
+  addExampleFile opts.name str
+  if skipExamples.get (← getOptions) then
+    return ← ``(Block.empty)
+  let ctx ← getExampleContext
+  ctx.withTempDir fun dir => do
+    let modPath := System.FilePath.withExtension opts.name ""
+    let modName := modPath.components.foldl .str .anonymous
+    buildLean dir modName
+    if opts.show then
+      let fileName ← getFileName
+      let range := str.raw.getRange?.map (← getFileMap).utf8RangeToLspRange
+      let x ← extractHighlights dir modName
+      let l ← ``(Block.lean $(quote x) (some $(quote fileName)) $(quote range))
+      ``(Block.other $l #[Block.code $(quote str.getString)])
+    else
+      ``(Block.empty)
+
+@[code_block]
+public meta def examplePyTest : CodeBlockExpanderOf Unit | _, str => do
+  if skipExamples.get (← getOptions) then
+    return ← ``(Block.empty)
+  let ctx ← getExampleContext
+  ctx.withTempDir fun dir => do
+    let testFile := dir / "test.py"
+    IO.FS.writeFile testFile str.getString
+    let out ← IO.Process.output {
+      cmd := "uv"
+      args := #["run", testFile.toString]
+      cwd := some dir
     }
-    return hlVar
-
-@[code_block]
-public meta def inputToml : CodeBlockExpanderOf FileConfig
-  | opts, str => do
-    saveInputFile opts.name str
-    if opts.show then
-      let hl ← tomlContent str
-      ``(Block.other (Block.toml $(quote hl)) #[Block.code $(quote str.getString)])
-    else
-      ``(Block.empty)
-
-@[code_block]
-public meta def inputLean : CodeBlockExpanderOf FileConfig
-  | opts, str => do
-    let x ← saveLeanFile opts.name str
-    if opts.show then
-      let range := Syntax.getRange? str
-      let range := range.map (← getFileMap).utf8RangeToLspRange
-      ``(Block.other (Block.lean $x (some $(quote (← getFileName))) $(quote range)) #[Block.code $(quote str.getString)])
-    else
-      ``(Block.empty)
-
-@[directive]
-public meta def nerodiaExample : DirectiveExpanderOf Unit
- | (), blocks => do
-    startExample
-    let body ← blocks.mapM elabBlock
-    let body ← ``(Verso.Doc.Block.concat #[$body,*])
-    endExample body
+    if out.exitCode != 0 then
+      throwError m!"\
+        When running 'uv run test.py' in {dir}, \
+          the exit code was {out.exitCode}\n\
+        Stderr:\n{out.stderr}\n\n\
+        Stdout:\n{out.stdout}\n\n"
+  ``(Block.empty)

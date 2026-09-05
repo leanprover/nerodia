@@ -26,9 +26,8 @@ First, create a new Lake package and add Nerodia as a dependency.
 This can be done by running `lake new string_sum lib.toml` and then updating
 `string_sum/lakefile.toml` to the following:
 
-:::nerodiaExample
 *lakefile.toml*
-```inputToml "lakefile.toml"
+```exampleToml "lakefile.toml"
 # The package name need not match anything
 name = "lean-string-sum"
 defaultTargets = ["StringSum"]
@@ -48,7 +47,7 @@ and add the following code. (If you used `lake new`, you can also delete the
 `StringSum` directory as it will not be needed.)
 
 *StringSum.lean*
-```inputLean "StringSum.lean"
+```exampleLean "StringSum.lean"
 module
 import Nerodia
 open scoped Nerodia
@@ -63,7 +62,6 @@ py_module "string_sum"
 def sumAsString (a b : Nat) : String :=
   toString (a + b)
 ```
-:::
 
 This defines a Python module named `string_sum` that has a single module
 function named `sum_as_string` that is implemented by our `sumAsString` Lean
@@ -82,7 +80,7 @@ build system requirement that targets the Lean module.
 [3]: https://packaging.python.org/en/latest/specifications/pyproject-toml/
 
 *pyproject.toml*
-```toml
+```exampleToml "pyproject.toml"
 [project]
 # The project name need not match anything
 name = "py-string-sum"
@@ -115,6 +113,12 @@ $ uv run python
 '25'
 >>> string_sum.sum_as_string.__doc__
 'Formats the sum of two numbers as a string.'
+```
+
+```examplePyTest
+import string_sum
+assert string_sum.sum_as_string(5, 20) == '25'
+assert string_sum.sum_as_string.__doc__ == 'Formats the sum of two numbers as a string.'
 ```
 
 In addition, Nerodia automatically generates type stubs for the module and
