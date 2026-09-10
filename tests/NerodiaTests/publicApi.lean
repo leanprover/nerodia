@@ -434,7 +434,7 @@ Nerodia.typeError
 Nerodia.valueError
 Nerodia.«term_⦂_»
 
-# Instances (260)
+# Instances (261)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -572,6 +572,7 @@ Nerodia.instIsPyRaw
 Nerodia.instIsSubtypeOf
 Nerodia.instIsSubtypeOfBoolFalse
 Nerodia.instIsSubtypeOfBoolTrue
+Nerodia.instIsSubtypeOfIntBool
 Nerodia.instIsSubtypeOfInterTyping
 Nerodia.instIsSubtypeOfInterTyping_1
 Nerodia.instIsSubtypeOfObject
