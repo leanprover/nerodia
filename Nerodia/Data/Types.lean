@@ -50,7 +50,7 @@ public abbrev PyObject := Py object
 
 public instance : ViewPy object PyObject := ⟨rfl⟩
 
-/-- Shorthand for {lean}`ToPy .object α` -/
+/-- Shorthand for {lean}`ToPy object α` -/
 public abbrev ToPyObject := ToPy object
 
 namespace Py.Raw
@@ -582,7 +582,7 @@ public instance : CoeDep Constant exception Typing := ⟨.exception⟩
 public instance : ToTypeExpr exception := ⟨exception⟩
 
 /-- A weakly typed instance of {lit}`Exception`. -/
-public abbrev PyException := PyBaseExceptionView <| Py exception
+public abbrev PyException := PyBaseExceptionView <| PyObjectView <| Py exception
 
 public instance : ViewPy exception PyException := ⟨rfl⟩
 
@@ -609,7 +609,7 @@ public instance : CoeDep Constant eofError Typing := ⟨.eofError⟩
 public instance : ToTypeExpr eofError := ⟨eofError⟩
 
 /-- A weakly typed instance of {lit}`EOFError`. -/
-public abbrev PyEOFError := PyBaseExceptionView <| Py eofError
+public abbrev PyEOFError := PyBaseExceptionView <| PyObjectView <| Py eofError
 
 public instance : ViewPy eofError PyEOFError := ⟨rfl⟩
 
@@ -636,7 +636,7 @@ public instance : CoeDep Constant osError Typing := ⟨.osError⟩
 public instance : ToTypeExpr osError := ⟨osError⟩
 
 /-- A weakly typed instance of {lit}`OSError`. -/
-public abbrev PyOSError := PyBaseExceptionView <| Py osError
+public abbrev PyOSError := PyBaseExceptionView <| PyObjectView <| Py osError
 
 public instance : ViewPy osError PyOSError := ⟨rfl⟩
 
@@ -663,7 +663,7 @@ public instance : CoeDep Constant systemError Typing := ⟨.systemError⟩
 public instance : ToTypeExpr systemError := ⟨systemError⟩
 
 /-- A weakly typed instance of {lit}`SystemError`. -/
-public abbrev PySystemError := PyBaseExceptionView <| Py systemError
+public abbrev PySystemError := PyBaseExceptionView <| PyObjectView <| Py systemError
 
 public instance : ViewPy systemError PySystemError := ⟨rfl⟩
 
@@ -690,7 +690,7 @@ public instance : CoeDep Constant typeError Typing := ⟨.typeError⟩
 public instance : ToTypeExpr typeError := ⟨typeError⟩
 
 /-- A weakly typed instance of {lit}`TypeError`. -/
-public abbrev PyTypeError := PyBaseExceptionView <| Py typeError
+public abbrev PyTypeError := PyBaseExceptionView <| PyObjectView <| Py typeError
 
 public instance : ViewPy typeError PyTypeError := ⟨rfl⟩
 
@@ -717,7 +717,7 @@ public instance : CoeDep Constant valueError Typing := ⟨.valueError⟩
 public instance : ToTypeExpr valueError := ⟨valueError⟩
 
 /-- A weakly typed instance of {lit}`ValueError`. -/
-public abbrev PyValueError := PyBaseExceptionView <| Py valueError
+public abbrev PyValueError := PyBaseExceptionView <| PyObjectView <| Py valueError
 
 public instance : ViewPy valueError PyValueError := ⟨rfl⟩
 
@@ -744,6 +744,6 @@ public instance : CoeDep Constant runtimeError Typing := ⟨.runtimeError⟩
 public instance : ToTypeExpr runtimeError := ⟨runtimeError⟩
 
 /-- A weakly typed instance of {lit}`RuntimeError`. -/
-public abbrev PyRuntimeError := PyBaseExceptionView <| Py runtimeError
+public abbrev PyRuntimeError := PyBaseExceptionView <| PyObjectView <| Py runtimeError
 
 public instance : ViewPy runtimeError PyRuntimeError := ⟨rfl⟩
