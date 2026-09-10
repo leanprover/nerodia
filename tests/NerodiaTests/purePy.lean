@@ -8,8 +8,8 @@ import Nerodia.Test.Pure
 
 open Nerodia
 
-/-- info: true -/
-#guard_msgs in #eval pyNone.isNone
-
 /-- info: None -/
 #guard_msgs in #eval pyNone.repr
+
+/-- info: true -/
+#guard_msgs in #eval pyNone ⦂ none

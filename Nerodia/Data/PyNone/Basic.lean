@@ -11,7 +11,7 @@ meta import Nerodia.Internal.ViewMethod
 namespace Nerodia
 
 @[inline, irreducible, expose] -- for Nerodia compiler reduction
-public def TypeExpr.none : TypeExpr :=
+public protected def TypeExpr.none : TypeExpr :=
   ⟨"None"⟩
 
 public instance : CoeDep (Option α) none TypeExpr := ⟨.none⟩
@@ -23,7 +23,7 @@ noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : Py.Raw :=
   .ofModel {env, addr := env.noneAddr, hint := .none}
 
 open Internal in
-public def Typing.none : Typing :=
+public protected def Typing.none : Typing :=
   ofFn fun o => o.toModel.toInnerModel = o.toModel.env.noneRaw.toModel.toInnerModel
 
 public instance : CoeDep (Option α) none Typing := ⟨.none⟩
@@ -41,24 +41,27 @@ public abbrev PyNone := PyObjectView <| Py none
 
 open Classical in
 /-- Equivalent to the Python {lit}`self is None`. -/
-@[extern "nerodia_py_object_is_none", view_method]
+@[extern "nerodia_py_object_is_none", view_method,
+deprecated "Use `self ⦂ none` instead." (since := "2026-09-11")]
 public def PyObject.isNone (self : @& PyObject) : Bool :=
   self ⦂ none
 
-@[grind _=_]
+@[grind _=_, deprecated "Deprecated with `isNone`." (since := "2026-09-11")]
 public theorem PyObject.isNone_iff_hasType : isNone o ↔ o ⦂ none := by
   simp [PyObject.isNone]
 
 open PyObject in
+set_option linter.deprecated false in
 public instance : DecidablePy none := private_decl%
   (Internal.decPy isNone fun _ => isNone_iff_hasType)
 
-@[simp] public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
+@[simp, deprecated "Deprecated with `isNone`." (since := "2026-09-11")]
+public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
   simp [PyObject.isNone_iff_hasType]
 
 /-- Returns a reference to the {lit}`None` constant. -/
 @[extern "nerodia_py_environment_none"]
-public def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
+public protected def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
   ⟨env.noneRaw, noneRaw_hasType⟩
 
 /-- Returns the {lit}`None` constant of the Python environment. -/
