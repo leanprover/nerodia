@@ -148,6 +148,24 @@ open Lean Elab Command in
 /-- info: (o: object, /) -> object -/
 #guard_msgs in #check_fn (o : PyObject) : PyIO PyObject
 
+/-- info: None -/
+#guard_msgs in #check_attr PyIO PyNone
+
+/-- info: (o: None, /) -> None -/
+#guard_msgs in #check_fn (o : PyNone) : PyIO PyNone
+
+/-- info: Literal[False] -/
+#guard_msgs in #check_attr PyIO PyFalse
+
+/-- info: (o: Literal[False], /) -> Literal[False]  -/
+#guard_msgs in #check_fn (o : PyFalse) : PyIO PyFalse
+
+/-- info: Literal[True] -/
+#guard_msgs in #check_attr PyIO PyTrue
+
+/-- info: (o: Literal[True], /) -> Literal[True]  -/
+#guard_msgs in #check_fn (o : PyTrue) : PyIO PyTrue
+
 /-- info: Buffer -/
 #guard_msgs in #check_attr PyIO PyBuffer
 
@@ -173,6 +191,12 @@ open Lean Elab Command in
 #guard_msgs in #check_fn (bs : PyModule) : PyIO PyModule
 
 /-! ### Lean Types -/
+
+/-- info: bool -/
+#guard_msgs in #check_attr Bool
+
+/-- info: (s: bool, /) -> bool -/
+#guard_msgs in #check_fn (s : Bool) : Bool
 
 /-- info: str -/
 #guard_msgs in #check_attr String

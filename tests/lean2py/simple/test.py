@@ -7,7 +7,7 @@ import testmodule
 # TODO: Generate `__all__` automatically from Nerodia and check it
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
 expected = [
-  "addBit", "alwaysRaise", "countbytes", "greet", "greet2",
+  "addBit", "alwaysRaise", "bnot", "countbytes", "greet", "greet2",
   "greetUser", "greeting", "greeting_for", "my_add", "setUser", "tripleAdd"
 ]
 assert exports == expected, exports
@@ -25,6 +25,8 @@ assert testmodule.addBit(42, 1) == 43
 assert testmodule.countbytes(b'ab') == 2
 
 assert testmodule.tripleAdd(1, -1, 1) == 1
+
+assert testmodule.bnot(True) is False
 
 assert testmodule.greet() == "Olá!"
 
@@ -71,6 +73,12 @@ try:
   raise AssertionError('expected ValueError')
 except ValueError as e:
   assert str(e) == "testmodule.addBit() argument 2 must be less than 2, got 3"
+
+try:
+  testmodule.bnot(0) # type: ignore[ty:invalid-argument-type]
+  raise AssertionError('expected TypeError')
+except TypeError as e:
+  assert str(e) == "testmodule.bnot() argument 1 must be bool, got int"
 
 try:
   testmodule.tripleAdd(-1, 1, -1)
