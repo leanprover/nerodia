@@ -434,7 +434,7 @@ Nerodia.typeError
 Nerodia.valueError
 Nerodia.«term_⦂_»
 
-# Instances (259)
+# Instances (260)
 Nerodia.Addr.instCoeNullableAddr
 Nerodia.Addr.instNonempty
 Nerodia.CPyBaseIO.instMonadLiftCPyIO
@@ -684,6 +684,7 @@ Nerodia.instViewPyFalsePyFalse
 Nerodia.instViewPyIntPyInt
 Nerodia.instViewPyModuleTypePyModule
 Nerodia.instViewPyNeverPyNever
+Nerodia.instViewPyNonePyNone
 Nerodia.instViewPyObjectPyObject
 Nerodia.instViewPyOsErrorPyOSError
 Nerodia.instViewPyPy
