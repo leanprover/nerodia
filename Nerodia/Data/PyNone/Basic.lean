@@ -10,35 +10,6 @@ meta import Nerodia.Internal.ViewMethod
 
 namespace Nerodia
 
-@[inline, irreducible, expose] -- for Nerodia compiler reduction
-public protected def TypeExpr.none : TypeExpr :=
-  ⟨"None"⟩
-
-public instance : CoeDep (Option α) none TypeExpr := ⟨.none⟩
-
-noncomputable opaque PyEnvironment.noneAddr (env : PyEnvironment) : Addr
-
-open Internal in
-noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : Py.Raw :=
-  .ofModel {env, addr := env.noneAddr, hint := .none}
-
-open Internal in
-public protected def Typing.none : Typing :=
-  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.noneRaw.toModel.toInnerModel
-
-public instance : CoeDep (Option α) none Typing := ⟨.none⟩
-public instance : ToTypeExpr none := ⟨none⟩
-
-theorem PyEnvironment.noneRaw_hasType {env} : noneRaw env ⦂ none := by
-  simp [PyEnvironment.noneRaw, Typing.none]
-
-open PyEnvironment in
-public instance : NonemptyPy none :=
-  .intro (noneRaw Classical.ofNonempty) noneRaw_hasType
-
-/-- A Python {lit}`None` constant. -/
-public abbrev PyNone := PyObjectView <| Py none
-
 open Classical in
 /-- Equivalent to the Python {lit}`self is None`. -/
 @[extern "nerodia_py_object_is_none", view_method,
@@ -59,10 +30,11 @@ public instance : DecidablePy none := private_decl%
 public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
   simp [PyObject.isNone_iff_hasType]
 
+open Internal Nerodia in
 /-- Returns a reference to the {lit}`None` constant. -/
 @[extern "nerodia_py_environment_none"]
-public protected def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
-  ⟨env.noneRaw, noneRaw_hasType⟩
+public protected nonrec def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=
+  env.noneCore
 
 /-- Returns the {lit}`None` constant of the Python environment. -/
 @[extern "nerodia_get_py_none"]
