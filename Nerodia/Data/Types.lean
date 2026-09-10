@@ -541,6 +541,179 @@ public abbrev PyModule := PyObjectView <| Py moduleType
 
 public instance : ViewPy moduleType PyModule := ⟨rfl⟩
 
+/-! ### None -/
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.none : TypeExpr :=
+  ⟨"None"⟩
+
+public instance : CoeDep (Option α) none TypeExpr := ⟨.none⟩
+
+noncomputable opaque PyEnvironment.noneAddr (env : PyEnvironment) : Addr
+
+open Internal in
+noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : Py.Raw :=
+  .ofModel {env, addr := env.noneAddr, hint := .none}
+
+open Internal in
+public protected def Typing.none : Typing :=
+  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.noneRaw.toModel.toInnerModel
+
+public instance : CoeDep (Option α) none Typing := ⟨.none⟩
+public instance : ToTypeExpr none := ⟨none⟩
+
+theorem PyEnvironment.noneRaw_hasType {env} : noneRaw env ⦂ none := by
+  simp [PyEnvironment.noneRaw, Typing.none]
+
+open PyEnvironment in
+public instance : NonemptyPy none :=
+  .intro (noneRaw Classical.ofNonempty) noneRaw_hasType
+
+/-- A Python {lit}`None` constant. -/
+public abbrev PyNone := PyObjectView <| Py none
+
+public instance : ViewPy none PyNone := ⟨rfl⟩
+
+public noncomputable def Internal.Nerodia.PyEnvironment.noneCore (env : @& PyEnvironment) : PyNone :=
+  ⟨env.noneRaw, env.noneRaw_hasType⟩
+
+/-! ### bool -/
+
+/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
+public abbrev PyBoolView (α : Type u) := α
+
+/-! ### False -/
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.false : TypeExpr :=
+  ⟨"Literal[False]"⟩
+
+public instance : CoeDep Bool false TypeExpr := ⟨.false⟩
+
+noncomputable opaque PyEnvironment.falseAddr (env : PyEnvironment) : Addr
+
+open Internal in
+noncomputable def PyEnvironment.falseRaw (env : @& PyEnvironment) : Py.Raw :=
+  .ofModel {env, addr := env.falseAddr, kind := .int, hint := .false}
+
+open Internal in
+public protected def Typing.false : Typing :=
+  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.falseRaw.toModel.toInnerModel
+
+public instance : CoeDep Bool false Typing := ⟨.false⟩
+public instance : ToTypeExpr false := ⟨false⟩
+
+theorem PyEnvironment.falseRaw_hasType {env} : falseRaw env ⦂ false := by
+  simp [PyEnvironment.falseRaw, Typing.false]
+
+open PyEnvironment in
+public instance : NonemptyPy false :=
+  .intro (falseRaw Classical.ofNonempty) falseRaw_hasType
+
+/-- A Python {lit}`False` constant. -/
+public abbrev PyFalse := PyBoolView <| PyObjectView <| Py false
+
+public instance : ViewPy false PyFalse := ⟨rfl⟩
+
+public noncomputable def Internal.Nerodia.PyEnvironment.falseCore (env : @& PyEnvironment) : PyFalse :=
+  ⟨env.falseRaw, env.falseRaw_hasType⟩
+
+/-! ## True -/
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.true : TypeExpr :=
+  ⟨"Literal[True]"⟩
+
+public instance : CoeDep Bool true TypeExpr := ⟨.true⟩
+
+noncomputable opaque PyEnvironment.trueAddr (env : PyEnvironment) : Addr
+
+open Internal in
+noncomputable def PyEnvironment.trueRaw (env : @& PyEnvironment) : Py.Raw :=
+  .ofModel {env, addr := env.trueAddr, kind := .int, hint := .true}
+
+open Internal in
+public protected def Typing.true : Typing :=
+  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.trueRaw.toModel.toInnerModel
+
+public instance : CoeDep Bool true Typing := ⟨.true⟩
+public instance : ToTypeExpr true := ⟨true⟩
+
+theorem PyEnvironment.trueRaw_hasType {env} : trueRaw env ⦂ true := by
+  simp [PyEnvironment.trueRaw, Typing.true]
+
+open PyEnvironment in
+public instance : NonemptyPy true :=
+  .intro (trueRaw Classical.ofNonempty) trueRaw_hasType
+
+/-- A Python {lit}`True` constant. -/
+public abbrev PyTrue := PyBoolView <| PyObjectView <| Py true
+
+public instance : ViewPy true PyTrue := ⟨rfl⟩
+
+public noncomputable def Internal.Nerodia.PyEnvironment.trueCore (env : @& PyEnvironment) : PyTrue :=
+  ⟨env.trueRaw, env.trueRaw_hasType⟩
+
+/-! ## bool -/
+
+/--
+The Python boolean type, [{lit}`bool`][1].
+
+[1]: https://docs.python.org/3/library/functions.html#bool
+-/
+public opaque bool : Constant
+
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.bool : TypeExpr :=
+  ⟨"bool"⟩
+
+public instance : CoeDep Constant bool TypeExpr := ⟨.bool⟩
+
+open Internal in
+public protected def Typing.bool : Typing :=
+  false ∪ true
+  deriving NonemptyPy
+
+public instance : CoeDep Constant bool Typing := ⟨.bool⟩
+public instance : ToTypeExpr bool := ⟨bool⟩
+
+@[grind _=_] public theorem bool_eq_false_union_true :
+  Typing.bool = .false ∪ .true := by rfl
+
+theorem false_subset_bool : Typing.false ⊆ bool := by
+  simp [bool_eq_false_union_true, Typing.Subset.union_left]
+
+public instance : IsSubtypeOf bool false := ⟨false_subset_bool⟩
+
+theorem true_subset_bool : Typing.true ⊆ bool := by
+  simp [bool_eq_false_union_true, Typing.Subset.union_right]
+
+public instance : IsSubtypeOf bool true := ⟨true_subset_bool⟩
+
+/-- A Python boolean object. That is, an instance of {lit}`bool`. -/
+public abbrev PyBool := PyObjectView <| Py bool
+
+public instance : ViewPy bool PyBool := ⟨rfl⟩
+
+/-- Shorthand for {lean}`ToPy bool α` -/
+public abbrev ToPyBool := ToPy bool
+
+namespace PyBoolView
+
+@[inline] public def toPyBool
+  [ToPyBool α] (self : PyBoolView α)
+: PyBool := toPy self
+
+@[simp, grind =]
+public theorem toPyObject_eq_toPy
+  [ToPyBool α] (self : PyBoolView α)
+: self.toPyBool = toPy (α := α) self := by rfl
+
+public instance [ToPyBool α] :
+  CoeOut (PyBoolView α) PyBool := ⟨toPyBool⟩
+
+end PyBoolView
+
 /-!
 ## BaseException Subtypes
 
