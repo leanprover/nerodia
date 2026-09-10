@@ -13,6 +13,7 @@ public import Nerodia.Data.Exceptions
 public import Nerodia.Data.PyType.Basic
 -- interface types
 public import Nerodia.Data.PyNone.Basic
+public import Nerodia.Data.PyBool.Basic
 public import Nerodia.Data.PyBuffer.Basic
 public import Nerodia.Data.PyBytes.Basic
 public import Nerodia.Data.PyStr.Basic
@@ -105,6 +106,13 @@ public instance : MkCPyResult Empty never where
 
 public instance : MkCPyResult PEmpty never where
   mkCPyResult := PEmpty.elim
+
+/-! ## Bool -/
+
+public instance : OfPyArg Bool bool where
+  ofPyArg fn i arg := private PyBool.toBool <$> ofPyArg fn i arg
+
+public instance : MkCPyResult Bool bool := ⟨(mkPyBool ·)⟩
 
 /-! ## String -/
 

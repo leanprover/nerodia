@@ -46,8 +46,22 @@ with both sharing the strong reference.
 add_decl_doc CPyBaseResult.toCPtrUnsafe
 
 namespace CPyBaseResult
+
 public instance [IsPy α] [Nonempty α] : Nonempty (CPyBaseResult α) :=
   ⟨⟨Classical.ofNonempty⟩⟩
+
+/--
+Promotes a {name}`CPyBaseResult` returning a typed Python object to one returning
+its supertype, sharing the single strong reference between them.
+
+**Memory Safety:** Users must manually manage the reference's lifetime.
+-/
+@[inline] def promote [IsSubtypeOf U T] (x : CPyBaseResult (Py T)) : CPyBaseResult (Py U) :=
+  have : Nonempty (Py U) :=
+    let t := Classical.choice <| x.toCPtrUnsafe.nonempty
+    ⟨Py.mk t.raw (infer_subtype.hasType_of_hasType t.raw_hasType)⟩
+  .ofCPtrUnsafe <| .ofAddrUnsafe x.toCPtrUnsafe.addr
+
 end CPyBaseResult
 
 /-! ## CPyResult -/
@@ -259,6 +273,14 @@ and that it  does not outlive the environment.
   .ofBaseIOUnsafe <| x.toBaseIOUnsafe.map .ofCPyBaseResultUnsafe
 
 public instance : MonadLift CPyBaseIO CPyIO := ⟨CPyBaseIO.toCPyIO⟩
+
+set_option linter.unusedVariables.funArgs false in
+/--
+Promotes a {lean}`CPyIO` returning a
+typed Python object to one returning its supertype.
+-/
+@[inline] public def promote [IsSubtypeOf U T] (x : CPyBaseIO (Py T)) : CPyBaseIO (Py U) :=
+  ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.promote)
 
 end CPyBaseIO
 

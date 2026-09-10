@@ -514,7 +514,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_system_error(b_lean_obj_arg msg, 
   nerodia_exception_panic();
 }
 
-/* ### Etc */
+/* ### Mone */
 
 /* none : @& PyEnvironment -> PyNone */
 LEAN_EXPORT lean_obj_res nerodia_py_environment_none(b_lean_obj_arg env) {
@@ -530,6 +530,45 @@ LEAN_EXPORT size_t nerodia_get_py_none() {
 LEAN_EXPORT uint8_t nerodia_py_object_is_none(b_lean_obj_arg self) {
   return nerodia_to_object(self) == Py_None;
 }
+
+/* ### bool */
+
+/* false : @& PyEnvironment -> PyFalse */
+LEAN_EXPORT lean_obj_res nerodia_py_environment_false(b_lean_obj_arg env) {
+  return nerodia_of_immortal_object(Py_False, env);
+}
+
+/* getPyFalse : CPyBaseIO PyFalse */
+LEAN_EXPORT size_t nerodia_get_py_false() {
+  return (size_t)Py_False;
+}
+
+/* isFalse : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_false(b_lean_obj_arg self) {
+  return nerodia_to_object(self) == Py_False;
+}
+
+/* true : @& PyEnvironment -> PyTrue */
+LEAN_EXPORT lean_obj_res nerodia_py_environment_true(b_lean_obj_arg env) {
+  return nerodia_of_immortal_object(Py_True, env);
+}
+
+/* getPyTrue : CPyBaseIO PyTrue */
+LEAN_EXPORT size_t nerodia_get_py_true() {
+  return (size_t)Py_True;
+}
+
+/* isTrue : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_true(b_lean_obj_arg self) {
+  return nerodia_to_object(self) == Py_True;
+}
+
+/* isBoolInstance : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_bool_instance(b_lean_obj_arg self) {
+  return PyBool_Check(nerodia_to_object(self));
+}
+
+/* ### Etc */
 
 /* import : @& String -> CPyIO PyObject */
 LEAN_EXPORT size_t nerodia_import(b_lean_obj_arg mod_name) {

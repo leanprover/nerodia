@@ -151,11 +151,20 @@ public theorem Subset.refl (T : Typing) : T ⊆ T :=
 public theorem Subset.rfl {T : Typing} : T ⊆ T :=
   .refl T
 
+public theorem Subset.trans {T U V : Typing} (h₁ : T ⊆ U) (h₂ : U ⊆ V) : T ⊆ V :=
+  subset_iff_forall.mpr fun _ h => h₂.hasType_of_hasType (h₁.hasType_of_hasType h)
+
 public theorem Subset.inter_left {T U : Typing} : T ∩ U ⊆ T :=
-  subset_iff_forall.mpr fun _ h => h.left
+  subset_iff_forall.mpr fun _ => .left
 
 public theorem Subset.inter_right {T U : Typing} : T ∩ U ⊆ U :=
-  subset_iff_forall.mpr fun _ h => h.right
+  subset_iff_forall.mpr fun _ => .right
+
+public theorem Subset.union_left {T U : Typing} : T ⊆ T ∪ U :=
+  subset_iff_forall.mpr fun _ => .union_left
+
+public theorem Subset.union_right {T U : Typing} : T ⊆ U ∪ T :=
+  subset_iff_forall.mpr fun _ => .union_right
 
 /-- Python {lit}`object`. The top (⊤) element of the set of typings. -/
 public def object : Typing :=
@@ -190,6 +199,7 @@ public def never : Typing :=
 
 -- the below are `@[simp]` only because grind already handles them
 
+
 @[simp] public theorem never_subset : never ⊆ T :=
   subset_iff_forall.mpr fun _ => not_hasType_never.elim
 
@@ -210,11 +220,16 @@ end Typing
 /-! ## IsSubtypeOf -/
 
 /-- Type class used to automatically infer supertypes. -/
-public class IsSubtypeOf (T U : Typing) : Prop where
+public class IsSubtypeOf (T : semiOutParam Typing) (U : Typing) : Prop where
   infer_subtype : U ⊆ T
 
 export IsSubtypeOf (infer_subtype)
 
+public instance [IsSubtypeOf T U] [IsSubtypeOf U V] : IsSubtypeOf T V :=
+  ⟨@Typing.Subset.trans V U T infer_subtype infer_subtype⟩
+
 public instance : IsSubtypeOf T T := ⟨.rfl⟩
+
+public instance : IsSubtypeOf .object T := ⟨.object⟩
 public instance : IsSubtypeOf T (T ∩ U) := ⟨.inter_left⟩
 public instance : IsSubtypeOf U (T ∩ U) := ⟨.inter_right⟩

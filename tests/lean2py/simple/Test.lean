@@ -32,6 +32,10 @@ def countbytes (bs : ByteArray) : USize :=
 def tripleAdd (u8 : UInt8) (i32 : Int32) (usize : USize) : Int64 :=
   u8.toInt8.toInt64 + i32.toInt64 + usize.toUInt64.toInt64
 
+@[py_module_fn]
+def bnot (b : Bool) : Bool :=
+  !b
+
 /-- Return a standard greeting ("Olá!"). -/
 @[py_module_fn]
 def greet : String :=
