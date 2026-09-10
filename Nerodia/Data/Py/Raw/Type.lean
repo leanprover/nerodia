@@ -24,12 +24,25 @@ public inductive Py.Kind
 | other
 deriving Nonempty, DecidableEq
 
-/-- The logical model of a Python object. -/
-public structure Py.Model where
+/--
+The computable portion of the logical Python object model.
+
+Decidably equal by address equality.
+-/
+public structure Py.InnerModel where
   addr : Addr
   env : PyEnvironment
+  kind : Py.Kind := .other
+  deriving Nonempty
+
+/--
+The logical model of a Python object.
+
+Includes static typing information not derivable from the data model
+(i.e., {lean}`InnerModel`).
+-/
+public structure Py.Model extends InnerModel where
   hint : TypeExpr
-  kind : Py.Kind
   deriving Nonempty
 
 end Internal
@@ -40,17 +53,17 @@ A Python object. A [{lit}`PyObject`][1] pointer managed by Lean.
 [1]: https://docs.python.org/3/c-api/structures.html#c.PyObject
 -/
 public structure Py.Raw where
-  private innerMk ::
-    private innerModel : Internal.Py.Model
+  private ofModel' ::
+    private toModel' : Internal.Py.Model
     deriving Nonempty
 
 namespace Internal.Nerodia.Py.Raw
 
 public noncomputable def ofModel (o : Py.Model) : Py.Raw :=
-  .innerMk o
+  .ofModel' o
 
 public noncomputable def toModel (o : Py.Raw) : Py.Model :=
-  o.innerModel
+  o.toModel'
 
 @[simp, grind =]
 public theorem toModel_ofModel : toModel (ofModel m) = m := by

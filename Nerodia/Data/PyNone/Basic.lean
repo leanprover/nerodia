@@ -20,11 +20,11 @@ noncomputable opaque PyEnvironment.noneAddr (env : PyEnvironment) : Addr
 
 open Internal in
 noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : Py.Raw :=
-  .ofModel {env, addr := env.noneAddr, hint := .none, kind := .other}
+  .ofModel {env, addr := env.noneAddr, hint := .none}
 
 open Internal in
 public def Typing.none : Typing :=
-  ofFn fun o => o = o.toModel.env.noneRaw
+  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.noneRaw.toModel.toInnerModel
 
 public instance : CoeDep (Option α) none Typing := ⟨.none⟩
 public instance : ToTypeExpr none := ⟨none⟩
