@@ -690,6 +690,16 @@ theorem true_subset_bool : Typing.true ⊆ bool := by
 
 public instance : IsSubtypeOf bool true := ⟨true_subset_bool⟩
 
+open Typing PyEnvironment Internal Nerodia in
+theorem bool_subset_int : Typing.bool ⊆ int := by
+  simp only [bool_eq_false_union_true, subset_iff_forall, hasType_union_iff_or]
+  intro o
+  simp only [Typing.int, Typing.false, Typing.true, kind, hasType_ofFn_iff]
+  simp only [falseRaw, trueRaw, Py.Raw.toModel_ofModel]
+  rintro (h | h) <;> rw [h]
+
+public instance : IsSubtypeOf int bool := ⟨bool_subset_int⟩
+
 /-- A Python boolean object. That is, an instance of {lit}`bool`. -/
 public abbrev PyBool := PyObjectView <| Py bool
 
