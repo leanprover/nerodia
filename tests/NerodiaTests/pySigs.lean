@@ -192,6 +192,12 @@ open Lean Elab Command in
 
 /-! ### Lean Types -/
 
+/-- info: int | None -/
+#guard_msgs in #check_attr Option Nat
+
+/-- info: (s: str | None, /) -> int | None -/
+#guard_msgs in #check_fn (s : Option String) : Option Nat
+
 /-- info: bool -/
 #guard_msgs in #check_attr Bool
 

@@ -14,3 +14,11 @@ public structure TypeExpr where
     deriving Nonempty, DecidableEq
 
 public instance : ToString TypeExpr := ⟨TypeExpr.toString⟩
+
+namespace TypeExpr
+
+@[inline] public def union (lhs rhs : TypeExpr) : TypeExpr :=
+  ⟨s!"{lhs} | {rhs}"⟩ -- equivalent to `Union[<lhs>, <rhs>]`
+
+@[inline] public def optional (expr : TypeExpr) : TypeExpr :=
+  ⟨s!"{expr} | None"⟩ -- equivalent to `Optional[<expr>}`

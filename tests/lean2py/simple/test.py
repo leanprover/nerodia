@@ -8,7 +8,8 @@ import testmodule
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
 expected = [
   "addBit", "alwaysRaise", "bnot", "countbytes", "greet", "greet2",
-  "greetUser", "greeting", "greeting_for", "my_add", "setUser", "tripleAdd"
+  "greetUser", "greeting", "greeting_for", "my_add", "optToNat", "setUser",
+  "tripleAdd"
 ]
 assert exports == expected, exports
 
@@ -19,7 +20,6 @@ assert testmodule.my_add.__doc__ == "Add two integers using Lean."
 assert testmodule.my_add(-13, 42) == 29
 
 assert testmodule.addBit.__doc__ is None
-
 assert testmodule.addBit(42, 1) == 43
 
 assert testmodule.countbytes(b'ab') == 2
@@ -27,6 +27,10 @@ assert testmodule.countbytes(b'ab') == 2
 assert testmodule.tripleAdd(1, -1, 1) == 1
 
 assert testmodule.bnot(True) is False
+
+assert testmodule.optToNat(None) is None
+assert testmodule.optToNat("1") == 1
+assert testmodule.optToNat("hi") is None
 
 assert testmodule.greet() == "Olá!"
 
@@ -79,6 +83,12 @@ try:
   raise AssertionError('expected TypeError')
 except TypeError as e:
   assert str(e) == "testmodule.bnot() argument 1 must be bool, got int"
+
+try:
+  testmodule.optToNat(0) # type: ignore[ty:invalid-argument-type]
+  raise AssertionError('expected TypeError')
+except TypeError as e:
+  assert str(e) == "testmodule.optToNat() argument 1 must be str, got int"
 
 try:
   testmodule.tripleAdd(-1, 1, -1)

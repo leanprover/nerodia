@@ -145,7 +145,7 @@ public theorem Subset.hasType_of_hasType
   {T U : Typing} (h : T ⊆ U) (ho : o ⦂ T)
 : o ⦂ U := subset_iff_forall.mp h o ho
 
-public theorem Subset.refl (T : Typing) : T ⊆ T :=
+@[refl] public theorem Subset.refl (T : Typing) : T ⊆ T :=
   subset_iff_forall.mpr fun _ => id
 
 public theorem Subset.rfl {T : Typing} : T ⊆ T :=
@@ -199,9 +199,11 @@ public def never : Typing :=
 
 -- the below are `@[simp]` only because grind already handles them
 
-
-@[simp] public theorem never_subset : never ⊆ T :=
+@[simp] public theorem Subset.never : never ⊆ T :=
   subset_iff_forall.mpr fun _ => not_hasType_never.elim
+
+@[deprecated Subset.never (since := "2026-09-11")]
+public theorem never_subset : never ⊆ T := Subset.never
 
 @[simp] public theorem union_never : T ∪ never = T := by
   simp [Typing.ext_iff, hasType_union_iff_or]
@@ -217,19 +219,54 @@ public def never : Typing :=
 
 end Typing
 
+public instance [ToTypeExpr T] [ToTypeExpr U] : ToTypeExpr (T ∪ U) where
+  toTypeExpr:= .union (ToTypeExpr.toTypeExpr T) (ToTypeExpr.toTypeExpr U)
+
 /-! ## IsSubtypeOf -/
 
+/-- Bidirectional type promotion from {lean}`U` to {lean}`T`. -/
+public class Promote (T U : semiOutParam Typing) : Prop where
+  intro :: infer : U ⊆ T
+
+/-- Type promotion chained right-to-left from {lean}`U` to {lean}`T`. -/
+public class PromoteIn (T : semiOutParam Typing) (U : Typing) : Prop where
+  intro :: infer : U ⊆ T
+
+/-- Type promotion chained left-to-right from {lean}`U` to {lean}`T`. -/
+public class PromoteOut (T : Typing) (U : semiOutParam Typing) : Prop where
+  intro :: infer : U ⊆ T
+
+/--
+Transitive chain of type promotions from {lean}`U` to {lean}`T`.
+
+`PromoteOut* PromoteIn*`.
+-/
+public class PromoteT (T : Typing) (U : Typing) : Prop where
+  intro :: infer : U ⊆ T
+
+public instance [Promote T U] : PromoteIn T U := ⟨Promote.infer⟩
+public instance [Promote T U] : PromoteOut T U := ⟨Promote.infer⟩
+
+public instance [PromoteT T U] [PromoteIn U V] : PromoteT T V :=
+  ⟨@Typing.Subset.trans V U T PromoteIn.infer PromoteT.infer⟩
+
+public instance [PromoteOut T U] [PromoteT U V] : PromoteT T V :=
+  ⟨@Typing.Subset.trans V U T PromoteT.infer PromoteOut.infer⟩
+
+@[default_instance] public instance : PromoteT T T := ⟨.rfl⟩
+
 /-- Type class used to automatically infer supertypes. -/
-public class IsSubtypeOf (T : semiOutParam Typing) (U : Typing) : Prop where
+public class IsSubtypeOf (T U : Typing) : Prop where
   infer_subtype : U ⊆ T
 
 export IsSubtypeOf (infer_subtype)
 
-public instance [IsSubtypeOf T U] [IsSubtypeOf U V] : IsSubtypeOf T V :=
-  ⟨@Typing.Subset.trans V U T infer_subtype infer_subtype⟩
+public instance [PromoteT T U] : IsSubtypeOf T U := ⟨PromoteT.infer⟩
+public instance [IsSubtypeOf T U] : PromoteT T U := ⟨infer_subtype⟩
 
-public instance : IsSubtypeOf T T := ⟨.rfl⟩
-
+public instance : IsSubtypeOf T .never := ⟨.never⟩
 public instance : IsSubtypeOf .object T := ⟨.object⟩
-public instance : IsSubtypeOf T (T ∩ U) := ⟨.inter_left⟩
-public instance : IsSubtypeOf U (T ∩ U) := ⟨.inter_right⟩
+public instance : PromoteIn T (T ∩ U) := ⟨.inter_left⟩
+public instance : PromoteIn U (T ∩ U) := ⟨.inter_right⟩
+public instance : PromoteOut (T ∪ U) T := ⟨.union_left⟩
+public instance : PromoteOut (T ∪ U) U := ⟨.union_right⟩

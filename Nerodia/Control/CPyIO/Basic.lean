@@ -215,7 +215,6 @@ public instance : Nonempty (CPyIO α) := ⟨failureUnsafe⟩
 @[inline] public def ofBind (x : BaseIO α) (f : α → CPyIO β) : CPyIO β :=
   ofBaseIOUnsafe do f (← x) |>.toBaseIOUnsafe
 
-set_option linter.unusedVariables.funArgs false in
 /--
 Promotes a {lean}`CPyIO` returning a
 typed Python object to one returning its supertype.
@@ -274,7 +273,6 @@ and that it  does not outlive the environment.
 
 public instance : MonadLift CPyBaseIO CPyIO := ⟨CPyBaseIO.toCPyIO⟩
 
-set_option linter.unusedVariables.funArgs false in
 /--
 Promotes a {lean}`CPyIO` returning a
 typed Python object to one returning its supertype.
@@ -402,34 +400,50 @@ arbitrary type to one returning {lean}`Py.Raw`.
 @[inline] public def raw (x : PyCResultIO α) : PyCResultIO Py.Raw :=
   .ofPyBaseIOUnsafe do return (← x.toPyBaseIOUnsafe).raw
 
+/--
+Promotes a {lean}`PyCResultIO` returning a
+typed Python object to one returning its supertype.
+-/
+@[inline] public def promote [IsSubtypeOf U T] (x : PyCResultIO (Py T)) : PyCResultIO (Py U) :=
+  .ofPyBaseIOUnsafe <| x.toPyBaseIOUnsafe <&> (·.promote)
+
 end PyCResultIO
 
 /-- Lifts a {lean}`CPyIO` action into {lean}`PyCResultIO`. -/
-@[inline] public def CPyIO.toPyResultIO
+@[inline] public def CPyIO.toPyCResultIO
   (x : CPyIO α)
 : PyCResultIO α := .ofPyBaseIOUnsafe do
   let r ← x.toBaseIOUnsafe
   Runtime.hold (← getPyThreadCtxUnsafe)
   return r
 
+@[deprecated CPyIO.toPyCResultIO (since := "2026-09-11")]
+public abbrev CPyIO.toPyResultIO := @CPyIO.toPyCResultIO
+
 /-- Sequences a {lean}`PyCResultIO` action after a {lean}`PyBaseIO` action. -/
-@[inline] public def PyBaseIO.bindPyResultIO
+@[inline] public def PyBaseIO.bindPyCResultIO
   (x : PyBaseIO α) (f : α → PyCResultIO β)
 : PyCResultIO β := .ofPyBaseIOUnsafe do f (← x) |>.toPyBaseIOUnsafe
 
+@[deprecated PyBaseIO.bindPyCResultIO (since := "2026-09-11")]
+public abbrev PyBaseIO.bindPyResultIO := @PyBaseIO.bindPyCResultIO
+
 open Internal in
 /-- Sequences a {lean}`PyCResultIO` action after a {lean}`PyIO` action. -/
-@[inline] public def PyIO.bindPyResultIO
+@[inline] public def PyIO.bindPyCResultIO
   (x : PyIO α) (f : α → PyCResultIO β)
 : PyCResultIO β := .ofPyBaseIOUnsafe do
   match ← x.toPyBaseIOUnsafe? with
   | some a => f a |>.toPyBaseIOUnsafe
   | none => return .failureUnsafe
 
+@[deprecated PyIO.bindPyCResultIO (since := "2026-09-11")]
+public abbrev PyIO.bindPyResultIO := @PyIO.bindPyCResultIO
+
 /-- Internal function for {lit}`@[py_module_fn]` -/
 @[inline] public def Internal.pyBind
   {α : Type} (x : PyIO α) (f : α → PyCResultIO Py.Raw)
-: PyCResultIO Py.Raw := x.bindPyResultIO f
+: PyCResultIO Py.Raw := x.bindPyCResultIO f
 
 /-! ## Result Handling -/
 
