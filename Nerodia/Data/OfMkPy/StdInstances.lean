@@ -83,16 +83,16 @@ public instance [MkCPyResult α T] : MkCPyResult (PyIO α) T where
   mkCPyResult x := private x.bindCPyIO MkCPyResult.mkCPyResult
 
 public instance [MkPyResult α T] : MkPyResult (BaseIO α) T where
-  mkPyResult x := private PyBaseIO.bindPyResultIO x MkPyResult.mkPyResult
+  mkPyResult x := private PyBaseIO.bindPyCResultIO x MkPyResult.mkPyResult
 
 public instance [MkPyResult α T] : MkPyResult (IO α) T where
-  mkPyResult x := private PyIO.bindPyResultIO x MkPyResult.mkPyResult
+  mkPyResult x := private PyIO.bindPyCResultIO x MkPyResult.mkPyResult
 
 public instance [MkPyResult α T] : MkPyResult (PyBaseIO α) T where
-  mkPyResult x := private x.bindPyResultIO MkPyResult.mkPyResult
+  mkPyResult x := private x.bindPyCResultIO MkPyResult.mkPyResult
 
 public instance [MkPyResult α T] : MkPyResult (PyIO α) T where
-  mkPyResult x := private x.bindPyResultIO MkPyResult.mkPyResult
+  mkPyResult x := private x.bindPyCResultIO MkPyResult.mkPyResult
 
 /-! ## Unit -/
 
@@ -106,6 +106,23 @@ public instance : MkCPyResult Empty never where
 
 public instance : MkCPyResult PEmpty never where
   mkCPyResult := PEmpty.elim
+
+/-! ## Option -/
+
+public instance [OfPyArg α T] : OfPyArg (Option α) (.optional T) where
+  ofPyArg fn i arg := private
+    if arg ⦂ none then return none
+    else return some (← ofPyArg fn i arg)
+
+public instance [MkCPyResult α T] : MkCPyResult (Option α) (.optional T) where
+  mkCPyResult a? := private match a? with
+    | none => getPyNone.toCPyIO.promote
+    | some a => MkCPyResult.mkCPyResult a |>.promote
+
+public instance [MkPyResult α T] : MkPyResult (Option α) (.optional T) where
+  mkPyResult a? := private match a? with
+    | none => getPyNone.toCPyIO.toPyCResultIO.promote
+    | some a => MkPyResult.mkPyResult a |>.promote
 
 /-! ## Bool -/
 

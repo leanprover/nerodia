@@ -577,6 +577,19 @@ public instance : ViewPy none PyNone := ⟨rfl⟩
 public noncomputable def Internal.Nerodia.PyEnvironment.noneCore (env : @& PyEnvironment) : PyNone :=
   ⟨env.noneRaw, env.noneRaw_hasType⟩
 
+public def Typing.optional (T : Typing) : Typing :=
+  T ∪ none
+  deriving NonemptyPy
+
+@[simp, grind _=_] public theorem Typing.optional_eq_union_none :
+  optional T = T ∪ none := by rfl
+
+public instance : PromoteIn (T ∪ none) (.optional T) := ⟨by rfl⟩
+public instance : PromoteOut (.optional T) (T ∪ none) := ⟨by rfl⟩
+
+public instance [ToTypeExpr T] : ToTypeExpr (.optional T) where
+  toTypeExpr := .optional (ToTypeExpr.toTypeExpr T)
+
 /-! ### bool -/
 
 /-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/

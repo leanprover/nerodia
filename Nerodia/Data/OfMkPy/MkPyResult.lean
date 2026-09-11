@@ -44,7 +44,7 @@ public class MkCPyResult (α : Type u) (T : outParam Typing) where
 /-! ## Interlink -/
 
 public instance (priority := low) [MkCPyResult α T] : MkPyResult α T where
-  mkPyResult x := CPyIO.toPyResultIO (MkCPyResult.mkCPyResult x)
+  mkPyResult x := CPyIO.toPyCResultIO (MkCPyResult.mkCPyResult x)
 
 public instance (priority := low) [MkPyResult α T] : MkCPyResult α T where
   mkCPyResult x := PyCResultIO.toCPyIO (MkPyResult.mkPyResult x)

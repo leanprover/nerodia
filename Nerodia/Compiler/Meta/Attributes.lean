@@ -69,12 +69,22 @@ initialize
 syntax (name := py_module_fn) "py_module_fn" (ppSpace str)?
   (ppSpace atomic("(" &"sig") " := " str ")")? : attr
 
+@[inline] partial def evalTypeExpr (x : Expr) : MetaM String := do
+  go x
+where go x := do
+  let x ← withTransparency .default <| whnf x
+  if let some (lhs, rhs) := x.app2? `Nerodia.TypeExpr.union then
+    return s!"{← go lhs} | {← go rhs}"
+  else if let some x := x.app1? `Nerodia.TypeExpr.optional then
+    return s!"{← go x} | None"
+  else
+    let x := mkApp (mkConst `Nerodia.TypeExpr.toString) x
+    withTransparency .all <| reduceEval x
+
 def mkHint (p : Expr) : MetaM (Option String) := do
   let inst? ← trySynthInstance (mkApp (mkConst `Nerodia.ToTypeExpr) p)
   if let .some inst := inst? then
-    let hintExpr := mkApp2 (mkConst `Nerodia.ToTypeExpr.toTypeExpr) p inst
-    let hintExpr := mkApp (mkConst `Nerodia.TypeExpr.toString) hintExpr
-    return some (← withTransparency .all <| reduceEval hintExpr)
+    evalTypeExpr <| mkApp2 (mkConst `Nerodia.ToTypeExpr.toTypeExpr) p inst
   else
     return none
 

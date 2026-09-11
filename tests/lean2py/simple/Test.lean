@@ -36,6 +36,10 @@ def tripleAdd (u8 : UInt8) (i32 : Int32) (usize : USize) : Int64 :=
 def bnot (b : Bool) : Bool :=
   !b
 
+@[py_module_fn]
+def optToNat (s : Option String) : Option Nat :=
+  s.bind (·.toNat?)
+
 /-- Return a standard greeting ("Olá!"). -/
 @[py_module_fn]
 def greet : String :=

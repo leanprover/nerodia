@@ -165,7 +165,7 @@ unseal PyMethO in
 @[inline] public def Internal.mkPyMethO
   (x : (arg : PyObject) → PyCResultIO Py.Raw)
 : PyMethO := fun _ arg =>
-  PyCResultIO.toCPyIO <| PyBaseIO.bindPyResultIO getPyThreadCtxUnsafe fun ctx =>
+  PyCResultIO.toCPyIO <| PyBaseIO.bindPyCResultIO getPyThreadCtxUnsafe fun ctx =>
     x (ctx.mkArgUnsafe arg)
 
 /-! ## PyModuleInit -/
