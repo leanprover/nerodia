@@ -1,0 +1,71 @@
+name: CD
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      production-deploy:
+        description: "Deploy manual to production"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+   deploy:
+    name: Deploy Manual
+    runs-on: ubuntu-latest
+    environment:
+      name: netlify
+      url: ${{ steps.publish.outputs.deploy-url }}
+    # Do not run CI twice for branch PRs (i.e., on push and pull request).
+    if: github.event.pull_request.head.repo.full_name != github.repository
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Setup elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh \
+            | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+      - name: Check lean
+        run: lean --version
+      - name: Setup PATH for uv
+        run: echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Setup uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - name: Install python
+        run: uv python install --default
+      - name: Check python
+        run: which python3 && python3 --version
+      - name: Build Manual
+        run: lake build && cd manual && lake exe docs
+      - id: deploy-info
+        name: Compute Deploy Info
+        run: |
+          set -e
+          python3 -c 'import base64; print("alias="+base64.urlsafe_b64encode(bytes.fromhex("${{github.sha}}")).decode("utf-8").rstrip("="))' >> "$GITHUB_OUTPUT"
+          echo "message=`git log -1 --pretty=format:"%s"`" >> "$GITHUB_OUTPUT"
+      - id: publish
+        name: Publish to Netlify
+        run: |
+          npx netlify-cli deploy --dir manual/_out/html-multi --json \
+            ${{ inputs.production-deploy && '--prod' || format('--alias={0}', steps.deploy-info.outputs.alias) }} \
+            --message '${{ github.event_name == 'pull_request' && format('pr#{0}: {1}', github.event.number, github.event.pull_request.title) || format('ref/{0}: {1}', github.ref_name, steps.deploy-info.outputs.message) }}' \
+            > deploy.json
+          echo "deploy-url=$(jq -r '.deploy_url' deploy.json)" >> "$GITHUB_OUTPUT"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      - name: Set Commit Status
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
+        uses: myrotvorets/set-commit-status-action@v2.0.1
+        with:
+          status: success
+          context: Netlify
+          description: Deployed to Netlify
+          targetUrl: ${{ steps.publish.outputs.deploy-url }}
