@@ -222,38 +222,68 @@ end Typing
 public instance [ToTypeExpr T] [ToTypeExpr U] : ToTypeExpr (T ∪ U) where
   toTypeExpr:= .union (ToTypeExpr.toTypeExpr T) (ToTypeExpr.toTypeExpr U)
 
-/-! ## IsSubtypeOf -/
+/-! ## Type Promotion -/
 
-/-- Bidirectional type promotion from {lean}`U` to {lean}`T`. -/
-public class Promote (T U : semiOutParam Typing) : Prop where
+/--
+Bidirectional type promotion from {lean}`U` to {lean}`T`.
+
+Promotes a concrete subtype to a concrete supertype
+(e.g., {lit}`bool` to {lit}`int`).
+-/
+public class PromotableB (T U : semiOutParam Typing) : Prop where
   intro :: infer : U ⊆ T
 
-/-- Type promotion chained right-to-left from {lean}`U` to {lean}`T`. -/
-public class PromoteIn (T : semiOutParam Typing) (U : Typing) : Prop where
+/--
+Type promotion from {lean}`U` to {lean}`T` chained right-to-left (i.e., downwards).
+
+Promotes a subtype to a concrete supertype (e.g., {lit}`T ∩ U` to {lit}`T`).
+-/
+public class PromotableRtl (T : semiOutParam Typing) (U : Typing) : Prop where
   intro :: infer : U ⊆ T
 
-/-- Type promotion chained left-to-right from {lean}`U` to {lean}`T`. -/
-public class PromoteOut (T : Typing) (U : semiOutParam Typing) : Prop where
+/--
+Type promotion from {lean}`U` to {lean}`T` chained left-to-right (i.e., upwards).
+
+Promotes a concrete subtype to a supertype (e.g., {lit}`T` to {lit}`T ∪ U`)..
+-/
+public class PromotableLtr (T : Typing) (U : semiOutParam Typing) : Prop where
   intro :: infer : U ⊆ T
 
 /--
 Transitive chain of type promotions from {lean}`U` to {lean}`T`.
 
-`PromoteOut* PromoteIn*`.
+Has the form: `PromotableOut* PromotableIn*`.
 -/
-public class PromoteT (T : Typing) (U : Typing) : Prop where
+public class PromotableT (T : Typing) (U : Typing) : Prop where
   intro :: infer : U ⊆ T
 
-public instance [Promote T U] : PromoteIn T U := ⟨Promote.infer⟩
-public instance [Promote T U] : PromoteOut T U := ⟨Promote.infer⟩
+public instance [PromotableB T U] : PromotableRtl T U := ⟨PromotableB.infer⟩
+public instance [PromotableB T U] : PromotableLtr T U := ⟨PromotableB.infer⟩
 
-public instance [PromoteT T U] [PromoteIn U V] : PromoteT T V :=
-  ⟨@Typing.Subset.trans V U T PromoteIn.infer PromoteT.infer⟩
+public instance [PromotableT T U] [PromotableRtl U V] : PromotableT T V :=
+  ⟨@Typing.Subset.trans V U T PromotableRtl.infer PromotableT.infer⟩
 
-public instance [PromoteOut T U] [PromoteT U V] : PromoteT T V :=
-  ⟨@Typing.Subset.trans V U T PromoteT.infer PromoteOut.infer⟩
+public instance [PromotableLtr T U] [PromotableT U V] : PromotableT T V :=
+  ⟨@Typing.Subset.trans V U T PromotableT.infer PromotableLtr.infer⟩
 
-@[default_instance] public instance : PromoteT T T := ⟨.rfl⟩
+@[default_instance] public instance : PromotableT T T := ⟨.rfl⟩
+
+/-- Type promotion from {lean}`U` to {lean}`T`. -/
+public class Promotable (T : Typing) (U : Typing) : Prop where
+  intro :: infer : U ⊆ T
+
+public instance [PromotableT T U]  : Promotable T U := ⟨PromotableT.infer⟩
+@[default_instance] public instance : Promotable T T := ⟨.rfl⟩
+
+public theorem subset_of_promotable [Promotable T U] : U ⊆ T :=
+  Promotable.infer
+
+public instance : Promotable T .never := ⟨.never⟩
+public instance : Promotable .object T := ⟨.object⟩
+public instance : PromotableRtl T (T ∩ U) := ⟨.inter_left⟩
+public instance : PromotableRtl U (T ∩ U) := ⟨.inter_right⟩
+public instance : PromotableLtr (T ∪ U) T := ⟨.union_left⟩
+public instance : PromotableLtr (T ∪ U) U := ⟨.union_right⟩
 
 /-- Type class used to automatically infer supertypes. -/
 public class IsSubtypeOf (T U : Typing) : Prop where
@@ -261,12 +291,8 @@ public class IsSubtypeOf (T U : Typing) : Prop where
 
 export IsSubtypeOf (infer_subtype)
 
-public instance [PromoteT T U] : IsSubtypeOf T U := ⟨PromoteT.infer⟩
-public instance [IsSubtypeOf T U] : PromoteT T U := ⟨infer_subtype⟩
+public instance [Promotable T U] : IsSubtypeOf T U := ⟨Promotable.infer⟩
+public instance [IsSubtypeOf T U] : Promotable T U := ⟨infer_subtype⟩
 
-public instance : IsSubtypeOf T .never := ⟨.never⟩
-public instance : IsSubtypeOf .object T := ⟨.object⟩
-public instance : PromoteIn T (T ∩ U) := ⟨.inter_left⟩
-public instance : PromoteIn U (T ∩ U) := ⟨.inter_right⟩
-public instance : PromoteOut (T ∪ U) T := ⟨.union_left⟩
-public instance : PromoteOut (T ∪ U) U := ⟨.union_right⟩
+attribute [deprecated "Use one of the `Promotable` classes." (since := "2026-09-16")] IsSubtypeOf
+attribute [deprecated subset_of_promotable (since := "2026-09-16")] infer_subtype

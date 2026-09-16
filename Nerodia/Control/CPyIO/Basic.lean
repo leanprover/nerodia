@@ -56,10 +56,8 @@ its supertype, sharing the single strong reference between them.
 
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
-@[inline] def promote [IsSubtypeOf U T] (x : CPyBaseResult (Py T)) : CPyBaseResult (Py U) :=
-  have : Nonempty (Py U) :=
-    let t := Classical.choice <| x.toCPtrUnsafe.nonempty
-    ⟨Py.mk t.raw (infer_subtype.hasType_of_hasType t.raw_hasType)⟩
+@[inline] def promote [Promotable U T] (x : CPyBaseResult (Py T)) : CPyBaseResult (Py U) :=
+  have : Nonempty (Py U) := ⟨Classical.choice x.toCPtrUnsafe.nonempty |>.promote⟩
   .ofCPtrUnsafe <| .ofAddrUnsafe x.toCPtrUnsafe.addr
 
 end CPyBaseResult
@@ -140,10 +138,9 @@ its supertype, sharing the single strong reference between them.
 
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
-@[inline] def promote [IsSubtypeOf U T] (x : CPyResult (Py T)) : CPyResult (Py U) :=
+@[inline] def promote [Promotable U T] (x : CPyResult (Py T)) : CPyResult (Py U) :=
   let cptr := .ofNullableAddrUnsafe x.toNullableCPtrUnsafe.nullableAddr fun h' =>
-    let t := Classical.choice <| x.toNullableCPtrUnsafe.nonempty_of_not_isNull h'
-    ⟨Py.mk t.raw (infer_subtype.hasType_of_hasType t.raw_hasType)⟩
+    ⟨Classical.choice (x.toNullableCPtrUnsafe.nonempty_of_not_isNull h') |>.promote⟩
   .ofNullableCPtrUnsafe cptr fun _ => inferInstance
 
 /--
@@ -219,7 +216,7 @@ public instance : Nonempty (CPyIO α) := ⟨failureUnsafe⟩
 Promotes a {lean}`CPyIO` returning a
 typed Python object to one returning its supertype.
 -/
-@[inline] public def promote [IsSubtypeOf U T] (x : CPyIO (Py T)) : CPyIO (Py U) :=
+@[inline] public def promote [Promotable U T] (x : CPyIO (Py T)) : CPyIO (Py U) :=
   ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.promote)
 /--
 Converts a {lean}`CPyIO` returning a
@@ -277,7 +274,7 @@ public instance : MonadLift CPyBaseIO CPyIO := ⟨CPyBaseIO.toCPyIO⟩
 Promotes a {lean}`CPyIO` returning a
 typed Python object to one returning its supertype.
 -/
-@[inline] public def promote [IsSubtypeOf U T] (x : CPyBaseIO (Py T)) : CPyBaseIO (Py U) :=
+@[inline] public def promote [Promotable U T] (x : CPyBaseIO (Py T)) : CPyBaseIO (Py U) :=
   ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.promote)
 
 end CPyBaseIO
@@ -404,7 +401,7 @@ arbitrary type to one returning {lean}`Py.Raw`.
 Promotes a {lean}`PyCResultIO` returning a
 typed Python object to one returning its supertype.
 -/
-@[inline] public def promote [IsSubtypeOf U T] (x : PyCResultIO (Py T)) : PyCResultIO (Py U) :=
+@[inline] public def promote [Promotable U T] (x : PyCResultIO (Py T)) : PyCResultIO (Py U) :=
   .ofPyBaseIOUnsafe <| x.toPyBaseIOUnsafe <&> (·.promote)
 
 end PyCResultIO
