@@ -26,10 +26,10 @@ attribute [simp, grind! .] Py.raw_hasType
 **Type promotion.**
 Casts a Python object from {lean}`U` to its supertype {lean}`T`.
 -/
-@[inline] public def promote (self : Py U) [IsSubtypeOf T U] : Py T :=
-  mk self.raw <| infer_subtype.hasType_of_hasType self.raw_hasType
+@[inline] public def promote (self : Py U) [Promotable T U] : Py T :=
+  mk self.raw <| subset_of_promotable.hasType_of_hasType self.raw_hasType
 
-@[simp, grind =] public theorem raw_promote [IsSubtypeOf T U] :
+@[simp, grind =] public theorem raw_promote [Promotable T U] :
   (promote (T := T) (U := U) o).raw = o.raw := by rfl
 
 end Py
@@ -156,9 +156,9 @@ public class ToPy (T : Typing) (α : Type u)  where
 
 export ToPy (toPy)
 
-public instance [IsSubtypeOf T U] : ToPy T (Py U) := ⟨(·.promote)⟩
+public instance [Promotable T U] : ToPy T (Py U) := ⟨(·.promote)⟩
 
-@[simp, grind =] public theorem toPy_eq_promote [IsSubtypeOf T U] :
+@[simp, grind =] public theorem toPy_eq_promote [Promotable T U] :
   toPy o = Py.promote o (T := T) (U := U) := by rfl
 
 public instance : ToPy T (Py T) := ⟨(·)⟩

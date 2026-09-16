@@ -584,8 +584,8 @@ public def Typing.optional (T : Typing) : Typing :=
 @[simp, grind _=_] public theorem Typing.optional_eq_union_none :
   optional T = T ∪ none := by rfl
 
-public instance : PromoteIn (T ∪ none) (.optional T) := ⟨by rfl⟩
-public instance : PromoteOut (.optional T) (T ∪ none) := ⟨by rfl⟩
+public instance : PromotableRtl (T ∪ none) (.optional T) := ⟨by rfl⟩
+public instance : PromotableLtr (.optional T) (T ∪ none) := ⟨by rfl⟩
 
 public instance [ToTypeExpr T] : ToTypeExpr (.optional T) where
   toTypeExpr := .optional (ToTypeExpr.toTypeExpr T)
@@ -696,12 +696,12 @@ public instance : ToTypeExpr bool := ⟨bool⟩
 theorem false_subset_bool : Typing.false ⊆ bool := by
   simp [bool_eq_false_union_true, Typing.Subset.union_left]
 
-public instance : IsSubtypeOf bool false := ⟨false_subset_bool⟩
+public instance : PromotableB bool false := ⟨false_subset_bool⟩
 
 theorem true_subset_bool : Typing.true ⊆ bool := by
   simp [bool_eq_false_union_true, Typing.Subset.union_right]
 
-public instance : IsSubtypeOf bool true := ⟨true_subset_bool⟩
+public instance : PromotableB bool true := ⟨true_subset_bool⟩
 
 open Typing PyEnvironment Internal Nerodia in
 theorem bool_subset_int : Typing.bool ⊆ int := by
@@ -711,7 +711,7 @@ theorem bool_subset_int : Typing.bool ⊆ int := by
   simp only [falseRaw, trueRaw, Py.Raw.toModel_ofModel]
   rintro (h | h) <;> rw [h]
 
-public instance : IsSubtypeOf int bool := ⟨bool_subset_int⟩
+public instance : PromotableB int bool := ⟨bool_subset_int⟩
 
 /-- A Python boolean object. That is, an instance of {lit}`bool`. -/
 public abbrev PyBool := PyObjectView <| Py bool
@@ -753,7 +753,7 @@ instance : NonemptyPy (baseException ∩ typeHint ty) :=
 /-- The typing for a {lit}`BaseException` weakly typed as {lean}`ty`. -/
 def exceptHint (ty : TypeExpr) : Typing :=
   baseException ∩ typeHint ty
-  deriving NonemptyPy, IsSubtypeOf baseException, IsSubtypeOf (typeHint ty)
+  deriving NonemptyPy, PromotableRtl baseException, PromotableRtl (typeHint ty)
 
 /-! ### Exception -/
 
@@ -772,10 +772,13 @@ public instance : CoeDep Constant exception TypeExpr := ⟨.exception⟩
 
 public protected def Typing.exception : Typing :=
   exceptHint exception
-  deriving NonemptyPy, IsSubtypeOf baseException
+  deriving NonemptyPy
 
 public instance : CoeDep Constant exception Typing := ⟨.exception⟩
 public instance : ToTypeExpr exception := ⟨exception⟩
+
+public instance : PromotableB baseException exception :=
+  ⟨Promotable.infer (U := exceptHint _)⟩
 
 /-- A weakly typed instance of {lit}`Exception`. -/
 public abbrev PyException := PyBaseExceptionView <| PyObjectView <| Py exception
@@ -799,10 +802,13 @@ public instance : CoeDep Constant eofError TypeExpr := ⟨.eofError⟩
 
 public protected def Typing.eofError : Typing :=
   exceptHint eofError
-  deriving NonemptyPy, IsSubtypeOf baseException
+  deriving NonemptyPy
 
 public instance : CoeDep Constant eofError Typing := ⟨.eofError⟩
 public instance : ToTypeExpr eofError := ⟨eofError⟩
+
+public instance : PromotableB baseException eofError :=
+  ⟨Promotable.infer (U := exceptHint _)⟩
 
 /-- A weakly typed instance of {lit}`EOFError`. -/
 public abbrev PyEOFError := PyBaseExceptionView <| PyObjectView <| Py eofError
@@ -826,10 +832,13 @@ public instance : CoeDep Constant osError TypeExpr := ⟨.osError⟩
 
 public protected def Typing.osError : Typing :=
   exceptHint osError
-  deriving NonemptyPy, IsSubtypeOf baseException
+  deriving NonemptyPy
 
 public instance : CoeDep Constant osError Typing := ⟨.osError⟩
 public instance : ToTypeExpr osError := ⟨osError⟩
+
+public instance : PromotableB baseException osError :=
+  ⟨Promotable.infer (U := exceptHint _)⟩
 
 /-- A weakly typed instance of {lit}`OSError`. -/
 public abbrev PyOSError := PyBaseExceptionView <| PyObjectView <| Py osError
@@ -853,10 +862,13 @@ public instance : CoeDep Constant systemError TypeExpr := ⟨.systemError⟩
 
 public protected def Typing.systemError : Typing :=
   exceptHint systemError
-  deriving NonemptyPy, IsSubtypeOf baseException
+  deriving NonemptyPy
 
 public instance : CoeDep Constant systemError Typing := ⟨.systemError⟩
 public instance : ToTypeExpr systemError := ⟨systemError⟩
+
+public instance : PromotableB baseException systemError :=
+  ⟨Promotable.infer (U := exceptHint _)⟩
 
 /-- A weakly typed instance of {lit}`SystemError`. -/
 public abbrev PySystemError := PyBaseExceptionView <| PyObjectView <| Py systemError
@@ -880,10 +892,13 @@ public instance : CoeDep Constant typeError TypeExpr := ⟨.typeError⟩
 
 public protected def Typing.typeError : Typing :=
   exceptHint typeError
-  deriving NonemptyPy, IsSubtypeOf baseException
+  deriving NonemptyPy
 
 public instance : CoeDep Constant typeError Typing := ⟨.typeError⟩
 public instance : ToTypeExpr typeError := ⟨typeError⟩
+
+public instance : PromotableB baseException typeError :=
+  ⟨Promotable.infer (U := exceptHint _)⟩
 
 /-- A weakly typed instance of {lit}`TypeError`. -/
 public abbrev PyTypeError := PyBaseExceptionView <| PyObjectView <| Py typeError
@@ -907,10 +922,13 @@ public instance : CoeDep Constant valueError TypeExpr := ⟨.valueError⟩
 
 public protected def Typing.valueError : Typing :=
   exceptHint valueError
-  deriving NonemptyPy, IsSubtypeOf baseException
+  deriving NonemptyPy
 
 public instance : CoeDep Constant valueError Typing := ⟨.valueError⟩
 public instance : ToTypeExpr valueError := ⟨valueError⟩
+
+public instance : PromotableB baseException valueError :=
+  ⟨Promotable.infer (U := exceptHint _)⟩
 
 /-- A weakly typed instance of {lit}`ValueError`. -/
 public abbrev PyValueError := PyBaseExceptionView <| PyObjectView <| Py valueError
@@ -934,10 +952,13 @@ public instance : CoeDep Constant runtimeError TypeExpr := ⟨.runtimeError⟩
 
 public protected def Typing.runtimeError : Typing :=
   exceptHint runtimeError
-  deriving NonemptyPy, IsSubtypeOf baseException
+  deriving NonemptyPy
 
 public instance : CoeDep Constant runtimeError Typing := ⟨.runtimeError⟩
 public instance : ToTypeExpr runtimeError := ⟨runtimeError⟩
+
+public instance : PromotableB baseException runtimeError :=
+  ⟨Promotable.infer (U := exceptHint _)⟩
 
 /-- A weakly typed instance of {lit}`RuntimeError`. -/
 public abbrev PyRuntimeError := PyBaseExceptionView <| PyObjectView <| Py runtimeError

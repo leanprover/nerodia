@@ -63,8 +63,8 @@ Nerodia.Constant
 Nerodia.DecidablePy (type abbrev)
 Nerodia.IO.toPyIO
 Nerodia.IsPy
-Nerodia.IsSubtypeOf
-Nerodia.IsSubtypeOf.infer_subtype
+Nerodia.IsSubtypeOf (deprecated)
+Nerodia.IsSubtypeOf.infer_subtype (deprecated)
 Nerodia.IsSubtypeOf.mk
 Nerodia.MkCPyResult
 Nerodia.MkCPyResult.mk
@@ -101,18 +101,21 @@ Nerodia.NullableAddr.toUSize (proj)
 Nerodia.OfPyArg
 Nerodia.OfPyArg.mk
 Nerodia.OfPyArg.ofPyArg (proj)
-Nerodia.Promote
-Nerodia.Promote.infer
-Nerodia.Promote.intro
-Nerodia.PromoteIn
-Nerodia.PromoteIn.infer
-Nerodia.PromoteIn.intro
-Nerodia.PromoteOut
-Nerodia.PromoteOut.infer
-Nerodia.PromoteOut.intro
-Nerodia.PromoteT
-Nerodia.PromoteT.infer
-Nerodia.PromoteT.intro
+Nerodia.Promotable
+Nerodia.Promotable.infer
+Nerodia.Promotable.intro
+Nerodia.PromotableB
+Nerodia.PromotableB.infer
+Nerodia.PromotableB.intro
+Nerodia.PromotableLtr
+Nerodia.PromotableLtr.infer
+Nerodia.PromotableLtr.intro
+Nerodia.PromotableRtl
+Nerodia.PromotableRtl.infer
+Nerodia.PromotableRtl.intro
+Nerodia.PromotableT
+Nerodia.PromotableT.infer
+Nerodia.PromotableT.intro
 Nerodia.Py
 Nerodia.Py.Raw
 Nerodia.Py.Raw.addr
@@ -426,6 +429,7 @@ Nerodia.raisePyTypeError
 Nerodia.raisePyValueError
 Nerodia.runtimeError
 Nerodia.str
+Nerodia.subset_of_promotable
 Nerodia.systemError
 Nerodia.toPy_eq_promote
 Nerodia.toPy_eq_self
