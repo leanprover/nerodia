@@ -1,4 +1,4 @@
-name: Lean Action CI
+name: CI
 
 on:
   push:
