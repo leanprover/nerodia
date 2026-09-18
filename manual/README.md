@@ -8,8 +8,14 @@ To build it, ensure Python's shared libraries are in the shared library path and
 $ lake exe docs
 ```
 
-The generated site will be in `_out/html-multi/`. Serve it with:
+The generated site will be in `_out/doc/latest/`. Serve it with:
 
 ```
-$ lake exe verso-serve _out/html-multi
+$ lake exe verso-serve _out/doc/latest
+```
+
+or, to demo the full website:
+
+```
+$ npx netlify-cli dev
 ```
