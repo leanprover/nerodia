@@ -1,2 +1,5 @@
 /.lake
 /setuptools-lean
+
+# Local Netlify folder
+.netlify

@@ -9,6 +9,8 @@ import NerodiaManual.Changelog
 import NerodiaManual.Requirements
 import NerodiaManual.Stability
 import NerodiaManual.Tutorials
+import NerodiaManual.Monads
+import NerodiaManual.PyTypes
 
 open Verso.Genre Manual
 
@@ -26,8 +28,7 @@ That is, a snake you would find in a lake.
 ![Nerodia logo](static/nerodia.svg)
 
 This manual provides tutorials to help new users get started, a general
-outline of Nerodia's structure, and a detailed reference of the Python API
-it exposes.
+outline of Nerodia's structure, and a reference of the Python API it exposes.
 
 *Important:* Nerodia (and this reference mnaual) is still a *work-in-progress*
 and currently has a very  limited API. It is released to the public primarily
@@ -39,3 +40,5 @@ as a proof-of-concept and to obtain feedback on its design and build process.
 {include 0 NerodiaManual.Stability}
 {include 0 NerodiaManual.Changelog}
 {include 0 NerodiaManual.Tutorials}
+{include 0 NerodiaManual.PyTypes}
+{include 0 NerodiaManual.Monads}
