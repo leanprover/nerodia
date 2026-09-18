@@ -23,6 +23,8 @@ It utilizes Lake, Lean's build system, to provide seamless integration.
 The name of the library comes from the genus _Nerodia_, a type of water snake.
 That is, a snake you would find in a lake.
 
+![Nerodia logo](static/nerodia.svg)
+
 This manual provides tutorials to help new users get started, a general
 outline of Nerodia's structure, and a detailed reference of the Python API
 it exposes.

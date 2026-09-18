@@ -1,0 +1,8 @@
+[build]
+command = "lake exe docs"
+publish = "_out"
+
+[[redirects]]
+from = "/"
+to = "/doc/latest/"
+status = 307
