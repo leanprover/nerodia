@@ -12,6 +12,7 @@ namespace Nerodia
 /-- Identifier of a registered Python encoding. -/
 public structure CodecEncoding where
   ofString ::
+    /-- Returns the string identifier of the encoding. -/
     protected toString : String
 
 namespace CodecEncoding

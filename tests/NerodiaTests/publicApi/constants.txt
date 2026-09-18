@@ -152,6 +152,8 @@ Nerodia.PyBaseIO.toPyIO
 Nerodia.PyBool (type abbrev)
 Nerodia.PyBool.toBool
 Nerodia.PyBoolView (type abbrev)
+Nerodia.PyBoolView.toBool
+Nerodia.PyBoolView.toBool_spec
 Nerodia.PyBoolView.toPyBool
 Nerodia.PyBoolView.toPyObject_eq_toPy
 Nerodia.PyBuffer (type abbrev)

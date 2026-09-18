@@ -1,0 +1,29 @@
+/-
+Copyright (c) 2026 Lean FRO LLC. All rights reserved.
+Released under Apache 2.0 license as described in the file LICENSE.
+Author: Mac Malone
+-/
+
+import VersoManual
+import Nerodia.Data.PyBaseException
+import Nerodia.Data.Exceptions
+
+open Verso.Genre Manual
+
+namespace NerodiaManual
+
+#doc (Manual) "PyBaseException" =>
+%%%
+tag := "PyBaseException"
+%%%
+
+{docstring Nerodia.PyBaseException}
+{docstring Nerodia.PyBaseException.sprint}
+
+# Rasing Exceptions
+
+{docstring Nerodia.raisePyRuntimeError}
+{docstring Nerodia.raisePyEOFError}
+{docstring Nerodia.raisePyTypeError}
+{docstring Nerodia.raisePyValueError}
+{docstring Nerodia.raisePyOSError}

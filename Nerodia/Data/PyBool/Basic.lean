@@ -72,5 +72,5 @@ public instance : DecidablePy bool := private_decl%
   bif b then getPyTrue.promote else getPyFalse.promote
 
 /-- Returns the boolean value of {lean}`self` as a Lean {lean}`Bool`. -/
-@[inline] public def PyBool.toBool (self : PyBool) : Bool :=
+@[inline, view_method] public def PyBool.toBool (self : PyBool) : Bool :=
   self ⦂ true

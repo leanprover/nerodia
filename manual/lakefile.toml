@@ -20,6 +20,10 @@ path = ".."
 name = "NerodiaManual"
 allowNonModules = true
 
+[[lean_lib]]
+name = "NerodiaManual.Meta.Precompile"
+precompileModules = true
+
 [[lean_exe]]
 name = "docs"
 root = "Main"

@@ -5,7 +5,6 @@ Author: Mac Malone
 -/
 
 import VersoManual
-import Verso.Doc.Elab.Monad
 import NerodiaManual.Meta.Toml
 import NerodiaManual.Meta.Example
 

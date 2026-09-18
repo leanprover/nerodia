@@ -12,6 +12,7 @@ namespace Nerodia
 /-- Identifier of a registered Python error handler for codecs. -/
 public structure CodecErrors where
   ofString ::
+    /-- Returns the string identifier of the error handler. -/
     protected toString : String
 
 namespace CodecErrors
