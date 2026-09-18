@@ -5,3 +5,4 @@ Authors: Mac Malone
 -/
 module
 public import Nerodia.Control.PyIO.Basic
+public import Nerodia.Data.PyBaseException.SPrint
