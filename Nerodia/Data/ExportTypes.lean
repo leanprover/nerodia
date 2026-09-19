@@ -79,12 +79,7 @@ open Internal (getPyThreadCtxUnsafe CPyArg CPyArgs)
 
 /-! ### PyMethNoArgs -/
 
-/--
-The type of a Python method with no arguments.
-
-**API Caveat:** The definition of {name}`PyMethNoArgs` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
--/
+/-- The type of a Python method with no arguments. -/
 @[irreducible, expose] -- for codegen
 public def PyMethNoArgs :=
   (self : CPyArg) → Null → CPyIO Py.Raw
@@ -105,12 +100,7 @@ unseal PyMethNoArgs in
 
 /-! ### PyMethFastCall -/
 
-/--
-The type of a Python method using Python's fast calling convention.
-
-**API Caveat:** The definition of {name}`PyMethFastCall` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
--/
+/-- The type of a Python method using Python's fast calling convention. -/
 @[irreducible, expose] -- for codegen
 public def PyMethFastCall :=
   (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO Py.Raw
@@ -141,12 +131,7 @@ unseal PyMethFastCall in
 
 /-! ### PyMethO -/
 
-/--
-The type of a Python method with a single positional argument.
-
-**API Caveat:** The definition of {name}`PyMethO` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
--/
+/-- The type of a Python method with a single positional argument. -/
 @[irreducible, expose] -- for codegen
 public def PyMethO :=
   (self : CPyArg) → (arg : CPyArg) → CPyIO Py.Raw
@@ -170,12 +155,7 @@ unseal PyMethO in
 
 /-! ## PyModuleInit -/
 
-/--
-The type of a Python module initialization function.
-
-**API Caveat:** The definition of {name}`PyModuleInit` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
--/
+/-- The type of a Python module initialization function. -/
 @[irreducible, expose] -- for codegen
 public def PyModuleInit :=
   (mod : CPyArg moduleType) → CPyUnitIO
@@ -191,12 +171,7 @@ public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ => return⟩
 
 /-! ## PyAttrInit -/
 
-/--
-The type of a Python module attribute initialization function.
-
-**API Caveat:** The definition of {name}`PyAttrInit` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
--/
+/-- The type of a Python module attribute initialization function. -/
 @[irreducible, expose] -- for codegen
 public def PyAttrInit :=
   CPyIO Py.Raw
