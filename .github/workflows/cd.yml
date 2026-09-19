@@ -43,7 +43,10 @@ jobs:
       - name: Check python
         run: which python3 && python3 --version
       - name: Build Manual
-        run: lake build && cd manual && lake exe docs
+        run: |
+          lake build
+          cd manual
+          LD_LIBRARY_PATH=$(lake query pyconfig | jq -r .libDir) lake exe docs
       - id: deploy-info
         name: Compute Deploy Info
         run: |
@@ -53,7 +56,7 @@ jobs:
       - id: publish
         name: Publish to Netlify
         run: |
-          npx netlify-cli deploy --cwd manual --json \
+          npx netlify-cli deploy --no-build --cwd manual --json \
             ${{ inputs.production-deploy && '--prod' || format('--alias={0}', steps.deploy-info.outputs.alias) }} \
             --message '${{ github.event_name == 'pull_request' && format('pr#{0}: {1}', github.event.number, github.event.pull_request.title) || format('ref/{0}: {1}', github.ref_name, steps.deploy-info.outputs.message) }}' \
             > deploy.json
