@@ -3,9 +3,10 @@ Copyright (c) 2026 Lean FRO LLC. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Author: Mac Malone
 -/
-
-import VersoManual
-import Nerodia.Data.PyBytes
+module
+public import VersoManual
+import all Nerodia.Data.Types
+import all Nerodia.Data.PyBytes.Basic
 
 open Verso.Genre Manual
 
