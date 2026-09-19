@@ -19,7 +19,9 @@ namespace Nerodia.Compiler
 /--
 Declares this Lean module to define a Python module with the specified name.
 
-A docstring will be used as the {lit}`__doc__` attribute of the Python module.
+If a docstring is provided, it will be used as the {lit}`__doc__` attribute
+of the Python module (and will usually show up when an import of the module is
+hovered in a Python editor).
 -/
 syntax (name := pyModuleCmd) (docComment)? "py_module " str : command
 

@@ -17,6 +17,8 @@ namespace NerodiaManual
 tag := "PyModule"
 %%%
 
+{docstring Nerodia.import}
+
 {docstring Nerodia.PyModule}
 
-{docstring Nerodia.import}
+{docstring Nerodia.PyModule.addByString}

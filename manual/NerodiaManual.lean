@@ -9,8 +9,10 @@ import NerodiaManual.Changelog
 import NerodiaManual.Requirements
 import NerodiaManual.Stability
 import NerodiaManual.Tutorials
-import NerodiaManual.Monads
+import NerodiaManual.Annotations
+import NerodiaManual.TypeConversions
 import NerodiaManual.PyTypes
+import NerodiaManual.Monads
 
 open Verso.Genre Manual
 
@@ -40,5 +42,7 @@ as a proof-of-concept and to obtain feedback on its design and build process.
 {include 0 NerodiaManual.Stability}
 {include 0 NerodiaManual.Changelog}
 {include 0 NerodiaManual.Tutorials}
+{include 0 NerodiaManual.Annotations}
+{include 0 NerodiaManual.TypeConversions}
 {include 0 NerodiaManual.PyTypes}
 {include 0 NerodiaManual.Monads}
