@@ -3,10 +3,11 @@ Copyright (c) 2026 Lean FRO LLC. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Author: Mac Malone
 -/
-
-import VersoManual
-import Nerodia.Control.PyIO
-import Nerodia.Control.CPyIO
+module
+public import VersoManual
+import all Nerodia.Control.PyIO.Basic
+import all Nerodia.Data.PyBaseException.SPrint
+import all Nerodia.Control.CPyIO.Basic
 
 open Verso.Genre Manual
 
