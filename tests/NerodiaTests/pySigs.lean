@@ -210,9 +210,11 @@ open Lean Elab Command in
 /-- info: (s: str, /) -> str -/
 #guard_msgs in #check_fn (s : String) : String
 
--- TODO: Support `ByteArray` as a result type.
-/-- info: (b: Buffer, /) -> None -/
-#guard_msgs in #check_fn (b : ByteArray) : Unit
+/-- info: bytes -/
+#guard_msgs in #check_attr ByteArray
+
+/-- info: (b: Buffer, /) -> bytes -/
+#guard_msgs in #check_fn (b : ByteArray) : ByteArray
 
 /-- info: int -/
 #guard_msgs in #check_attr Int

@@ -129,6 +129,7 @@ Nerodia.instIsPyRaw
 Nerodia.instIsSubtypeOfOfPromotable
 Nerodia.instMkCPyResultBaseIO
 Nerodia.instMkCPyResultBoolBool
+Nerodia.instMkCPyResultByteArrayBytes
 Nerodia.instMkCPyResultEmptyNever
 Nerodia.instMkCPyResultFinInt
 Nerodia.instMkCPyResultIO

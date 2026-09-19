@@ -100,4 +100,5 @@ meta def publicApi (mode : Mode) : MetaM Unit := do
     writeFile constantsFile newConstants
     writeFile instancesFile newInstances
 
+--#eval publicApi .update
 #eval publicApi .check

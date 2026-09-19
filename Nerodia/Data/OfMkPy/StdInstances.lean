@@ -143,7 +143,7 @@ public instance : MkCPyResult String str := ⟨mkPyStr⟩
 public instance : OfPyArg ByteArray buffer where
   ofPyArg fn i arg := private PyBuffer.getByteArray =<< ofPyArg fn i arg
 
--- TODO: result type (likely a `bytearray`)
+public instance : MkCPyResult ByteArray bytes := ⟨mkPyBytes⟩
 
 /-! ## Int -/
 

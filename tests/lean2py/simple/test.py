@@ -7,7 +7,7 @@ import testmodule
 # TODO: Generate `__all__` automatically from Nerodia and check it
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
 expected = [
-  "addBit", "alwaysRaise", "bnot", "countbytes", "greet", "greet2",
+  "addBit", "alwaysRaise", "bnot", "countbytes", "encodeUTF8", "greet", "greet2",
   "greetUser", "greeting", "greeting_for", "my_add", "optToNat", "setUser",
   "tripleAdd"
 ]
@@ -23,6 +23,7 @@ assert testmodule.addBit.__doc__ is None
 assert testmodule.addBit(42, 1) == 43
 
 assert testmodule.countbytes(b'ab') == 2
+assert testmodule.encodeUTF8('ab') == b'ab'
 
 assert testmodule.tripleAdd(1, -1, 1) == 1
 

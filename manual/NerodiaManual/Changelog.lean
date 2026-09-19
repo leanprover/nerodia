@@ -37,6 +37,8 @@ tag := "4.34.0"
 
 - Introduction of this reference manual.
 
+- `ByteArray` produces `bytes` as a result type.
+
 - Added {name}`Option` {ref "type-conversions"}`type conversions`.
 
 - Added {lean}`PyBool` and {lean}`Bool` {ref "type-conversions"}`type conversions`.
