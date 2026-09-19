@@ -305,7 +305,7 @@ mutability.  Notably, it prevents reassignment between many builtin types
 (e.g., {lit}`str`).
 
 Nerodia leverages this to provide pure type checks (e.g., {lit}`x ⦂ str`) for
-these functions. Their static types (e.g., {lit}`PyStr`) then hold a proof
+such types. Their static types (e.g., {lit}`PyStr`) then hold a proof
 of this check. Since many builtin types are also immutable, the data of such
 types can be safely accessed in a pure manner (e.g., {lit}`PyStr.toString`).
 

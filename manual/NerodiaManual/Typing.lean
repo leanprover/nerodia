@@ -5,16 +5,19 @@ Author: Mac Malone
 -/
 module
 public import VersoManual
+import all Nerodia.Data.Types
 import all Nerodia.Data.Typing
 import all Nerodia.Data.Py.Basic
-import Nerodia.Data.PyStr
+meta import Nerodia
+public import Nerodia
+import NerodiaManual.Meta.Precompile
 
 open Nerodia
 open Verso.Genre Manual InlineLean
 
 namespace NerodiaManual
 
-variable {x : PyObject}
+variable {x : PyObject} {s : Py str}
 
 #doc (Manual) "Python Typing" =>
 %%%
@@ -24,11 +27,14 @@ htmlSplit := .never
 
 Nerodia has a single baseline representation of Python objects, {lean}`Py`,
 which takes as a type parameter a {lean}`Typing`. For example, an instance of
-`str` in Python is represented as {lean}`Py .str` through its abbrevation,
-{lean}`PyStr`.
+`str` in Python is represented as {lean}`Py str` through its abbrevation,
+{lean}`PyStr`. A {lean}`Py` value carries a proof of its typing. For instance,
+`s : Py str` implies {lean}`s ⦂ str`.
 
 {docstring Nerodia.Py +hideFields +hideStructureConstructor}
 {docstring Nerodia.Typing}
+{docstring Nerodia.Typing.HasType}
+{docstring Nerodia.Py.attachType}
 
 # Weak Typing
 
@@ -41,7 +47,7 @@ cannot be modelled correctly and safely by a pure {lean}`Typing` in Lean.
 Nonetheless, statically typing Python objects in Lean is still useful, so
 Nerodia provides a mechanism for {deftech}`weak typing`. Objects are annotated
 with erased {deftech}`type hints` to indicate the expected type and the
-{lean}`Typing` of weak types checks for these type hints.
+{lean}`Typing` of weak types verifies the presence of its corresponding hint.
 
 For example, it is possible to mutate objects between the many subtypes of
 `BaseExcpetion` (e.g., an object can be retyped `Exception`). As such, instances
@@ -54,11 +60,27 @@ undefined, the CPython implementation places notable restrictions on this
 mutability.  Notably, it prevents reassignment between many builtin types
 (e.g., `str`).
 
-Nerodia leverages this to provide pure type checks (e.g., {lean}`x ⦂ str`)
-for these functions. Their static types (e.g., {lean}`PyStr`) then hold a proof
-of this check through their {lean}`Typing`. Since many builtin types are also
-immutable, the data of such types can be safely accessed in a pure manner
-(e.g., {lean}`PyStr.toString`).
+Nerodia leverages this to provide pure type checks. Their static types (e.g.,
+{lean}`PyStr`) then hold a proof of this check through their {lean}`Typing`.
+Since many builtin types are also immutable, the data of such types can be
+safely accessed in a pure manner (e.g., {lean}`PyStr.toString`).
+
+```lean (name := strCheck)
+def testStrInstance (o : PyObject) : IO Unit :=
+  if h : o ⦂ str then
+    IO.println s!"str: {o.attachType h |>.toString}"
+  else
+    IO.println "not a str"
+
+#eval PyIO.toIO do testStrInstance (← mkPyInt 1)
+#eval PyIO.toIO do testStrInstance (← mkPyStr "hi")
+```
+```leanOutput strCheck
+not a str
+```
+```leanOutput strCheck
+str: hi
+```
 
 Still, there are caveats. Foremost, this is not strictly in accordance with the
 Python specification, which leaves the mutability of an object's type undefined.
