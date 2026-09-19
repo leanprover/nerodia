@@ -10,9 +10,9 @@ Nerodia is a library for Lean/Python FFI inspired by [PyO3](https://github.com/P
 
 ## Requirements
 
-In order to build a Nerodia project, all of the following are required:
+In order to build a Nerodia project on the latest version, all of the following are required:
 
-* Lean 4.33 or greater
+* Lean 4.34 or greater
 * CPython 3.14 or greater (shared; not free-threaded)
 * A C compiler which supports both (e.g., recent GCC or Clang; MSYS2's CLANG64 toolchain)
 
