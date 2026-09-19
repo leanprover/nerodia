@@ -17,6 +17,7 @@ tag := "PyBytes"
 %%%
 
 {docstring Nerodia.PyBytes}
+{docstring Nerodia.Typing.bytes}
 {docstring Nerodia.mkPyBytes}
 
 {docstring Nerodia.PyBytes.toByteArray}

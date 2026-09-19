@@ -17,4 +17,5 @@ tag := "PyNone"
 %%%
 
 {docstring Nerodia.PyNone}
+{docstring Nerodia.Typing.none}
 {docstring Nerodia.getPyNone}

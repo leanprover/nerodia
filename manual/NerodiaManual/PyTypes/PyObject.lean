@@ -17,6 +17,7 @@ tag := "PyObject"
 %%%
 
 {docstring Nerodia.PyObject}
+{docstring Nerodia.Typing.object}
 {docstring Nerodia.PyObject.getType}
 {docstring Nerodia.PyObject.repr}
 

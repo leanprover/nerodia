@@ -20,5 +20,6 @@ tag := "PyModule"
 {docstring Nerodia.import}
 
 {docstring Nerodia.PyModule}
+{docstring Nerodia.Typing.moduleType}
 
 {docstring Nerodia.PyModule.addByString}

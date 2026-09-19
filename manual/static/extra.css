@@ -1,6 +1,6 @@
 #logo img { max-height: calc(var(--verso-logo-height) - 1rem)}
 main p:has(img) { text-align: center; padding: 1em }
-main img { max-height: 8em; }
+main img { max-height: 10em; }
 
 p { text-align: justify }
 
