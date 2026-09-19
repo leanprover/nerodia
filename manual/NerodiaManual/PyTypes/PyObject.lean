@@ -29,7 +29,10 @@ tag := "PyObject"
 
 # Attributes
 
+{docstring Nerodia.PyObject.getAttr}
 {docstring Nerodia.PyObject.getAttrByString}
+{docstring Nerodia.PyObject.setAttr}
+{docstring Nerodia.PyObject.setAttrByString}
 
 # Function Calls
 
