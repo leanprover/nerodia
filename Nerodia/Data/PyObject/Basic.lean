@@ -70,13 +70,40 @@ public opaque index (self : @& PyObject) : CPyIO PyInt
 /-! ## Attributes -/
 
 /--
-Returns the attribute named {lean}`attr` on {lean}`self`.
+Returns the attribute {lean}`name` on {lean}`self`.
 
-This is equivalent to the Python expression {lit}`getattr(self, attr)`.
+This is equivalent to the Python expression {lit}`getattr(self, name)`.
+-/
+@[extern "nerodia_py_object_get_attr", view_method]
+public opaque getAttr
+  (self : @& PyObject) (name : @& PyObject) : CPyIO PyObject
+
+/--
+Returns the attribute {lean}`name` on {lean}`self`.
+
+This is equivalent to the Python expression {lit}`getattr(self, name)`.
 -/
 @[extern "nerodia_py_object_get_attr_by_string", view_method]
 public opaque getAttrByString
-  (self : @& PyObject) (attr : @& String) : CPyIO PyObject
+  (self : @& PyObject) (name : @& String) : CPyIO PyObject
+
+/--
+Sets the attribute {lean}`name` on {lean}`self`.
+
+This is equivalent to the Python expression {lit}`setattr(self, name, val)`.
+-/
+@[extern "nerodia_py_object_set_attr", view_method]
+public opaque setAttr
+  (self : @& PyObject) (name : @& PyObject) (val : @& PyObject) : CPyUnitIO
+
+/--
+Sets the attribute {lean}`name` on {lean}`self` to {lean}`val`.
+
+This is equivalent to the Python expression {lit}`setattr(self, name, val)`.
+-/
+@[extern "nerodia_py_object_set_attr_by_string", view_method]
+public opaque setAttrByString
+  (self : @& PyObject) (name : @& String)  (val : @& PyObject) : CPyUnitIO
 
 /-! ## Function Calls -/
 
