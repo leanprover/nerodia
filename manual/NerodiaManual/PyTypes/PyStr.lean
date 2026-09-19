@@ -17,9 +17,9 @@ tag := "PyStr"
 %%%
 
 {docstring Nerodia.PyStr}
+{docstring Nerodia.Typing.str}
 
 {docstring Nerodia.mkPyStr}
-
 {docstring Nerodia.PyStr.toString}
 
 # Encoding to bytes

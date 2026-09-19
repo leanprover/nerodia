@@ -18,6 +18,7 @@ tag := "PyBaseException"
 %%%
 
 {docstring Nerodia.PyBaseException}
+{docstring Nerodia.Typing.baseException}
 {docstring Nerodia.PyBaseException.sprint}
 
 # Rasing Exceptions

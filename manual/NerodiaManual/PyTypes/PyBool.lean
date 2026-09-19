@@ -21,6 +21,7 @@ tag := "PyBool"
 %%%
 
 {docstring Nerodia.PyBool}
+{docstring Nerodia.Typing.bool}
 {docstring Nerodia.mkPyBool}
 {docstring Nerodia.PyBool.toBool}
 
@@ -41,7 +42,9 @@ true
 ```
 
 {docstring Nerodia.PyFalse}
+{docstring Nerodia.Typing.false}
 {docstring Nerodia.getPyFalse}
 
 {docstring Nerodia.PyTrue}
+{docstring Nerodia.Typing.true}
 {docstring Nerodia.getPyTrue}

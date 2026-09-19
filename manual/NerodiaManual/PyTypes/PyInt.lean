@@ -18,6 +18,7 @@ tag := "PyInt"
 %%%
 
 {docstring Nerodia.PyInt}
+{docstring Nerodia.Typing.int}
 {docstring Nerodia.mkPyInt}
 {docstring Nerodia.PyInt.toInt}
 

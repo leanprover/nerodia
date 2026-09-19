@@ -11,6 +11,7 @@ import NerodiaManual.Stability
 import NerodiaManual.Tutorials
 import NerodiaManual.Annotations
 import NerodiaManual.TypeConversions
+import NerodiaManual.Typing
 import NerodiaManual.PyTypes
 import NerodiaManual.Monads
 
@@ -44,5 +45,6 @@ as a proof-of-concept and to obtain feedback on its design and build process.
 {include 0 NerodiaManual.Tutorials}
 {include 0 NerodiaManual.Annotations}
 {include 0 NerodiaManual.TypeConversions}
+{include 0 NerodiaManual.Typing}
 {include 0 NerodiaManual.PyTypes}
 {include 0 NerodiaManual.Monads}
