@@ -40,6 +40,14 @@ namespace Nerodia.Compiler
   throwError m!"Cannot add attribute `[{attrName}]`: \
     A Python module must first be configured with `py_module`."
 
+/--
+Registers a Lean definition as a Python module initializer.
+The definition must have type {name (scope := "Nerodia.ExportTypes")}`PyModuleInit`.
+Module initializers are run during module initialization in the order they
+appear in the Lean module.
+-/
+syntax (name := py_module_init) "py_module_init" : attr
+
 initialize
   let attrName := `py_module_init
   let typeName := `Nerodia.PyModuleInit
@@ -49,7 +57,8 @@ initialize
     descr := "mark a definition as the Python module initializer"
     applicationTime := .afterCompilation
     add := fun declName stx kind => do
-      Attribute.Builtin.ensureNoArgs stx
+      let `(attr|py_module_init) := stx
+        | throwError "ill-formed [py_module_init] attribute syntax"
       unless kind == AttributeKind.global do
         throwAttrMustBeGlobal attrName kind
       let env ← getEnv
@@ -66,6 +75,17 @@ initialize
       modifyModuleConfig fun cfg => {cfg with inits := cfg.inits.push sym}
   }
 
+/--
+Exports a Lean definition as a Python module function.
+
+A different name can be specified for the Python definiton via
+`@[py_module_fn "name"]`. A common use case for this is to change casing.
+Lean names are usually camel case and Python names snake case.
+
+If the Lean definition has a docstring, it will be used as the {lit}`__doc__`
+attribute of the Python function (and usually show up when the function is
+hovered in a Python editor).
+-/
 syntax (name := py_module_fn) "py_module_fn" (ppSpace str)?
   (ppSpace atomic("(" &"sig") " := " str ")")? : attr
 
@@ -285,6 +305,17 @@ initialize
       modifyModuleConfig fun cfg => {cfg with methods := cfg.methods.push df}
   }
 
+/--
+Exports a Lean definition as a Python module attribute.
+The value of the attribute is computed upon first import.
+
+A different name can be specified for the Python definition via
+`@[py_module_attr "name"]`. A common use case for this is to change casing.
+Lean names are usually camel case and Python names snake case.
+
+If the Lean definition has a docstring, it will be attached to the Python
+attribute (and usually show up when it is hovered in a Python editor).
+-/
 syntax (name := py_module_attr) "py_module_attr" (ppSpace str)?
   (ppSpace atomic("(" &"ty") " := " str ")")? : attr
 

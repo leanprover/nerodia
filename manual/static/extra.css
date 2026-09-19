@@ -1,3 +1,8 @@
 #logo img { max-height: calc(var(--verso-logo-height) - 1rem)}
 main p:has(img) { text-align: center; padding: 1em }
-main img { max-height: 10em; }
+main img { max-height: 8em; }
+
+p { text-align: justify }
+
+#type-conversions-table tbody td:not(:first-child) p { text-align: center; }
+
