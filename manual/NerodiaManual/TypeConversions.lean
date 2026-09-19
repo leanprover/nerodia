@@ -63,7 +63,7 @@ and Nerodia follows the mapping below in doing so.
   * `str`
 * * {lean}`ByteArray`
   * `Buffer`
-  * —
+  * `bytes`
 
 * * {lean}`Int`
   * `int`
