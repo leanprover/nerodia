@@ -32,12 +32,7 @@ open Internal (PyThreadCtx)
 
 /-! ## PyThreadCtxT -/
 
-/--
-Monad transformer to equip a monad with a Python context.
-
-**API Caveat:** The definition of {name}`PyThreadCtxT` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
--/
+/-- Monad transformer to equip a monad with a Python context. -/
 @[irreducible, expose] -- for codegen
 public def PyThreadCtxT (m : Type → Type u) (α : Type) :=
   @& PyThreadCtx → m α
@@ -129,12 +124,6 @@ end PyThreadCtxT
 
 /-! ## PyBaseIO -/
 
-/--
-A monad for impure code using Python. It cannot error.
-
-**API Caveat:** The definition of {name}`PyBaseIO` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
--/
 @[irreducible, expose] -- for codegen
 public def PyBaseIO :=
   PyThreadCtxT BaseIO
@@ -196,18 +185,16 @@ end PyBaseIO
 
 /-! ## PyIO -/
 
-/--
-The primary monad for code using Python.
-
-**API Caveat:** The definition of {name}`PyIO` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
--/
+/-- The primary monad for code using Python. -/
 @[irreducible, expose] -- for codegen
 public def PyIO :=
   OptionT <| PyBaseIO
 
 public instance : Monad PyIO := inferInstanceAs (Monad <| OptionT PyBaseIO)
 public instance : MonadPy PyIO := inferInstanceAs (MonadPy <| OptionT PyBaseIO)
+
+/-- A {lean}`PyIO` monad that cannot throw exceptions. -/
+add_decl_doc PyBaseIO
 
 namespace Internal.Nerodia.PyIO
 

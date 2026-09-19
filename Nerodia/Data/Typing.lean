@@ -20,9 +20,6 @@ base type system and is thus closer in power to the type system of Python's
 more advanced type checkers (e.g., [{lit}`ty`][1]).
 
 [1]: https://github.com/astral-sh/ty
-
-**API Caveat:** The definition of {name}`Typing` is not part of Nerodia's
-public API. Nevertheless, it is exposed due to the limitations of Lean's compiler.
 -/
 @[irreducible, expose] -- for codegen
 public def Typing : Type :=
