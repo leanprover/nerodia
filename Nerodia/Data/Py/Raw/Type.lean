@@ -8,9 +8,7 @@ public import Nerodia.Data.Addr
 public import Nerodia.Data.Context
 public import Nerodia.Data.TypeExpr
 
-namespace Nerodia
-
-namespace Internal
+namespace Nerodia.Internal
 
 /-- A fixed enumeration of builtin base types. -/
 -- A very simple model, it could be made more dynamic in the future.
@@ -45,28 +43,12 @@ public structure Py.Model extends InnerModel where
   hint : TypeExpr
   deriving Nonempty
 
-end Internal
-
 /--
 A Python object. A [{lit}`PyObject`][1] pointer managed by Lean.
 
 [1]: https://docs.python.org/3/c-api/structures.html#c.PyObject
 -/
 public structure Py.Raw where
-  private ofModel' ::
-    private toModel' : Internal.Py.Model
+  ofModel ::
+    toModel : Py.Model
     deriving Nonempty
-
-namespace Internal.Nerodia.Py.Raw
-
-public noncomputable def ofModel (o : Py.Model) : Py.Raw :=
-  .ofModel' o
-
-public noncomputable def toModel (o : Py.Raw) : Py.Model :=
-  o.toModel'
-
-@[simp, grind =]
-public theorem toModel_ofModel : toModel (ofModel m) = m := by
-  rfl
-
-end Internal.Nerodia.Py.Raw

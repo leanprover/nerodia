@@ -82,12 +82,12 @@ open Internal (getPyThreadCtxUnsafe CPyArg CPyArgs)
 /-- The type of a Python method with no arguments. -/
 @[irreducible, expose] -- for codegen
 public def PyMethNoArgs :=
-  (self : CPyArg) → Null → CPyIO Py.Raw
+  (self : CPyArg) → Null → CPyIO PyObject
 
 unseal PyMethNoArgs in
 @[inline] public def PyMethNoArgs.ofPyIO
   (x : (self : PyObject) → PyIO PyObject)
-: PyMethNoArgs := fun self _ => CPyIO.raw <| PyIO.toCPyIO do
+: PyMethNoArgs := fun self _ => CPyIO.promote <| PyIO.toCPyIO do
   let ctx ← getPyThreadCtxUnsafe
   let self := ctx.mkArgUnsafe self
   x self
@@ -95,7 +95,7 @@ unseal PyMethNoArgs in
 unseal PyMethNoArgs in
 /-- Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethNoArgs
-  (x : CPyIO Py.Raw)
+  (x : CPyIO PyObject)
 : PyMethNoArgs := fun _ _ => x
 
 /-! ### PyMethFastCall -/
@@ -103,12 +103,12 @@ unseal PyMethNoArgs in
 /-- The type of a Python method using Python's fast calling convention. -/
 @[irreducible, expose] -- for codegen
 public def PyMethFastCall :=
-  (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO Py.Raw
+  (self : CPyArg) → (args : CPyArgs) → (nargs : USize) → CPyIO PyObject
 
 unseal PyMethFastCall in
 @[inline] public def PyMethFastCall.ofPyIO
   (x : (self : PyObject) → (args : Array PyObject) → PyIO PyObject)
-: PyMethFastCall := fun self args nargs => CPyIO.raw <| PyIO.toCPyIO do
+: PyMethFastCall := fun self args nargs => CPyIO.promote <| PyIO.toCPyIO do
   let ctx ← getPyThreadCtxUnsafe
   let self := ctx.mkArgUnsafe self
   let args := ctx.mkArgsUnsafe args nargs
@@ -122,10 +122,10 @@ unseal PyMethFastCall in
 /-- Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethFastCallUnsafe
   (fn : String) (arity : USize)
-  (x : (args : CPyArgs) → PyCResultIO Py.Raw)
+  (x : (args : CPyArgs) → PyCResultIO PyObject)
 : PyMethFastCall := fun _ args nargs =>
   if nargs = arity then
-    x args |>.toCPyIO.raw
+    x args |>.toCPyIO.promote
   else
     raiseArityNotEq fn arity nargs
 
@@ -134,12 +134,12 @@ unseal PyMethFastCall in
 /-- The type of a Python method with a single positional argument. -/
 @[irreducible, expose] -- for codegen
 public def PyMethO :=
-  (self : CPyArg) → (arg : CPyArg) → CPyIO Py.Raw
+  (self : CPyArg) → (arg : CPyArg) → CPyIO PyObject
 
 unseal PyMethO in
 @[inline] public def PyMethO.ofPyIO
   (x : (self : PyObject) → (arg : PyObject) → PyIO PyObject)
-: PyMethO := fun self arg => CPyIO.raw <| PyIO.toCPyIO do
+: PyMethO := fun self arg => CPyIO.promote <| PyIO.toCPyIO do
   let ctx ← getPyThreadCtxUnsafe
   let self := ctx.mkArgUnsafe self
   let arg := ctx.mkArgUnsafe arg
@@ -148,7 +148,7 @@ unseal PyMethO in
 unseal PyMethO in
 /-- Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethO
-  (x : (arg : PyObject) → PyCResultIO Py.Raw)
+  (x : (arg : PyObject) → PyCResultIO PyObject)
 : PyMethO := fun _ arg =>
   PyCResultIO.toCPyIO <| PyBaseIO.bindPyCResultIO getPyThreadCtxUnsafe fun ctx =>
     x (ctx.mkArgUnsafe arg)
@@ -174,13 +174,13 @@ public instance : Inhabited PyModuleInit := ⟨.ofPyIO fun _ => return⟩
 /-- The type of a Python module attribute initialization function. -/
 @[irreducible, expose] -- for codegen
 public def PyAttrInit :=
-  CPyIO Py.Raw
+  CPyIO PyObject
   deriving Nonempty
 
 unseal PyAttrInit in
 @[inline] public def PyAttrInit.ofCPyIO (x : CPyIO α) : PyAttrInit :=
-  x.raw
+  x.normalize
 
 /-- Internal function for {lit}`@[py_module_attr]` -/
-@[inline] public def Internal.mkPyAttrInit (x : CPyIO Py.Raw) : PyAttrInit :=
+@[inline] public def Internal.mkPyAttrInit (x : CPyIO PyObject) : PyAttrInit :=
   PyAttrInit.ofCPyIO x

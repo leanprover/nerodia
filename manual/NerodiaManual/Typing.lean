@@ -6,7 +6,7 @@ Author: Mac Malone
 module
 public import VersoManual
 import all Nerodia.Data.Types
-import all Nerodia.Data.Typing
+import all Nerodia.Data.Typing.Raw
 import all Nerodia.Data.Py.Basic
 meta import Nerodia
 public import Nerodia
@@ -33,8 +33,8 @@ which takes as a type parameter a {lean}`Typing`. For example, an instance of
 
 {docstring Nerodia.Py +hideFields +hideStructureConstructor}
 {docstring Nerodia.Typing}
-{docstring Nerodia.Typing.HasType}
-{docstring Nerodia.Py.attachType}
+{docstring Nerodia.PyObject.HasType}
+{docstring Nerodia.PyObject.attachType}
 
 # Weak Typing
 

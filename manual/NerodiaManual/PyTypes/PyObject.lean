@@ -5,8 +5,8 @@ Author: Mac Malone
 -/
 module
 public import VersoManual
-import all Nerodia.Data.Types
-import all Nerodia.Data.Typing
+import all Nerodia.Data.Py.Basic
+import all Nerodia.Data.Typing.Raw
 import all Nerodia.Data.PyObject.Basic
 
 open Verso.Genre Manual

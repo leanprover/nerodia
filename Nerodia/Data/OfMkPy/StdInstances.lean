@@ -53,7 +53,7 @@ public instance : OfPyArg PyObject object where
   ofPyArg _ _ arg := private return arg
 
 public instance : OfPyArg PyAny any where
-  ofPyArg _ _ arg := private return ⟨arg.raw, by simp⟩
+  ofPyArg _ _ arg := private return .ofPyObject arg (by simp)
 
 public instance : OfPyArg PyBuffer buffer where
   ofPyArg fn i arg := private do (← arg.getPyBuffer?).getDM do

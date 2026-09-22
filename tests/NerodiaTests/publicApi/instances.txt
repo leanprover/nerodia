@@ -15,9 +15,8 @@ Nerodia.Null.instInhabited
 Nerodia.Null.instSubsingleton
 Nerodia.NullableAddr.instDecidablePredIsNull
 Nerodia.NullableAddr.instInhabited
-Nerodia.Py.Raw.instToPyObject
-Nerodia.Py.instCoeOutRaw
-Nerodia.Py.instNonemptyRaw
+Nerodia.Py.instCoeOutPyObject
+Nerodia.Py.instToPyObject
 Nerodia.PyBaseExceptionView.instCoeOutPyBaseExceptionOfToPyBaseException
 Nerodia.PyBaseIO.instMonadEvalBaseIO
 Nerodia.PyBoolView.instCoeOutPyBoolOfToPyBool
@@ -40,6 +39,8 @@ Nerodia.PyThreadCtxT.instMonadExceptOf
 Nerodia.PyThreadCtxT.instMonadFunctor
 Nerodia.PyThreadCtxT.instMonadLift
 Nerodia.PyThreadCtxT.instMonadPyOfMonad
+Nerodia.Typing.instDecidablePyInter
+Nerodia.Typing.instDecidablePyUnion
 Nerodia.Typing.instHasSubset
 Nerodia.Typing.instInter
 Nerodia.Typing.instNonemptyPyBaseException
@@ -58,6 +59,7 @@ Nerodia.Typing.instNonemptyPySystemError
 Nerodia.Typing.instNonemptyPyType
 Nerodia.Typing.instNonemptyPyTypeError
 Nerodia.Typing.instNonemptyPyValueError
+Nerodia.Typing.instToTypeExprUnion
 Nerodia.Typing.instUnion
 Nerodia.instCoeCPyUnitIOPyIOUnit
 Nerodia.instCoeDepBoolFalseTypeExpr
@@ -112,7 +114,6 @@ Nerodia.instDecidablePyBool
 Nerodia.instDecidablePyBytes
 Nerodia.instDecidablePyFalse
 Nerodia.instDecidablePyInt
-Nerodia.instDecidablePyInterTyping
 Nerodia.instDecidablePyModuleType
 Nerodia.instDecidablePyNever
 Nerodia.instDecidablePyNone
@@ -120,12 +121,10 @@ Nerodia.instDecidablePyObject
 Nerodia.instDecidablePyStr
 Nerodia.instDecidablePyTrue
 Nerodia.instDecidablePyType
-Nerodia.instDecidablePyUnionTyping
 Nerodia.instInhabitedConstant
 Nerodia.instInhabitedConstant.default
 Nerodia.instInhabitedPyModuleInit
 Nerodia.instIsPyPy
-Nerodia.instIsPyRaw
 Nerodia.instIsSubtypeOfOfPromotable
 Nerodia.instMkCPyResultBaseIO
 Nerodia.instMkCPyResultBoolBool
@@ -232,7 +231,6 @@ Nerodia.instPromotableTOfPromotableRtl
 Nerodia.instToPyBufferPyBytes
 Nerodia.instToPyPy
 Nerodia.instToPyPyOfPromotable
-Nerodia.instToPyPyOfRaw
 Nerodia.instToStringTypeExpr
 Nerodia.instToTypeExprBaseException
 Nerodia.instToTypeExprBool
@@ -254,7 +252,6 @@ Nerodia.instToTypeExprSystemError
 Nerodia.instToTypeExprTrue
 Nerodia.instToTypeExprType
 Nerodia.instToTypeExprTypeError
-Nerodia.instToTypeExprUnionTyping
 Nerodia.instToTypeExprValueError
 Nerodia.instViewPyAnyPyAny
 Nerodia.instViewPyBaseExceptionPyBaseException

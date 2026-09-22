@@ -23,7 +23,7 @@ open PyObject in
 public instance : DecidablePy true := private_decl%
   (Internal.decPy isTrue fun _ => by simp [PyObject.isTrue])
 
-open Internal Nerodia in
+open Internal in
 /-- Returns a reference to the {lit}`True` constant. -/
 @[extern "nerodia_py_environment_true"]
 public def PyEnvironment.true (env : @& PyEnvironment) : PyTrue :=
@@ -45,7 +45,7 @@ open PyObject in
 public instance : DecidablePy false := private_decl%
   (Internal.decPy isFalse fun _ => by simp [PyObject.isFalse])
 
-open Internal Nerodia in
+open Internal in
 /-- Returns a reference to the {lit}`False` constant. -/
 @[extern "nerodia_py_environment_false"]
 public def PyEnvironment.false (env : @& PyEnvironment) : PyFalse :=

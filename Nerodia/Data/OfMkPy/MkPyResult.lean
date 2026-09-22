@@ -25,8 +25,8 @@ public class MkPyResult (α : Type u) (T : outParam Typing) where
   mkPyResult : α → PyCResultIO (Py T)
 
 /-- Internal function for {lit}`@[py_module_fn]` -/
-@[inline] public def Internal.mkPyResult {α} {T} [MkPyResult α T] (a : α) : PyCResultIO Py.Raw :=
-  MkPyResult.mkPyResult a |>.raw
+@[inline] public def Internal.mkPyResult {α} {T} [MkPyResult α T] (a : α) : PyCResultIO PyObject :=
+  MkPyResult.mkPyResult a |>.normalize
 
 /--
 Type class used to construct Python return values from Lean objects.
@@ -38,8 +38,8 @@ public class MkCPyResult (α : Type u) (T : outParam Typing) where
   mkCPyResult : α → CPyIO (Py T)
 
 /-- Internal function for {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]` -/
-@[inline] public def Internal.mkCPyResult {α} {T} [MkCPyResult α T] (a : α) : CPyIO Py.Raw :=
-  MkCPyResult.mkCPyResult a |>.raw
+@[inline] public def Internal.mkCPyResult {α} {T} [MkCPyResult α T] (a : α) : CPyIO PyObject :=
+  MkCPyResult.mkCPyResult a |>.normalize
 
 /-! ## Interlink -/
 

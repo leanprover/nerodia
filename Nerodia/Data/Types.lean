@@ -4,185 +4,15 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
-public import Nerodia.Data.Py.Basic
+public import Nerodia.Data.PyAny
+public import Nerodia.Data.PyNever
+public import Nerodia.Data.Typing.Ops
+public import Nerodia.Data.Typing.Promotable
 meta import Nerodia.Internal.ViewMethod
 
 /-! # Type Definitions -/
 
 namespace Nerodia
-
-/--
-Auxiliary type used for values representing a static Python constant.
-
-Similar to {lean}`Lean.Parser.Category`, definitions of this type have no
-content, they simply reserve names that can be coerced into other types (e.g.,
-{lean}`TypeExpr` or {lean}`Typing`) via {lean}`CoeDep`.
-
-**Users of Nerodia should not define values of this type themselves.**
--/
-public structure Constant where
-  private mk ::
-    private val : NonScalar
-    deriving Inhabited
-
-/-! ## Universal Types -/
-
-/-! ### PyObject -/
-
-/--
-The ultimate Python base class, [{lit}`object`][1].
-
-[1]: https://docs.python.org/3/library/functions.html#object
--/
-public opaque object : Constant
-
-public instance : CoeDep Constant object Typing := ⟨.object⟩
-
-@[inline, irreducible, expose] -- for Nerodia compiler reduction
-public protected def TypeExpr.object : TypeExpr :=
-  ⟨"object"⟩
-
-public instance : CoeDep Constant object TypeExpr := ⟨.object⟩
-public instance : ToTypeExpr object := ⟨object⟩
-
-/-- Any Python object. That is, an instance of {lit}`object`. -/
-public abbrev PyObject := Py object
-
-public instance : ViewPy object PyObject := ⟨rfl⟩
-
-/-- Shorthand for {lean}`ToPy object α` -/
-public abbrev ToPyObject := ToPy object
-
-namespace Py.Raw
-
-@[inline] public def toPyObject (self : Py.Raw) : PyObject :=
-  Py.mk self .object
-
-@[simp, grind =] public theorem raw_toPyObject :
-  (toPyObject o).raw = o := by rfl
-
-public instance : ToPyObject Py.Raw := ⟨toPyObject⟩
-
-@[simp, grind =] public theorem toPy_eq_toPyObject :
-  toPy (o : Py.Raw) = o.toPyObject := by rfl
-
-end Py.Raw
-
-public instance : DecidablePy object := private_decl%
-  (fun _ => isTrue .object)
-
-@[inline, implicit_reducible, expose]
-public def Internal.decPy
-  (f : PyObject → Bool) (h : ∀ o, f o ↔ o ⦂ T)
-: DecidablePy T := fun o =>
-  have h : f o.toPyObject ↔ o ⦂ T := by
-    simpa using h o.toPyObject
-  if ho :  f o.toPyObject then
-    isTrue (h.mp ho)
-  else
-    isFalse ((iff_false_left ho).mp h)
-
-/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
-public abbrev PyObjectView (α : Type u) := α
-
-namespace PyObjectView
-
-@[inline] public def toPyObject
-  [ToPyObject α] (self : PyObjectView α)
-: PyObject := toPy self
-
-@[simp, grind =]
-public theorem toPyObject_eq_toPy
-  [ToPyObject α] (self : PyObjectView α)
-: self.toPyObject = toPy (α := α) self := by rfl
-
-public instance [ToPyObject α] :
-  CoeOut (PyObjectView α) PyObject := ⟨toPyObject⟩
-
-end PyObjectView
-
-/-! ### PyAny -/
-
-/--
-A special indicator signifying any acceptable value.
-This is analogous to Python's [{lit}`Any`][1].
-
-As a typing, this is propositionally equivalent to {lean}`object`,
-but it has different type class instances.
-
-[1]: https://typing.python.org/en/latest/spec/special-types.html#any
--/
-public opaque any : Constant
-
-@[irreducible] public def Typing.any : Typing := .object
-
-public instance : CoeDep Constant any Typing := ⟨.any⟩
-
-@[simp, grind =] public theorem Typing.any_eq_object : any = object := by
-  unfold any; rfl
-
-public instance : NonemptyPy any :=
-  ⟨⟨Classical.ofNonempty, Typing.any_eq_object ▸ .object⟩⟩
-
-public instance : DecidablePy any := private_decl%
-  (fun _ => isTrue (by simp))
-
-/--
-A Python object of unknown type. This is analogous to Python's {lit}`Any`.
-
-As Lean is statically typed, there is little utility in using this type
-instead of {name}`PyObject` within Lean code. However, it exists to enable
-defining Python functions whose parameters or return should be left untyped.
-
-For example, a module function defined as
-
-```
-@[py_module_fn] def foo (o : PyObject) : PyObject := ...
-```
-
-will be given the type {lit}`(o: object) -> object` by Nerodia, whereas
-
-```
-@[py_module_fn] def foo (o : PyAny) : PyAny := ...
-```
-
-will have the type {lit}`(o)` with no annotated parameter or return types.
--/
-public abbrev PyAny := PyObjectView <| Py any
-
-public instance : ViewPy any PyAny := ⟨rfl⟩
-
-/-! ### PyNever -/
-
-/--
-The special form [{lit}`Never`][1], which is the {lean}`Empty` of Python.
-
-[1]: https://typing.python.org/en/latest/spec/special-types.html#never
--/
-public opaque never : Constant
-
-public instance : CoeDep Constant never Typing := ⟨.never⟩
-public instance : DecidablePy never := fun _ => isFalse (by simp)
-
-@[inline, irreducible, expose] -- for Nerodia compiler reduction
-public protected def TypeExpr.never : TypeExpr :=
-  ⟨"Never"⟩
-
-public instance : CoeDep Constant never TypeExpr := ⟨.never⟩
-public instance : ToTypeExpr never := ⟨never⟩
-
-/--
-An instance of the empty type [{lit}`Never`][1]. There are no inhabitants.
-
-[1]: https://docs.python.org/3/library/typing.html#typing.Never
--/
-public abbrev PyNever := Py never
-
-public instance : ViewPy never PyNever := ⟨rfl⟩
-
-/-- Anything holds from an instance of the empty type (c.f., {lean}`Empty.elim`). -/
-public def PyNever.elim (self : PyNever) : α :=
-  Typing.not_hasType_never self.raw_hasType |>.elim
 
 /-!
 ## Weak Types
@@ -199,10 +29,10 @@ with erased _type hints_ to indicate the expected type and the
 {lean}`Typing` of weak types checks for these type hints.
 -/
 
-namespace Py.Raw
+namespace PyObject
 
 set_option linter.unusedVariables.funArgs false in
-@[inline] unsafe def castImpl (ty : TypeExpr) (self : Py.Raw) : Py.Raw :=
+@[inline] unsafe def withTypeHintImpl (ty : TypeExpr) (self : PyObject) : PyObject :=
   unsafeCast self
 
 open Internal in
@@ -213,11 +43,11 @@ This weakly types the object, providing no strong guarantees.
 
 This is akin to the Python {lit}`typing.cast(ty, self)`.
 -/
-@[implemented_by castImpl]
-def cast (ty : TypeExpr) (self : Py.Raw) : Py.Raw :=
+@[implemented_by withTypeHintImpl]
+def withTypeHint (ty : TypeExpr) (self : PyObject) : PyObject :=
   .ofModel {self.toModel with hint := ty}
 
-end Py.Raw
+end PyObject
 
 open Internal in
 /-- The typing for objects weakly typed as {lean}`ty`. -/
@@ -226,16 +56,16 @@ def typeHint (ty : TypeExpr) : Typing :=
 
 instance : ToTypeExpr (typeHint ty) := ⟨ty⟩
 
-@[simp, grind .] theorem Py.Raw.cast_hasType_typeHint :
-  Py.Raw.cast ty o ⦂ typeHint ty
-:= by simp [typeHint, Py.Raw.cast]
+@[simp, grind .] theorem PyObject.withTypeHint_hasType_typeHint :
+  withTypeHint ty o ⦂ typeHint ty
+:= by simp [typeHint, PyObject.withTypeHint]
 
 instance : NonemptyPy (typeHint ty) :=
-  .intro (.cast ty Classical.ofNonempty) Py.Raw.cast_hasType_typeHint
+  ⟨.ofPyObject (.withTypeHint ty Classical.ofNonempty) PyObject.withTypeHint_hasType_typeHint⟩
 
-@[inherit_doc Py.Raw.cast]
-def Py.cast (o : Py T) (ty : TypeExpr) : Py (typeHint ty) :=
-  ⟨o.raw.cast ty, Py.Raw.cast_hasType_typeHint⟩
+@[inherit_doc PyObject.withTypeHint]
+nonrec def Py.cast (o : Py T) (ty : TypeExpr) : Py (typeHint ty) :=
+  .ofPyObject (o.toPyObject.withTypeHint ty) PyObject.withTypeHint_hasType_typeHint
 
 /-! ### Buffer -/
 
@@ -324,19 +154,19 @@ def Typing.kind (k : Py.Kind) : Typing :=
   .ofFn (·.toModel.kind = k)
 
 open Internal in
-noncomputable def Py.Raw.ofKind (k : Py.Kind) : Py.Raw :=
+noncomputable def PyObject.ofKind (k : Py.Kind) : PyObject :=
   .ofModel {Classical.ofNonempty (α := Py.Model) with kind := k}
 
-@[simp, grind .] theorem Py.Raw.ofKind_hasType_kind :
+@[simp, grind .] theorem PyObject.ofKind_hasType_kind :
   .ofKind k ⦂ .kind k
-:= by simp [Typing.kind, Py.Raw.ofKind]
+:= by simp [Typing.kind, PyObject.ofKind]
 
 instance : NonemptyPy (.kind k) :=
-  .intro (.ofKind k) Py.Raw.ofKind_hasType_kind
+  ⟨.ofPyObject (.ofKind k) PyObject.ofKind_hasType_kind⟩
 
-@[simp] theorem Py.Raw.cast_hasType_kind_iff :
-   o.cast ty ⦂ .kind k ↔ o ⦂ .kind k
-:= by simp [Py.Raw.cast, Typing.kind]
+@[simp] theorem PyObject.withTypeHint_hasType_kind_iff :
+   o.withTypeHint ty ⦂ .kind k ↔ o ⦂ .kind k
+:= by simp [PyObject.withTypeHint, Typing.kind]
 
 /-! ### type -/
 
@@ -562,23 +392,19 @@ public instance : CoeDep (Option α) none TypeExpr := ⟨.none⟩
 noncomputable opaque PyEnvironment.noneAddr (env : PyEnvironment) : Addr
 
 open Internal in
-noncomputable def PyEnvironment.noneRaw (env : @& PyEnvironment) : Py.Raw :=
+noncomputable def PyEnvironment.noneObj (env : @& PyEnvironment) : PyObject :=
   .ofModel {env, addr := env.noneAddr, hint := .none}
 
 open Internal in
 @[inherit_doc TypeExpr.none]
 public protected def Typing.none : Typing :=
-  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.noneRaw.toModel.toInnerModel
+  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.noneObj.toModel.toInnerModel
 
 public instance : CoeDep (Option α) none Typing := ⟨.none⟩
 public instance : ToTypeExpr none := ⟨none⟩
 
-theorem PyEnvironment.noneRaw_hasType {env} : noneRaw env ⦂ none := by
-  simp [PyEnvironment.noneRaw, Typing.none]
-
-open PyEnvironment in
-public instance : NonemptyPy none :=
-  .intro (noneRaw Classical.ofNonempty) noneRaw_hasType
+theorem PyEnvironment.noneObj_hasType {env} : noneObj env ⦂ none := by
+  simp [PyEnvironment.noneObj, Typing.none]
 
 /-- A Python {lit}`None` constant. -/
 public abbrev PyNone := PyObjectView <| Py none
@@ -586,7 +412,10 @@ public abbrev PyNone := PyObjectView <| Py none
 public instance : ViewPy none PyNone := ⟨rfl⟩
 
 public noncomputable def Internal.Nerodia.PyEnvironment.noneCore (env : @& PyEnvironment) : PyNone :=
-  ⟨env.noneRaw, env.noneRaw_hasType⟩
+  .ofPyObject env.noneObj env.noneObj_hasType
+
+public instance : NonemptyPy none :=
+  ⟨Internal.Nerodia.PyEnvironment.noneCore Classical.ofNonempty⟩
 
 public def Typing.optional (T : Typing) : Typing :=
   T ∪ none
@@ -622,23 +451,19 @@ public instance : CoeDep Bool false TypeExpr := ⟨.false⟩
 noncomputable opaque PyEnvironment.falseAddr (env : PyEnvironment) : Addr
 
 open Internal in
-noncomputable def PyEnvironment.falseRaw (env : @& PyEnvironment) : Py.Raw :=
+noncomputable def PyEnvironment.falseObj (env : @& PyEnvironment) : PyObject :=
   .ofModel {env, addr := env.falseAddr, kind := .int, hint := .false}
 
 open Internal in
 @[inherit_doc TypeExpr.false]
 public protected def Typing.false : Typing :=
-  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.falseRaw.toModel.toInnerModel
+  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.falseObj.toModel.toInnerModel
 
 public instance : CoeDep Bool false Typing := ⟨.false⟩
 public instance : ToTypeExpr false := ⟨false⟩
 
-theorem PyEnvironment.falseRaw_hasType {env} : falseRaw env ⦂ false := by
-  simp [PyEnvironment.falseRaw, Typing.false]
-
-open PyEnvironment in
-public instance : NonemptyPy false :=
-  .intro (falseRaw Classical.ofNonempty) falseRaw_hasType
+theorem PyEnvironment.falseObj_hasType {env} : falseObj env ⦂ false := by
+  simp [PyEnvironment.falseObj, Typing.false]
 
 /-- A Python {lit}`False` constant. -/
 public abbrev PyFalse := PyBoolView <| PyObjectView <| Py false
@@ -646,7 +471,10 @@ public abbrev PyFalse := PyBoolView <| PyObjectView <| Py false
 public instance : ViewPy false PyFalse := ⟨rfl⟩
 
 public noncomputable def Internal.Nerodia.PyEnvironment.falseCore (env : @& PyEnvironment) : PyFalse :=
-  ⟨env.falseRaw, env.falseRaw_hasType⟩
+  .ofPyObject env.falseObj env.falseObj_hasType
+
+public instance : NonemptyPy false :=
+  ⟨Internal.Nerodia.PyEnvironment.falseCore Classical.ofNonempty⟩
 
 /-! ## True -/
 
@@ -664,23 +492,19 @@ public instance : CoeDep Bool true TypeExpr := ⟨.true⟩
 noncomputable opaque PyEnvironment.trueAddr (env : PyEnvironment) : Addr
 
 open Internal in
-noncomputable def PyEnvironment.trueRaw (env : @& PyEnvironment) : Py.Raw :=
+noncomputable def PyEnvironment.trueObj (env : @& PyEnvironment) : PyObject :=
   .ofModel {env, addr := env.trueAddr, kind := .int, hint := .true}
 
 open Internal in
 @[inherit_doc TypeExpr.true]
 public protected def Typing.true : Typing :=
-  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.trueRaw.toModel.toInnerModel
+  ofFn fun o => o.toModel.toInnerModel = o.toModel.env.trueObj.toModel.toInnerModel
 
 public instance : CoeDep Bool true Typing := ⟨.true⟩
 public instance : ToTypeExpr true := ⟨true⟩
 
-theorem PyEnvironment.trueRaw_hasType {env} : trueRaw env ⦂ true := by
-  simp [PyEnvironment.trueRaw, Typing.true]
-
-open PyEnvironment in
-public instance : NonemptyPy true :=
-  .intro (trueRaw Classical.ofNonempty) trueRaw_hasType
+theorem PyEnvironment.trueObj_hasType {env} : trueObj env ⦂ true := by
+  simp [PyEnvironment.trueObj, Typing.true]
 
 /-- A Python {lit}`True` constant. -/
 public abbrev PyTrue := PyBoolView <| PyObjectView <| Py true
@@ -688,7 +512,10 @@ public abbrev PyTrue := PyBoolView <| PyObjectView <| Py true
 public instance : ViewPy true PyTrue := ⟨rfl⟩
 
 public noncomputable def Internal.Nerodia.PyEnvironment.trueCore (env : @& PyEnvironment) : PyTrue :=
-  ⟨env.trueRaw, env.trueRaw_hasType⟩
+  .ofPyObject env.trueObj env.trueObj_hasType
+
+public instance : NonemptyPy true :=
+  ⟨Internal.Nerodia.PyEnvironment.trueCore Classical.ofNonempty⟩
 
 /-! ## bool -/
 
@@ -729,10 +556,10 @@ public instance : PromotableB bool true := ⟨true_subset_bool⟩
 
 open Typing PyEnvironment Internal Nerodia in
 theorem bool_subset_int : Typing.bool ⊆ int := by
-  simp only [bool_eq_false_union_true, subset_iff_forall, hasType_union_iff_or]
+  simp only [bool_eq_false_union_true, subset_iff_forall, union_iff_or]
   intro o
-  simp only [Typing.int, Typing.false, Typing.true, kind, hasType_ofFn_iff]
-  simp only [falseRaw, trueRaw, Py.Raw.toModel_ofModel]
+  simp only [Typing.int, Typing.false, Typing.true, kind, ofFn_iff]
+  simp only [falseObj, trueObj, PyObject.toModel_ofModel]
   rintro (h | h) <;> rw [h]
 
 public instance : PromotableB int bool := ⟨bool_subset_int⟩
@@ -771,8 +598,8 @@ As such, instances of these subtypes are weakly typed.
 
 open Typing in
 instance : NonemptyPy (baseException ∩ typeHint ty) :=
-  .intro (.cast ty (.ofKind .baseException)) <| by
-    simp [hasType_inter_iff_and, Typing.baseException]
+  .intro (.withTypeHint ty (.ofKind .baseException)) <| by
+    simp [inter_iff_and, Typing.baseException]
 
 /-- The typing for a {lit}`BaseException` weakly typed as {lean}`ty`. -/
 def exceptHint (ty : TypeExpr) : Typing :=
