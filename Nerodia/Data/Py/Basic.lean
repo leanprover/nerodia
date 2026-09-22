@@ -4,35 +4,21 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Mac Malone
 -/
 module
-public import Nerodia.Data.Typing
+public import Nerodia.Data.Typing.Raw
 public import Nerodia.Data.Py.Raw.Type
 
 /-! # Py -/
 
 namespace Nerodia
 
+public protected structure Internal.Py (T : Typing) where
+  private mk ::
+    private raw : Py.Raw
+    private raw_hasType : raw.HasType T
+
 /-- A typed Python object. -/
-public structure Py (T : Typing) where
-  raw : Py.Raw
-  raw_hasType : raw ⦂ T
-
-namespace Py
-
-public instance : CoeOut (Py T) Py.Raw := ⟨raw⟩
-
-attribute [simp, grind! .] Py.raw_hasType
-
-/--
-**Type promotion.**
-Casts a Python object from {lean}`U` to its supertype {lean}`T`.
--/
-@[inline] public def promote (self : Py U) [Promotable T U] : Py T :=
-  mk self.raw <| subset_of_promotable.hasType_of_hasType self.raw_hasType
-
-@[simp, grind =] public theorem raw_promote [Promotable T U] :
-  (promote (T := T) (U := U) o).raw = o.raw := by rfl
-
-end Py
+@[irreducible, expose] -- for codegen
+public def Py (T : Typing) := Internal.Py T
 
 /-! ## IsPy -/
 
@@ -41,47 +27,211 @@ end Py
 represented at runtime by a managed Python object pointer.
 -/
 public class inductive IsPy : (α : Type) → Prop
-| private of_raw : IsPy Py.Raw
 | private of_py {T} : IsPy (Py T)
+| private of_raw : IsPy Internal.Py.Raw
 
-public instance : IsPy Py.Raw := .of_raw
 public instance : IsPy (Py T) := .of_py
+namespace Internal
+public instance : IsPy Internal.Py.Raw := .of_raw
+end Internal
+
+/-! ## ToPy -/
+
+/--
+Types which can be trivially converted into Python objects of type {lean}`T`.
+
+This type class is intended to be used to convert between different
+representations of a Python object (e.g., converting a {lean}`Py T` to a
+{lean}`Py object`). It is not meant to be a general way to construct Python
+objects from arbitrary Lean types.
+-/
+public class ToPy (T : Typing) (α : Type u)  where
+  toPy (a : α) : Py T
+
+export ToPy (toPy)
+
+@[default_instance]
+public instance : ToPy T (Py T) := ⟨(·)⟩
+
+@[simp, grind =] public theorem toPy_eq_self :
+  toPy (o : Py T) = o := by rfl
+
+
+/-! ## PyObject -/
+
+/-- Any Python object. That is, an instance of {lit}`object`. -/
+public abbrev PyObject := Py object
+
+/-- Shorthand for {lean}`ToPy object α` -/
+public abbrev ToPyObject := ToPy object
+
+namespace Py
+
+unseal Py in
+@[inline] public def toPyObject (self : Py T) : PyObject :=
+  Internal.Py.mk self.raw .object
+
+unseal Py in
+@[ext, grind ext] public theorem ext :
+  toPyObject a = toPyObject b → a = b
+:= by cases a <;> cases b <;> grind only [toPyObject]
+
+unseal Py in
+--@[simp, grind =]
+public theorem toPyObject_eq_self :
+  (self : Py object).toPyObject = self := by rfl
+
+public instance : ToPyObject (Py T) := ⟨toPyObject⟩
+
+@[simp, grind! .] public theorem toPy_eq_toPyObject :
+  toPy (self : Py T) = self.toPyObject := by rfl
+
+public instance : CoeOut (Py T) PyObject := ⟨toPyObject⟩
+
+end Py
+
+unseal Py in
+@[inline] public def Internal.Py.Raw.toPyObject (self : Py.Raw) : PyObject :=
+  Internal.Py.mk self .object
+
+namespace Internal.Nerodia.PyObject
+
+open Internal
+
+unseal Nerodia.Py in
+public noncomputable nonrec def ofModel (o : Py.Model) : PyObject :=
+  ⟨.ofModel o, .object⟩
+
+unseal Nerodia.Py in
+public noncomputable nonrec def toModel (o : PyObject) : Py.Model :=
+  o.raw.toModel
+
+@[simp, grind =]
+public theorem toModel_ofModel : toModel (ofModel m) = m := by
+  simp [toModel, ofModel]
+
+end Internal.Nerodia.PyObject
+
+/-! ## PyObjectView -/
+
+--/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
+public abbrev PyObjectView (α : Type u) := α
+
+namespace PyObjectView
+
+@[inline] public def toPyObject
+  [ToPyObject α] (self : PyObjectView α)
+: PyObject := toPy self
+
+@[simp, grind =]
+public theorem toPyObject_eq_toPy
+  [ToPyObject α] (self : PyObjectView α)
+: self.toPyObject = toPy (α := α) self := by rfl
+
+public instance [ToPyObject α] :
+  CoeOut (PyObjectView α) PyObject := ⟨toPyObject⟩
+
+end PyObjectView
+
+/-! ## HasType -/
+
+unseal Py in
+--/-- Holds if {lean}`self` has the Python typing {lean}`T`. -/
+public def PyObject.HasType (T : Typing) (self : PyObject) : Prop :=
+  self.raw.HasType T
+
+public section
+scoped notation:50 a:51 " ⦂ " T:51 => Nerodia.PyObject.HasType T a
+end
+
+recommended_spelling "hasType" for "⦂" in [«term_⦂_»]
+
+/--
+{given -show}`o : PyObject, T : Typing`
+The typing relation {lean}`o ⦂ T : Prop` asserts that
+the Python object {lean}`o` has the Python typing {lean}`T`.
+-/
+add_decl_doc «term_⦂_»
+
+/--
+Holds if {lean}`self` has the Python typing {lean}`T`.
+Written as {lean}`self ⦂ T`.
+-/
+add_decl_doc PyObject.HasType
+
+open Internal in
+public def Typing.ofFn (p : PyObject → Prop) : Typing :=
+  .ofRawFn fun o => p o.toPyObject
+
+unseal Py in
+open Internal in
+@[simp, grind =] public theorem Typing.ofFn_iff :
+  o ⦂ .ofFn p ↔ p o
+:= by
+  cases o
+  simp [
+    Typing.ofFn, PyObject.HasType,
+    Py.Raw.HasType.ofRawFn_iff, Py.Raw.toPyObject
+  ]
+
+@[deprecated ofFn_iff (since := "2026-09-20")]
+public theorem Typing.hasType_ofFn_iff :
+  o ⦂ .ofFn p ↔ p o
+:= Typing.ofFn_iff
+
+open Internal in
+@[ext, grind ext] public theorem Typing.ext
+  (h : ∀ o : PyObject, o ⦂ T ↔ o ⦂ U)
+: T = U := by
+  apply Py.Raw.HasType.ext
+  intro o
+  specialize h o.toPyObject
+  --simp only [Py.toPyObject_eq_self] at h
+  simpa [PyObject.HasType, Py.Raw.toPyObject] using h
+
+open Internal in
+@[simp, grind .] public theorem PyObject.HasType.object : o ⦂ object :=
+  Py.Raw.HasType.object
+
+@[deprecated PyObject.HasType.object (since := "2026-09-22")]
+public abbrev Typing.HasType.object := @PyObject.HasType.object
+
+namespace Py
+
+unseal Py in
+@[simp, grind! .] public theorem toPyObject_hasType  :
+  (self : Py T) ⦂ T := self.raw_hasType
+
+unseal Py in
+@[inline] public def ofPyObject (o : PyObject) (h : o ⦂ T) : Py T :=
+  Internal.Py.mk o.raw h
+
+unseal Py in
+@[simp, grind =] public theorem toPyObject_ofPyObject  :
+  toPyObject (ofPyObject o h) = o := by rfl
+
+end Py
 
 /-! ## DecidablePy -/
-
 /--
 A typing {lean}`T` with a {lean}`DecidablePy T` instance
 has a pure type checking function.
 -/
-public abbrev DecidablePy (T : Typing) := DecidablePred (· ⦂ T)
+public abbrev DecidablePy (T : Typing) :=
+  @DecidablePred PyObject (· ⦂ T)
 
-public instance [DecidablePy T] [DecidablePy U] : DecidablePy (T ∪ U) :=
-  fun _ => decidable_of_iff' _ Typing.hasType_union_iff_or
+public instance : DecidablePy object := private_decl%
+  (fun _ => isTrue .object)
 
-public instance [DecidablePy T] [DecidablePy U] : DecidablePy (T ∩ U) :=
-  fun _ => decidable_of_iff' _ Typing.hasType_inter_iff_and
-
-/-! ## NonemptyPy -/
-
-/--
-A {lean}`NonemptyPy T` instance provides a proof
-that there exists a Python object of type {lean}`T`.
--/
-public abbrev NonemptyPy (T : Typing) := Nonempty (Py T)
-
-public theorem NonemptyPy.intro (o : Py.Raw) (h : o ⦂ T) : NonemptyPy T :=
-  ⟨⟨o, h⟩⟩
-
-public instance : NonemptyPy .object :=
-  .intro Classical.ofNonempty .object
-
-public instance [NonemptyPy T] : NonemptyPy (T ∪ U) :=
-  let o : Py T := Classical.ofNonempty
-  .intro o.raw o.raw_hasType.union_left
-
-public instance [NonemptyPy U] : NonemptyPy (T ∪ U) :=
-  let o : Py U := Classical.ofNonempty
-  .intro o.raw o.raw_hasType.union_right
+@[inline, implicit_reducible, expose]
+public def Internal.decPy
+  (f : PyObject → Bool) (h : ∀ o, f o ↔ o ⦂ T)
+: DecidablePy T := fun o =>
+  have h := h o
+  if fo : f o then
+    isTrue (h.mp fo)
+  else
+    isFalse ((iff_false_left fo).mp h)
 
 /-! ## ViewPy -/
 
@@ -97,16 +247,14 @@ bridge the two, synthesizing the view type {lean}`α` from its respective typing
 {lean}`T`.
 -/
 public class ViewPy (T : Typing) (α : outParam $ Type) : Prop where
-  isPyT : α = Py T
+  eq_py : α = Py T
+
+@[deprecated eq_py (since := "2026-09-20")]
+public abbrev ViewPy.isPyT := @ViewPy.eq_py
 
 public instance (priority := low) : ViewPy T (Py T) := ⟨rfl⟩
 
-@[inline] def Py.Raw.attachType
-  [ViewPy T α] (self : Py.Raw) (h : self ⦂ T)
-: α := cast ViewPy.isPyT.symm (Py.mk self h)
-
-@[simp] theorem Py.Raw.raw_attachType : (attachType o h).raw = o := by
-  simp [attachType]
+public instance : ViewPy object PyObject := ⟨rfl⟩
 
 /--
 Types {lean}`self` as {lean}`T` using a proof of correctness.
@@ -116,57 +264,57 @@ For example, the following pattern in Python:
 ```
 if isinstance(self, T):
   # Python type checkers would assume `self: T` in this block
-  fnT(self)
+  doSomethingWithT(self)
 else:
-  notT
+  differentType()
 ```
 
 can be implemented in Lean like so:
 
 {givenInstance -show}`DecidablePy T`
-{given -show}`fnT : α → Unit, notT : Unit`
+{given -show}`doSomethingWithT : α → IO Unit, differentType : IO Unit`
 ```leanTerm
 if h : self ⦂ T then
   let self := self.attachType h
-  fnT self
+  doSomethingWithT self
 else
-  notT
+  differentType
 ```
 -/
-@[inline] public def Py.attachType
-  [ViewPy T α] (self : Py U) (h : self ⦂ T)
-: α := self.raw.attachType h
+@[inline] public def PyObject.attachType
+  [ViewPy T α] (self : PyObject) (h : self ⦂ T)
+: α := cast ViewPy.eq_py.symm (.ofPyObject self h)
 
-@[simp, grind =] public theorem Py.raw_attachType :
-  ((o : Py T).attachType h).raw = o.raw
+@[simp, grind =] public theorem PyObject.toPyObject_attachType
+  {self : PyObject} {h : self ⦂ T} :
+  (self.attachType h).toPyObject = self
 := by simp [attachType]
 
-/-! ## ToPy -/
+@[inline] public def Py.attachType
+  [ViewPy T α] (self : Py U) (h : self ⦂ T)
+: α := self.toPyObject.attachType h
+
+@[simp, grind =] public theorem Py.attachType_spec
+  {self : Py U} {h : self ⦂ T} :
+  (self.attachType h) = self.toPyObject.attachType h
+:= by simp [attachType]
+
+/-! ## NonemptyPy -/
 
 /--
-Types which can be trivially converted into Python objects of type {lean}`T`.
-
-This type class is intended to be used to convert between different
-representations of a Python object (e.g., converting a {lean}`Py T` to a
-{given -show}`U : Typing` {lean}`Py (T ∩ U)`). It is not meant to be a
-general way to construct Python objects from arbitrary Lean types.
+A {lean}`NonemptyPy T` instance provides a proof
+that there exists a Python object of type {lean}`T`.
 -/
-public class ToPy (T : Typing) (α : Type u)  where
-  toPy (a : α) : Py T
+public abbrev NonemptyPy (T : Typing) := Nonempty (Py T)
 
-export ToPy (toPy)
+public theorem NonemptyPy.intro (o : PyObject) (h : o ⦂ T) : NonemptyPy T :=
+  ⟨.ofPyObject o h⟩
 
-public instance [Promotable T U] : ToPy T (Py U) := ⟨(·.promote)⟩
+/-
+public theorem NonemptyPy.intro (o : Py.Raw) (h : o ⦂ T) : NonemptyPy T :=
+  ⟨⟨o, h⟩⟩
+-/
 
-@[simp, grind =] public theorem toPy_eq_promote [Promotable T U] :
-  toPy o = Py.promote o (T := T) (U := U) := by rfl
-
-public instance : ToPy T (Py T) := ⟨(·)⟩
-
-@[simp, grind =] public theorem toPy_eq_self :
-  toPy (o : Py T) = o := by rfl
-
-public instance [ToPy T Py.Raw] : ToPy T (Py U) := ⟨(toPy ·.raw)⟩
-
-@[simp, grind =] public theorem toPy_eq_toPy_raw  [ToPy U Py.Raw] :
-  toPy (o : Py T) = toPy (T := U) o.raw := by rfl
+unseal Py in
+public instance : NonemptyPy object :=
+  ⟨⟨Classical.ofNonempty, .object⟩⟩

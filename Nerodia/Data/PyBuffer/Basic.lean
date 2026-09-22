@@ -43,7 +43,7 @@ Returns the bytes of the buffer as a Lean {lean}`ByteArray`.
 @[extern "nerodia_py_buffer_get_byte_array"]
 opaque getByteArrayUnsafe (self : @& PyBuffer) : BaseIO (Option ByteArray)
 
-open Internal Nerodia in
+open Internal in
 /-- Returns the bytes of the buffer as a Lean {lean}`ByteArray`. -/
 @[view_method]
 public opaque getByteArray (self : @& PyBuffer) : PyIO ByteArray := .ofPyBaseIOUnsafe do

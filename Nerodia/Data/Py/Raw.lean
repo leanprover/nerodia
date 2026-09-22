@@ -5,4 +5,3 @@ Authors: Mac Malone
 -/
 module
 public import Nerodia.Data.Py.Raw.Type
-public import Nerodia.Data.Py.Raw.Basic

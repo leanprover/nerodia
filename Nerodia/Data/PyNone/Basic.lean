@@ -30,7 +30,7 @@ public instance : DecidablePy none := private_decl%
 public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
   simp [PyObject.isNone_iff_hasType]
 
-open Internal Nerodia in
+open Internal in
 /-- Returns a reference to the {lit}`None` constant. -/
 @[extern "nerodia_py_environment_none"]
 public protected nonrec def PyEnvironment.none (env : @& PyEnvironment) : PyNone :=

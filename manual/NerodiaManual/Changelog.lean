@@ -7,7 +7,7 @@ Author: Mac Malone
 import VersoManual
 import Nerodia
 
-open Nerodia
+open Nerodia Internal
 open Verso.Genre Manual InlineLean
 
 #doc (Manual) "Changelog" =>
@@ -36,6 +36,10 @@ tag := "4.34.0"
 %%%
 
 - Introduction of this reference manual.
+
+- *Breaking change:* {lean}`Py.Raw` has been removed from the public API as part
+of a refactor of {lean}`Typing` and the `⦂` operaton. It is now internal and most
+of its uses should be replaced with {lean}`PyObject`.
 
 - `ByteArray` produces `bytes` as a result type.
 

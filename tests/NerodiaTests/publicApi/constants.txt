@@ -6,6 +6,7 @@ Nerodia.Addr.toNullableAddr_inj
 Nerodia.BaseIO.toPyBaseIO
 Nerodia.BaseIO.toPyIO
 Nerodia.CPyBaseIO (irreducible)
+Nerodia.CPyBaseIO.normalize
 Nerodia.CPyBaseIO.ofBind
 Nerodia.CPyBaseIO.promote
 Nerodia.CPyBaseIO.pure
@@ -13,11 +14,12 @@ Nerodia.CPyBaseIO.toCPyIO
 Nerodia.CPyBaseIO.toM
 Nerodia.CPyBaseIO.toPyBaseIO
 Nerodia.CPyIO (irreducible)
+Nerodia.CPyIO.normalize
 Nerodia.CPyIO.ofBind
 Nerodia.CPyIO.promote
 Nerodia.CPyIO.pure
 Nerodia.CPyIO.raise
-Nerodia.CPyIO.raw
+Nerodia.CPyIO.raw (deprecated)
 Nerodia.CPyIO.toAlternative
 Nerodia.CPyIO.toEIO
 Nerodia.CPyIO.toExceptT
@@ -116,19 +118,18 @@ Nerodia.PromotableRtl.intro
 Nerodia.PromotableT
 Nerodia.PromotableT.infer
 Nerodia.PromotableT.intro
-Nerodia.Py
-Nerodia.Py.Raw
-Nerodia.Py.Raw.addr
-Nerodia.Py.Raw.raw_toPyObject
-Nerodia.Py.Raw.toPyObject
-Nerodia.Py.Raw.toPy_eq_toPyObject
+Nerodia.Py (irreducible)
 Nerodia.Py.attachType
-Nerodia.Py.mk
+Nerodia.Py.attachType_spec
+Nerodia.Py.ext
+Nerodia.Py.ext_iff
+Nerodia.Py.ofPyObject
 Nerodia.Py.promote
-Nerodia.Py.raw (proj)
-Nerodia.Py.raw_attachType
-Nerodia.Py.raw_hasType
-Nerodia.Py.raw_promote
+Nerodia.Py.toPyObject
+Nerodia.Py.toPyObject_eq_self
+Nerodia.Py.toPyObject_hasType
+Nerodia.Py.toPyObject_ofPyObject
+Nerodia.Py.toPy_eq_toPyObject
 Nerodia.PyAny (type abbrev)
 Nerodia.PyAttrInit (irreducible)
 Nerodia.PyAttrInit.ofCPyIO
@@ -178,9 +179,10 @@ Nerodia.PyBytes.toByteArray
 Nerodia.PyBytes.usize
 Nerodia.PyBytes.usize_eq
 Nerodia.PyCResultIO (irreducible)
+Nerodia.PyCResultIO.normalize
 Nerodia.PyCResultIO.promote
 Nerodia.PyCResultIO.pure
-Nerodia.PyCResultIO.raw
+Nerodia.PyCResultIO.raw (deprecated)
 Nerodia.PyCResultIO.toCPyIO
 Nerodia.PyEOFError (type abbrev)
 Nerodia.PyEnvironment
@@ -232,11 +234,20 @@ Nerodia.PyModule.addByString
 Nerodia.PyModuleInit (irreducible)
 Nerodia.PyModuleInit.ofPyIO
 Nerodia.PyNever (type abbrev)
-Nerodia.PyNever.elim
+Nerodia.PyNever.elim (irreducible)
 Nerodia.PyNone (type abbrev)
 Nerodia.PyNone.isNone_eq_true (deprecated)
 Nerodia.PyOSError (type abbrev)
 Nerodia.PyObject (type abbrev)
+Nerodia.PyObject.HasType
+Nerodia.PyObject.HasType.left
+Nerodia.PyObject.HasType.not_never
+Nerodia.PyObject.HasType.object
+Nerodia.PyObject.HasType.promote
+Nerodia.PyObject.HasType.right
+Nerodia.PyObject.HasType.union_left
+Nerodia.PyObject.HasType.union_right
+Nerodia.PyObject.attachType
 Nerodia.PyObject.bytes
 Nerodia.PyObject.call0
 Nerodia.PyObject.call1
@@ -252,6 +263,7 @@ Nerodia.PyObject.repr
 Nerodia.PyObject.setAttr
 Nerodia.PyObject.setAttrByString
 Nerodia.PyObject.str
+Nerodia.PyObject.toPyObject_attachType
 Nerodia.PyObjectView (type abbrev)
 Nerodia.PyObjectView.bytes
 Nerodia.PyObjectView.bytes_spec
@@ -298,6 +310,7 @@ Nerodia.PyType (type abbrev)
 Nerodia.PyType.getQualName
 Nerodia.PyTypeError (type abbrev)
 Nerodia.PyValueError (type abbrev)
+Nerodia.Subset.of_promotable
 Nerodia.ToPy
 Nerodia.ToPy.mk
 Nerodia.ToPy.toPy (proj)
@@ -334,12 +347,10 @@ Nerodia.TypeExpr.typeError (irreducible)
 Nerodia.TypeExpr.union
 Nerodia.TypeExpr.valueError (irreducible)
 Nerodia.Typing (irreducible)
-Nerodia.Typing.HasType
-Nerodia.Typing.HasType.left
-Nerodia.Typing.HasType.object
-Nerodia.Typing.HasType.right
-Nerodia.Typing.HasType.union_left
-Nerodia.Typing.HasType.union_right
+Nerodia.Typing.HasType (deprecated)
+Nerodia.Typing.HasType.left (deprecated)
+Nerodia.Typing.HasType.object (deprecated)
+Nerodia.Typing.HasType.right (deprecated)
 Nerodia.Typing.Subset
 Nerodia.Typing.Subset.hasType_of_hasType
 Nerodia.Typing.Subset.inter_left
@@ -362,11 +373,12 @@ Nerodia.Typing.exception
 Nerodia.Typing.ext
 Nerodia.Typing.ext_iff
 Nerodia.Typing.false
-Nerodia.Typing.hasType_inter_iff_and
-Nerodia.Typing.hasType_ofFn_iff
-Nerodia.Typing.hasType_union_iff_or
+Nerodia.Typing.hasType_inter_iff_and (deprecated)
+Nerodia.Typing.hasType_ofFn_iff (deprecated)
+Nerodia.Typing.hasType_union_iff_or (deprecated)
 Nerodia.Typing.int
 Nerodia.Typing.inter
+Nerodia.Typing.inter_iff_and
 Nerodia.Typing.inter_never
 Nerodia.Typing.inter_object
 Nerodia.Typing.moduleType
@@ -375,11 +387,12 @@ Nerodia.Typing.never_inter
 Nerodia.Typing.never_subset (deprecated)
 Nerodia.Typing.never_union
 Nerodia.Typing.none
-Nerodia.Typing.not_hasType_never
+Nerodia.Typing.not_hasType_never (deprecated)
 Nerodia.Typing.object
 Nerodia.Typing.object_inter
 Nerodia.Typing.object_union
 Nerodia.Typing.ofFn
+Nerodia.Typing.ofFn_iff
 Nerodia.Typing.optional
 Nerodia.Typing.optional_eq_union_none
 Nerodia.Typing.osError
@@ -391,11 +404,13 @@ Nerodia.Typing.true
 Nerodia.Typing.type
 Nerodia.Typing.typeError
 Nerodia.Typing.union
+Nerodia.Typing.union_iff_or
 Nerodia.Typing.union_never
 Nerodia.Typing.union_object
 Nerodia.Typing.valueError
 Nerodia.ViewPy
-Nerodia.ViewPy.isPyT
+Nerodia.ViewPy.eq_py
+Nerodia.ViewPy.isPyT (deprecated)
 Nerodia.ViewPy.mk
 Nerodia.any
 Nerodia.baseException
@@ -440,11 +455,9 @@ Nerodia.raisePyTypeError
 Nerodia.raisePyValueError
 Nerodia.runtimeError
 Nerodia.str
-Nerodia.subset_of_promotable
 Nerodia.systemError
 Nerodia.toPy_eq_promote
 Nerodia.toPy_eq_self
-Nerodia.toPy_eq_toPy_raw
 Nerodia.type
 Nerodia.typeError
 Nerodia.valueError
