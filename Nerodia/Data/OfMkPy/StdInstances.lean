@@ -26,7 +26,7 @@ These modules define the standard Nerodia instances used to convert Python
 arguments to Lean objects and Lean returns to Python objects.
 -/
 
-namespace Nerodia
+namespace Nerodia.Internal
 
 open OfPyArg (ofPyArg)
 
@@ -82,15 +82,19 @@ public instance [MkCPyResult α T] : MkCPyResult (PyBaseIO α) T where
 public instance [MkCPyResult α T] : MkCPyResult (PyIO α) T where
   mkCPyResult x := private x.bindCPyIO MkCPyResult.mkCPyResult
 
+open Nerodia in
 public instance [MkPyResult α T] : MkPyResult (BaseIO α) T where
   mkPyResult x := private PyBaseIO.bindPyCResultIO x MkPyResult.mkPyResult
 
+open Nerodia in
 public instance [MkPyResult α T] : MkPyResult (IO α) T where
   mkPyResult x := private PyIO.bindPyCResultIO x MkPyResult.mkPyResult
 
+open Internal in
 public instance [MkPyResult α T] : MkPyResult (PyBaseIO α) T where
   mkPyResult x := private x.bindPyCResultIO MkPyResult.mkPyResult
 
+open Internal in
 public instance [MkPyResult α T] : MkPyResult (PyIO α) T where
   mkPyResult x := private x.bindPyCResultIO MkPyResult.mkPyResult
 
@@ -119,6 +123,7 @@ public instance [MkCPyResult α T] : MkCPyResult (Option α) (.optional T) where
     | none => getPyNone.toCPyIO.promote
     | some a => MkCPyResult.mkCPyResult a |>.promote
 
+open Internal in
 public instance [MkPyResult α T] : MkPyResult (Option α) (.optional T) where
   mkPyResult a? := private match a? with
     | none => getPyNone.toCPyIO.toPyCResultIO.promote

@@ -27,9 +27,7 @@ Nerodia.CPyIO.toIO
 Nerodia.CPyIO.toM
 Nerodia.CPyIO.toM?
 Nerodia.CPyIO.toOptionT
-Nerodia.CPyIO.toPyCResultIO
 Nerodia.CPyIO.toPyIO
-Nerodia.CPyIO.toPyResultIO (deprecated)
 Nerodia.CPyIO.tryCatchM
 Nerodia.CPyUnitIO (irreducible)
 Nerodia.CPyUnitIO.ok
@@ -68,12 +66,6 @@ Nerodia.IsPy
 Nerodia.IsSubtypeOf (deprecated)
 Nerodia.IsSubtypeOf.infer_subtype (deprecated)
 Nerodia.IsSubtypeOf.mk
-Nerodia.MkCPyResult
-Nerodia.MkCPyResult.mk
-Nerodia.MkCPyResult.mkCPyResult (proj)
-Nerodia.MkPyResult
-Nerodia.MkPyResult.mk
-Nerodia.MkPyResult.mkPyResult (proj)
 Nerodia.MonadPy
 Nerodia.MonadPy.getPyThreadCtxUnsafe (proj)
 Nerodia.MonadPy.mk
@@ -100,9 +92,6 @@ Nerodia.NullableAddr.isNull_null
 Nerodia.NullableAddr.null
 Nerodia.NullableAddr.toNat
 Nerodia.NullableAddr.toUSize (proj)
-Nerodia.OfPyArg
-Nerodia.OfPyArg.mk
-Nerodia.OfPyArg.ofPyArg (proj)
 Nerodia.Promotable
 Nerodia.Promotable.infer
 Nerodia.Promotable.intro
@@ -143,8 +132,6 @@ Nerodia.PyBaseExceptionView.toPyBaseException_eq_toPy
 Nerodia.PyBaseIO (irreducible)
 Nerodia.PyBaseIO.bindCPyBaseIO
 Nerodia.PyBaseIO.bindCPyIO
-Nerodia.PyBaseIO.bindPyCResultIO
-Nerodia.PyBaseIO.bindPyResultIO (deprecated)
 Nerodia.PyBaseIO.run
 Nerodia.PyBaseIO.toBaseIO
 Nerodia.PyBaseIO.toCPyBaseIO
@@ -178,12 +165,7 @@ Nerodia.PyBytes.size_eq
 Nerodia.PyBytes.toByteArray
 Nerodia.PyBytes.usize
 Nerodia.PyBytes.usize_eq
-Nerodia.PyCResultIO (irreducible)
-Nerodia.PyCResultIO.normalize
-Nerodia.PyCResultIO.promote
 Nerodia.PyCResultIO.pure
-Nerodia.PyCResultIO.raw (deprecated)
-Nerodia.PyCResultIO.toCPyIO
 Nerodia.PyEOFError (type abbrev)
 Nerodia.PyEnvironment
 Nerodia.PyEnvironment.false
@@ -194,8 +176,6 @@ Nerodia.PyException (type abbrev)
 Nerodia.PyFalse (type abbrev)
 Nerodia.PyIO (irreducible)
 Nerodia.PyIO.bindCPyIO
-Nerodia.PyIO.bindPyCResultIO
-Nerodia.PyIO.bindPyResultIO (deprecated)
 Nerodia.PyIO.orElseM
 Nerodia.PyIO.raise
 Nerodia.PyIO.toCPyIO

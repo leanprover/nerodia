@@ -16,7 +16,7 @@ This class is used by the Nerodia compiler attribute
 {lit}`@[py_module_fn]`.
 -/
 
-namespace Nerodia
+namespace Nerodia.Internal
 
 /-- Type class used to construct a Lean object from a Python function argument. -/
 public class OfPyArg (α : Type) (T : outParam Typing) where

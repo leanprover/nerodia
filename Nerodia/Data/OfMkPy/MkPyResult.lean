@@ -16,7 +16,7 @@ These classes are used by the Nerodia compiler attributes
 {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]`.
 -/
 
-namespace Nerodia
+namespace Nerodia.Internal
 
 /-! ## Type Classes -/
 
@@ -25,7 +25,7 @@ public class MkPyResult (α : Type u) (T : outParam Typing) where
   mkPyResult : α → PyCResultIO (Py T)
 
 /-- Internal function for {lit}`@[py_module_fn]` -/
-@[inline] public def Internal.mkPyResult {α} {T} [MkPyResult α T] (a : α) : PyCResultIO PyObject :=
+@[inline] public def mkPyResult {α} {T} [MkPyResult α T] (a : α) : PyCResultIO PyObject :=
   MkPyResult.mkPyResult a |>.normalize
 
 /--
@@ -38,11 +38,12 @@ public class MkCPyResult (α : Type u) (T : outParam Typing) where
   mkCPyResult : α → CPyIO (Py T)
 
 /-- Internal function for {lit}`@[py_module_fn]` and {lit}`@[py_module_attr]` -/
-@[inline] public def Internal.mkCPyResult {α} {T} [MkCPyResult α T] (a : α) : CPyIO PyObject :=
+@[inline] public def mkCPyResult {α} {T} [MkCPyResult α T] (a : α) : CPyIO PyObject :=
   MkCPyResult.mkCPyResult a |>.normalize
 
 /-! ## Interlink -/
 
+open Nerodia in
 public instance (priority := low) [MkCPyResult α T] : MkPyResult α T where
   mkPyResult x := CPyIO.toPyCResultIO (MkCPyResult.mkCPyResult x)
 

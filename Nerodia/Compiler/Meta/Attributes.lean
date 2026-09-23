@@ -121,10 +121,10 @@ def mkPyResultCore
   return (x, hint?)
 
 @[inline] def mkPyResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) :=
-  mkPyResultCore `Nerodia.MkPyResult `Nerodia.Internal.mkPyResult ty x
+  mkPyResultCore `Nerodia.Internal.MkPyResult `Nerodia.Internal.mkPyResult ty x
 
 @[inline] def mkCPyResult (ty : Expr) (x : Expr) : MetaM (Expr × Option String) :=
-  mkPyResultCore `Nerodia.MkCPyResult `Nerodia.Internal.mkCPyResult ty x
+  mkPyResultCore `Nerodia.Internal.MkCPyResult `Nerodia.Internal.mkCPyResult ty x
 
 def mkArgCore
   (fnName : Name)
@@ -132,7 +132,7 @@ def mkArgCore
 : MetaM (Expr × Option String) := do
   let predTy := mkConst `Nerodia.Typing
   let predExpr ← mkFreshExprMVar (some predTy)
-  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.OfPyArg) ty predExpr)
+  let inst ← synthInstance (mkApp2 (mkConst `Nerodia.Internal.OfPyArg) ty predExpr)
   let x := mkApp6 (mkConst fnName) ty predExpr inst fn i arg
   let hint? ← mkHint predExpr
   return (x, hint?)
@@ -140,7 +140,7 @@ def mkArgCore
 @[inline] def mkArg
   (fn : Expr) (i : Nat) (ty : Expr) (arg : Expr)
 : MetaM (Expr × Option String) := do
-  mkArgCore `Nerodia.OfPyArg.ofPyArg fn (toExpr (i+1)) ty arg
+  mkArgCore `Nerodia.Internal.OfPyArg.ofPyArg fn (toExpr (i+1)) ty arg
 
 @[inline] def mkCArg
   (fn : Expr) (i : USize) (ty : Expr) (args : Expr)
