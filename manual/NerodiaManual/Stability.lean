@@ -14,10 +14,11 @@ htmlSplit := .never
 %%%
 
 While Nerodia is still in development, it nonetheless strives to matain
-stability in its public API accross versions. Definitions to be removed from the
-public API will undergo a period of a deprecation (generally one version cycle).
-In the event Nerodia needs changes that break the public API wihtou deprecation,
-those changes will be recorded in the {ref "changelog"}`changelog` for that version.
+stability in its public API accross versions. Generally, definitions to be
+removed from the public API will undergo a period of a deprecation (usually
+one version cycle). In the event Nerodia makes changes that break the public API
+wihtout deprecation, those changes will be recorded as *breaking changes* in the
+{ref "changelog"}[changelog] for that version.
 
 Nerodia uses the module system, and its public API is primarily defined by the
 content available through its exported module interface. For instance, `public`

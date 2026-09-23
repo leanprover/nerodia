@@ -41,11 +41,17 @@ tag := "4.34.0"
 of a refactor of {lean}`Typing` and the `⦂` operaton. It is now internal and most
 of its uses should be replaced with {lean}`PyObject`.
 
-- `ByteArray` produces `bytes` as a result type.
+- *Breaking change:* {lean}`OfPyArg`, {lean}`MkPyResult`, {lean}`MkCPyResult`,
+and {lean}`PyCResultIO`, have been removed from the public API and are now internal.
+However, the compiler {ref "type-conversions"}[type conversions] they provide
+are still part of the public surface and are still stable in this version.
 
-- Added {name}`Option` {ref "type-conversions"}`type conversions`.
+- `ByteArray` produces `bytes` as a result type
+  (see {ref "type-conversions"}[type conversions]).
 
-- Added {lean}`PyBool` and {lean}`Bool` {ref "type-conversions"}`type conversions`.
+- Added {name}`Option` {ref "type-conversions"}[type conversions].
+
+- Added {lean}`PyBool` and {lean}`Bool` {ref "type-conversions"}[type conversions].
 
 - API for calling 0-arity and 1-arity Python functions
 ({lean}`PyObject.call0`, {lean}`PyObject.call1`).

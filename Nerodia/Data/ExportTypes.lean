@@ -146,6 +146,7 @@ unseal PyMethO in
   x self arg
 
 unseal PyMethO in
+open Internal Nerodia in
 /-- Internal function for {lit}`@[py_module_fn]`. -/
 @[inline] public def Internal.mkPyMethO
   (x : (arg : PyObject) → PyCResultIO PyObject)

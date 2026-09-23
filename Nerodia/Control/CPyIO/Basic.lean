@@ -392,6 +392,8 @@ This creates a new temporary Python context for the call.
 
 /-! ### PyCResultIO -/
 
+namespace Internal
+
 @[irreducible, expose] -- for codegen
 public def PyCResultIO (α : Type) :=
   PyBaseIO (CPyResult α)
@@ -444,6 +446,8 @@ public def raw (x : PyCResultIO α) : PyCResultIO Internal.Py.Raw :=
 
 end PyCResultIO
 
+namespace Nerodia
+
 /-- Lifts a {lean}`CPyIO` action into {lean}`PyCResultIO`. -/
 @[inline] public def CPyIO.toPyCResultIO
   (x : CPyIO α)
@@ -475,10 +479,15 @@ open Internal in
 @[deprecated PyIO.bindPyCResultIO (since := "2026-09-11")]
 public abbrev PyIO.bindPyResultIO := @PyIO.bindPyCResultIO
 
+end Nerodia
+
+open Internal in
 /-- Internal function for {lit}`@[py_module_fn]` -/
-@[inline] public def Internal.pyBind
+@[inline] public def pyBind
   {α : Type} (x : PyIO α) (f : α → PyCResultIO PyObject)
 : PyCResultIO PyObject := x.bindPyCResultIO f
+
+end Internal
 
 /-! ## Result Handling -/
 
