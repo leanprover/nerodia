@@ -248,7 +248,7 @@ open Internal in
 Casts a {lean}`CPyIO` returning a
 arbitrary type to one returning {lean}`Internal.Py.Raw`.
 -/
-@[inline, deprecated normalize (since := "2026-09-22")]
+@[inline, deprecated normalize +typeChanged (since := "2026-09-22")]
 public def raw (x : CPyIO α) : CPyIO Internal.Py.Raw :=
   ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.raw)
 
@@ -440,7 +440,7 @@ open Internal in
 Casts a {lean}`PyCResultIO` returning an
 arbitrary type to one returning {lean}`Internal.Py.Raw`.
 -/
-@[inline, deprecated normalize (since := "2026-09-22")]
+@[inline, deprecated normalize +typeChanged (since := "2026-09-22")]
 public def raw (x : PyCResultIO α) : PyCResultIO Internal.Py.Raw :=
   .ofPyBaseIOUnsafe <| x.toPyBaseIOUnsafe <&> (·.raw)
 

@@ -101,4 +101,4 @@ public instance [Promotable T U] : IsSubtypeOf T U := ⟨Promotable.infer⟩
 public instance [IsSubtypeOf T U] : Promotable T U := ⟨infer_subtype⟩
 
 attribute [deprecated "Use one of the `Promotable` classes." (since := "2026-09-16")] IsSubtypeOf
-attribute [deprecated Subset.of_promotable (since := "2026-09-16")] infer_subtype
+attribute [deprecated Subset.of_promotable +typeChanged (since := "2026-09-16")] infer_subtype
