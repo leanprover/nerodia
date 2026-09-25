@@ -27,13 +27,19 @@ structure ExampleContext where
   (name : System.FilePath) (contents : String) (ctx : ExampleContext)
 : ExampleContext := {ctx with files := ctx.files.push (name, contents)}
 
+meta def ExampleContext.populateDir
+  (ctx : ExampleContext) (dir : System.FilePath)
+: IO Unit :=
+  for (name, contents) in ctx.files do
+    let path := dir / name
+    if let some parent := path.parent then
+      IO.FS.createDirAll parent
+    IO.FS.writeFile path contents
+
 @[inline] meta def ExampleContext.withTempDir
   [Monad m] [MonadFinally m] [MonadLiftT IO m]
   (ctx : ExampleContext) (x : System.FilePath → m α)
-: m α := IO.FS.withTempDir fun dir => do
-  for (name, contents) in ctx.files do
-    IO.FS.writeFile (dir / name) contents
-  x dir
+: m α := IO.FS.withTempDir fun dir => do ctx.populateDir dir; x dir
 
 meta initialize exampleCtx : EnvExtension (Option ExampleContext) ←
   Lean.registerEnvExtension (pure none)
@@ -111,7 +117,7 @@ meta def getExampleContext : DocElabM ExampleContext := do
     return ctx
   else
     let toolchain : String ← IO.FS.readFile "lean-toolchain"
-    let ctx := ExampleContext.empty.addFile "lean-toolchain" toolchain
+    let mut ctx := ExampleContext.empty.addFile "lean-toolchain" toolchain
     modifyEnv fun env => exampleCtx.setState env (some ctx)
     return ctx
 

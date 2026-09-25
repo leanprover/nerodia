@@ -38,7 +38,7 @@ name = "StringSum"
 [[require]]
 name = "nerodia"
 scope = "leanprover"
-rev = "release/lean-v4.33"
+rev = "release/lean-v4.34"
 ```
 
 After adding Nerodia as a dependency, run `lake update nerodia` from within the package's directory (e.g., `string_sum`). Once complete, the next step is to define the Python interface in Lean. As an example, open `StringSum.lean` and add the following code. (If you used `lake new`, you can also delete the `StringSum` directory as it will not be needed.)

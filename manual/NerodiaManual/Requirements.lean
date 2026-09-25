@@ -4,12 +4,18 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Mac Malone
 -/
 import VersoManual
+import NerodiaManual.Meta.Toml
+import Lake.DSL.Syntax
 
-open Verso.Genre Manual
+open NerodiaManual
+open Verso.Genre Manual InlineLean
+
+open scoped Lake.DSL
 
 #doc (Manual) "Requirements" =>
 %%%
 tag := "requirements"
+htmlSplit := .never
 %%%
 
 In order to build a Nerodia project on the latest version,
@@ -34,3 +40,29 @@ do not need Lean or a C compiler.
 
 [1]: https://github.com/astral-sh/uv
 [2]: https://www.python.org/downloads/
+
+# Adding Nerodia as a Dependency
+%%%
+tag := "require-nerodia"
+%%%
+
+Nerodia is available on [Reservoir][3]. To add it as a dependency, use one of
+the following formats.
+
+*lakefile.lean*
+```lean
+require "leanprover" / "nerodia" @ git "release/lean-v4.34"
+```
+
+*lakefile.toml*
+```toml
+[[require]]
+name = "nerodia"
+scope = "leanprover"
+rev = "release/lean-v4.34"
+```
+
+Nerodia releases versions for each stable Lean release. To select the
+version of Nerodia that is best for you, see the {ref "changelog"}[Changelog].
+
+[3]: https://reservoir.lean-lang.org/@leanprover/nerodia
