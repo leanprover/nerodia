@@ -8,6 +8,7 @@ open System Lake DSL
 open Lean (Json ToJson FromJson toJson fromJson?)
 
 package nerodia where
+  versionTags := .startsWith "lean-v"
   leanOptions := #[⟨`doc.verso, true⟩]
   requiresModuleSystem := true
 
