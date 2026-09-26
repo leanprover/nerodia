@@ -7,7 +7,7 @@ Author: Mac Malone
 import VersoManual
 import Nerodia
 
-open Nerodia Internal
+open Nerodia PyObject Internal
 open Verso.Genre Manual InlineLean
 
 #doc (Manual) "Changelog" =>
@@ -49,6 +49,8 @@ tag := "lean-v4.34"
 
 - Introduction of this reference manual.
 
+*Refactors*
+
 - *Breaking change:* {lean}`Py.Raw` has been removed from the public API as part
 of a refactor of {lean}`Typing` and the `⦂` operator. It is now internal and most
 of its uses should be replaced with {lean}`PyObject`.
@@ -58,18 +60,27 @@ and {lean}`PyCResultIO` have been removed from the public API and are now intern
 However, the compiler {ref "type-conversions"}[type conversions] they provide
 are still part of the public surface and are still stable in this version.
 
+- Deprecated {lean}`IsSubtypeOf` in favor of the new {lean}`Promotable`.
+
+*Types and Type Conversions*
+
+- {name}`Option` {ref "type-conversions"}[type conversions].
+
+- {lean}`PyBool` and {lean}`Bool` {ref "type-conversions"}[type conversions].
+
 - `ByteArray` produces `bytes` as a result type
   (see {ref "type-conversions"}[type conversions]).
 
-- Added {name}`Option` {ref "type-conversions"}[type conversions].
-
-- Added {lean}`PyBool` and {lean}`Bool` {ref "type-conversions"}[type conversions].
-
-- API for calling 0-arity and 1-arity Python functions
-({lean}`PyObject.call0`, {lean}`PyObject.call1`).
-
 - Python integer support for fixed-width Lean integer types
-({tech}`IntX`, {tech}`UIntX`).
+  ({tech}`IntX`, {tech}`UIntX`).
+
+*API*
+
+- Fleshed out object attributes, adding {lean}`setAttrByString`.
+  {lean}`setAttr`, and {lean}`getAttr`.
+
+- Basics for calling 0-arity and 1-arity Python functions
+  ({lean}`call0`, {lean}`call1`).
 
 # Nerodia for Lean 4.33
 %%%

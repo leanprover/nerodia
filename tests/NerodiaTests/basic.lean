@@ -112,6 +112,44 @@ open Internal Nerodia in
   let val ← sys.getAttrByString "bogus"
   val.str
 
+def mkNamespace : PyIO PyObject := do
+  let types ← Nerodia.import "types"
+  (← types.getAttrByString "SimpleNamespace").call0
+
+/-- info: 42 -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let ns ← mkNamespace
+  ns.setAttrByString "x" (← mkPyInt 42)
+  (← ns.getAttrByString "x").repr
+
+/-- info: 'hi' -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let ns ← mkNamespace
+  let name ← mkPyStr "y"
+  ns.setAttr name (← mkPyStr "hi")
+  (← ns.getAttr name).repr
+
+-- a `str` subclass (`http.HTTPMethod`) works too
+/-- info: 1 -/
+#guard_msgs in
+#eval PyIO.toIO do
+  let http ← Nerodia.import "http"
+  let name ← (← http.getAttrByString "HTTPMethod").getAttrByString "GET"
+  if h : name ⦂ str then
+    let ns ← mkNamespace
+    ns.setAttr (name.attachType h) (← mkPyInt 1)
+    (← ns.getAttrByString "GET").repr
+  else
+    mkPyStr "not a str"
+
+/-- error: AttributeError: 'NoneType' object has no attribute 'x' and no __dict__ for setting new attributes -/
+#guard_msgs in
+#eval PyIO.toIO (α := Unit) do
+  let none ← getPyNone
+  none.setAttrByString "x" (← mkPyInt 0)
+
 /-- info: None -/
 #guard_msgs in
 #eval PyIO.toIO do
