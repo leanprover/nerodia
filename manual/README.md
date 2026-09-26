@@ -22,4 +22,4 @@ $ npx netlify-cli dev
 
 ## Development
 
-All modules referencing docstrings should `open Nerodia` so that types in the rendered signatures are not qualified by `Nerodia`.
+All modules referencing docstrings should `open Nerodia` so that types in the rendered signatures are not qualified by `Nerodia`. Modules using the module system must `import all` the module containing the signature's docstring in order for it to appear in hovers.

@@ -76,7 +76,7 @@ unseal Py in
 @[grind →] public theorem ext : toPyObject a = toPyObject b → a = b := by
   cases a <;> cases b <;> grind only [toPyObject]
 
-public theorem ext_iff : a = b ↔ toPyObject a = toPyObject b :=
+public protected theorem ext_iff : a = b ↔ toPyObject a = toPyObject b :=
   Iff.intro (congrArg toPyObject) ext
 
 unseal Py in

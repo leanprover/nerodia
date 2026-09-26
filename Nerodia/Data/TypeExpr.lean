@@ -18,8 +18,8 @@ public instance : ToString TypeExpr := ⟨TypeExpr.toString⟩
 namespace TypeExpr
 
 /-
-`@{irreducible}` keeps these definitions from being expanded during `whnf`
-in the Nerodia compiler when the definitions are imported from a non-module
+`@[irreducible]` keeps these definitions from being expanded during `whnf`
+in the Nerodia compiler when the definitions are imported into a non-module
 -/
 
 @[inline, irreducible] public def union (lhs rhs : TypeExpr) : TypeExpr :=

@@ -32,7 +32,7 @@ Nerodia has a `release/lean-v4.33` branch and `lean-v4.33.0` and `lean-v4.33.1`
 tags for the Lean v4.33.X stable releases.
 
 If Nerodia needs to update a release, it will be listed here as a new patch
-version, and the corresponding Git branch along with Git tag for the latest
+version, and the corresponding Git branch along with the Git tag for the latest
 Lean stable release will be updated to point to it. For example, if a patch
 for 4.33 was released and the latest Lean stable is 4.33.1, the
 `release/lean-v4.33` branch and `lean-v4.33.1` tag will be updated, but the
@@ -54,7 +54,7 @@ tag := "lean-v4.34"
 *Refactors*
 
 - *Breaking change:* {lean}`Py.Raw` has been removed from the public API as part
-of a refactor of {lean}`Typing` and the `⦂` operation. It is now internal and most
+of a refactor of {lean}`Typing` and the `⦂` relation. It is now internal and most
 of its uses should be replaced with {lean}`PyObject`.
 
 - *Breaking change:* {lean}`OfPyArg`, {lean}`MkPyResult`, {lean}`MkCPyResult`,
