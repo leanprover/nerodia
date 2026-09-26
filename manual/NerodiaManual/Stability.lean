@@ -13,18 +13,18 @@ tag := "stability"
 htmlSplit := .never
 %%%
 
-While Nerodia is still in development, it nonetheless strives to matain
-stability in its public API accross versions. Generally, definitions to be
-removed from the public API will undergo a period of a deprecation (usually
+While Nerodia is still in development, it nonetheless strives to maintain
+stability in its public API across versions. Generally, definitions to be
+removed from the public API will undergo a period of deprecation (usually
 one version cycle). In the event Nerodia makes changes that break the public API
-wihtout deprecation, those changes will be recorded as *breaking changes* in the
+without deprecation, those changes will be recorded as *breaking changes* in the
 {ref "changelog"}[changelog] for that version.
 
 Nerodia uses the module system, and its public API is primarily defined by the
 content available through its exported module interface. For instance, `public`
 definitions are public API, `private` ones are not. If `import all` is needed to
 access a part of Nerodia, that part is not public API and the code relying on it
-may break between reviisons without warning.
+may break between revisions without warning.
 
 However, there are aspects of Nerodia's exported module interface that are,
 nonetheless, not part of its public API. These exceptions are detailed below.
@@ -38,7 +38,7 @@ change between revisions without warning.
 # `@[irreducible, expose]`
 
 Due to the limitations of Lean, both in Nerodia code generation and Lean's own
-compiler, some definitions in the public API are marked `@[irrecudible, expose]`
+compiler, some definitions in the public API are marked `@[irreducible, expose]`
 instead of having `private` bodies. The bodies of these functions should nonetheless
 be considered `private` and may change without warning.
 
@@ -46,7 +46,7 @@ be considered `private` and may change without warning.
 
 All definitions within the `Nerodia.Internal` namespace are internal implementation
 details and not part of the public API. They can change between revision without
-warning. Users should not rely on the them.
+warning. Users should not rely on them.
 
 If you need a definition from the internal namespace, please file a feature
 request on the [Nerodia issue tracker][1]. If feasible, we will try to design a
@@ -61,6 +61,6 @@ not part of the public API. The compiler may become part of the public API in
 the future, but it currently is not.
 
 Compiler annotations like `py_module` and `@[py_module_fn]` are part of the
-public API in their user interface and semantics. However, their meta defintions
+public API in their user interface and semantics. However, their meta definitions
 are part of `Nerodia.Compiler` and thus internal. Their definitions may change
 without notice, as long as they maintain the same user interface.

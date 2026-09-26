@@ -78,7 +78,7 @@ initialize
 /--
 Exports a Lean definition as a Python module function.
 
-A different name can be specified for the Python definiton via
+A different name can be specified for the Python definition via
 `@[py_module_fn "name"]`. A common use case for this is to change casing.
 Lean names are usually camel case and Python names snake case.
 

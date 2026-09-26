@@ -114,7 +114,7 @@ end Internal.Nerodia.PyObject
 
 /-! ## PyObjectView -/
 
---/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
+/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
 public abbrev PyObjectView (α : Type u) := α
 
 namespace PyObjectView

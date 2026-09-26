@@ -23,7 +23,7 @@ tag := "PyBaseException"
 {docstring Nerodia.Typing.baseException}
 {docstring Nerodia.PyBaseException.sprint}
 
-# Rasing Exceptions
+# Raising Exceptions
 
 {docstring Nerodia.raisePyRuntimeError}
 {docstring Nerodia.raisePyEOFError}

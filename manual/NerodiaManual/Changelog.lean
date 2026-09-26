@@ -25,9 +25,9 @@ Lean version (i.e., Nerodia 4.X for Lean 4.X.Y-Z), usually once per month.
 
 Nerodia publishes a Git branch for each Lean minor version and a Git tag for
 each Lean patch version. The branch is named `release/lean-v4.X` for minor
-version X and the tag is named a `lean-v4.X.Y` for patch version Y. For example,
-Nerodia has a `rlease/v4.33` branch and `lean-v4.33.0` and `lean-v4.33.1` tags
-for the Lean v4.33.X stable reelases.
+version X and the tag is named `lean-v4.X.Y` for patch version Y. For example,
+Nerodia has a `release/lean-v4.33` branch and `lean-v4.33.0` and `lean-v4.33.1`
+tags for the Lean v4.33.X stable releases.
 
 If Nerodia needs to update a release, it will be listed here as a new patch
 version (e.g., Nerodia 4.33.1), and the corresponding Git branch along with
@@ -38,7 +38,7 @@ but the `lean-v4.33.0` tag will not.
 
 It is recommended that users {ref "require-nerodia"}[depend] on the
 `release/lean-v4.X` branch for the minimum combination of Nerodia and Lean
-toolchain they support. Nerodia aims to be generally forward-compatibile in
+toolchain they support. Nerodia aims to be generally forward-compatible in
 its API, and an old version of Nerodia is often compatible with multiple newer
 toolchains.
 
@@ -50,11 +50,11 @@ tag := "4.34.0"
 - Introduction of this reference manual.
 
 - *Breaking change:* {lean}`Py.Raw` has been removed from the public API as part
-of a refactor of {lean}`Typing` and the `⦂` operaton. It is now internal and most
+of a refactor of {lean}`Typing` and the `⦂` operator. It is now internal and most
 of its uses should be replaced with {lean}`PyObject`.
 
 - *Breaking change:* {lean}`OfPyArg`, {lean}`MkPyResult`, {lean}`MkCPyResult`,
-and {lean}`PyCResultIO`, have been removed from the public API and are now internal.
+and {lean}`PyCResultIO` have been removed from the public API and are now internal.
 However, the compiler {ref "type-conversions"}[type conversions] they provide
 are still part of the public surface and are still stable in this version.
 

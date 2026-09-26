@@ -61,7 +61,7 @@ its supertype, sharing the single strong reference between them.
 
 /--
 Casts a {name}`CPyBaseResult` returning anything to one returning
-an {lean}`PyObject`, sharing the single strong reference between them.
+a {lean}`PyObject`, sharing the single strong reference between them.
 
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/
@@ -240,7 +240,7 @@ open Internal in
 Casts a {lean}`CPyIO` returning an
 arbitrary type to one returning {lean}`PyObject`.
 -/
-public def normalize (x : CPyIO α) : CPyIO PyObject :=
+@[inline] public def normalize (x : CPyIO α) : CPyIO PyObject :=
   ofBaseIOUnsafe <| x.toBaseIOUnsafe <&> (·.normalize)
 
 open Internal in
@@ -295,7 +295,7 @@ and that it  does not outlive the environment.
 public instance : MonadLift CPyBaseIO CPyIO := ⟨CPyBaseIO.toCPyIO⟩
 
 /--
-Casts a {lean}`CPyIO` returning a
+Casts a {lean}`CPyBaseIO` returning a
 typed Python object to one returning its supertype.
 -/
 @[inline] public def promote [Promotable U T] (x : CPyBaseIO (Py T)) : CPyBaseIO (Py U) :=
@@ -305,7 +305,7 @@ typed Python object to one returning its supertype.
 Casts a {lean}`CPyBaseIO` returning an
 arbitrary type to one returning {lean}`PyObject`.
 -/
-@[inline] public def normalize [Promotable U T] (x : CPyBaseIO α) : CPyBaseIO  PyObject :=
+@[inline] public def normalize (x : CPyBaseIO α) : CPyBaseIO  PyObject :=
   ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.normalize)
 
 end CPyBaseIO
@@ -432,7 +432,7 @@ open Internal in
 Casts a {lean}`PyCResultIO` returning an
 arbitrary type to one returning {lean}`PyObject`.
 -/
-public def normalize (x : PyCResultIO α) : PyCResultIO PyObject :=
+@[inline] public def normalize (x : PyCResultIO α) : PyCResultIO PyObject :=
   .ofPyBaseIOUnsafe <| x.toPyBaseIOUnsafe <&> (·.normalize)
 
 open Internal in
@@ -456,16 +456,10 @@ namespace Nerodia
   Runtime.hold (← getPyThreadCtxUnsafe)
   return r
 
-@[deprecated CPyIO.toPyCResultIO (since := "2026-09-11")]
-public abbrev CPyIO.toPyResultIO := @CPyIO.toPyCResultIO
-
 /-- Sequences a {lean}`PyCResultIO` action after a {lean}`PyBaseIO` action. -/
 @[inline] public def PyBaseIO.bindPyCResultIO
   (x : PyBaseIO α) (f : α → PyCResultIO β)
 : PyCResultIO β := .ofPyBaseIOUnsafe do f (← x) |>.toPyBaseIOUnsafe
-
-@[deprecated PyBaseIO.bindPyCResultIO (since := "2026-09-11")]
-public abbrev PyBaseIO.bindPyResultIO := @PyBaseIO.bindPyCResultIO
 
 open Internal in
 /-- Sequences a {lean}`PyCResultIO` action after a {lean}`PyIO` action. -/
@@ -475,9 +469,6 @@ open Internal in
   match ← x.toPyBaseIOUnsafe? with
   | some a => f a |>.toPyBaseIOUnsafe
   | none => return .failureUnsafe
-
-@[deprecated PyIO.bindPyCResultIO (since := "2026-09-11")]
-public abbrev PyIO.bindPyResultIO := @PyIO.bindPyCResultIO
 
 end Nerodia
 
@@ -623,7 +614,8 @@ This creates a new temporary Python context for the call.
 @[inline] public def PyIO.toCPyIO (x : PyIO (Py T)) : CPyIO (Py T) :=
   x.bindCPyIO CPyIO.pure
 
-open Internal in
+namespace Internal.Nerodia
+
 /-- Constructs a {lean}`PyCResultIO` that returns {lean}`o`. -/
 @[inline] public protected def PyCResultIO.pure (o : Py T) : PyCResultIO (Py T) :=
   .ofPyBaseIOUnsafe <| liftM (m := BaseIO) do
@@ -641,6 +633,8 @@ open Internal in
     environment is always held throughout.
     -/
     return .ofCPyBaseResultUnsafe (← o.newRef.toBaseIOUnsafe)
+
+end Internal.Nerodia
 
 /-! ## Exception Handling -/
 

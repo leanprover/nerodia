@@ -33,8 +33,8 @@ That is, a snake you would find in a lake.
 This manual provides tutorials to help new users get started, a general
 outline of Nerodia's structure, and a reference of the Python API it exposes.
 
-*Important:* Nerodia (and this reference mnaual) is still a *work-in-progress*
-and currently has a very  limited API. It is released to the public primarily
+*Important:* Nerodia (and this reference manual) is still a *work-in-progress*
+and currently has a very limited API. It is released to the public primarily
 as a proof-of-concept and to obtain feedback on its design and build process.
 
 [1]: https://github.com/PyO3/pyo3

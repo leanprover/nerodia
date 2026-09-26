@@ -21,4 +21,4 @@ namespace TypeExpr
   ⟨s!"{lhs} | {rhs}"⟩ -- equivalent to `Union[<lhs>, <rhs>]`
 
 @[inline] public def optional (expr : TypeExpr) : TypeExpr :=
-  ⟨s!"{expr} | None"⟩ -- equivalent to `Optional[<expr>}`
+  ⟨s!"{expr} | None"⟩ -- equivalent to `Optional[<expr>]`

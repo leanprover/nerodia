@@ -143,7 +143,7 @@ Nerodia.PyBoolView (type abbrev)
 Nerodia.PyBoolView.toBool
 Nerodia.PyBoolView.toBool_spec
 Nerodia.PyBoolView.toPyBool
-Nerodia.PyBoolView.toPyObject_eq_toPy
+Nerodia.PyBoolView.toPyBool_eq_toPy
 Nerodia.PyBuffer (type abbrev)
 Nerodia.PyBuffer.decode
 Nerodia.PyBuffer.decodeUTF8
@@ -165,7 +165,6 @@ Nerodia.PyBytes.size_eq
 Nerodia.PyBytes.toByteArray
 Nerodia.PyBytes.usize
 Nerodia.PyBytes.usize_eq
-Nerodia.PyCResultIO.pure
 Nerodia.PyEOFError (type abbrev)
 Nerodia.PyEnvironment
 Nerodia.PyEnvironment.false
@@ -290,7 +289,6 @@ Nerodia.PyType (type abbrev)
 Nerodia.PyType.getQualName
 Nerodia.PyTypeError (type abbrev)
 Nerodia.PyValueError (type abbrev)
-Nerodia.Subset.of_promotable
 Nerodia.ToPy
 Nerodia.ToPy.mk
 Nerodia.ToPy.toPy (proj)
@@ -331,12 +329,15 @@ Nerodia.Typing.HasType (deprecated)
 Nerodia.Typing.HasType.left (deprecated)
 Nerodia.Typing.HasType.object (deprecated)
 Nerodia.Typing.HasType.right (deprecated)
+Nerodia.Typing.HasType.union_left (deprecated)
+Nerodia.Typing.HasType.union_right (deprecated)
 Nerodia.Typing.Subset
 Nerodia.Typing.Subset.hasType_of_hasType
 Nerodia.Typing.Subset.inter_left
 Nerodia.Typing.Subset.inter_right
 Nerodia.Typing.Subset.never
 Nerodia.Typing.Subset.object
+Nerodia.Typing.Subset.of_promotable
 Nerodia.Typing.Subset.refl
 Nerodia.Typing.Subset.rfl
 Nerodia.Typing.Subset.trans

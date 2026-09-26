@@ -24,7 +24,7 @@ tag := "type-conversions"
 htmlSplit := .never
 %%%
 
-When using {ref "annotations"}[annotations] like `@[py_moddule_fn]` or
+When using {ref "annotations"}[annotations] like `@[py_module_fn]` or
 `@[py_module_attr]`, Nerodia constructs a Python signature from the Lean
 definition's signature, translating the Lean types of arguments and results
 into Python types. In the simple case, a Nerodia type representing a Python type
@@ -49,7 +49,7 @@ and Nerodia follows the mapping below in doing so.
   * —
   * `None`
 * * {lean}`Empty`
-  * `Never`
+  * —
   * `Never`
 * * {lean}`Option T`
   * `T | None`

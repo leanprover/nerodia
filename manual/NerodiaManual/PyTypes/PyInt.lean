@@ -36,8 +36,8 @@ tag := "PyInt"
 
 {docstring Nerodia.mkPyInt64}
 {docstring Nerodia.PyInt.toInt64?}
-{docstring Nerodia.mkPyInt64}
-{docstring Nerodia.PyInt.toInt64?}
+{docstring Nerodia.mkPyUInt64}
+{docstring Nerodia.PyInt.toUInt64?}
 
 {docstring Nerodia.mkPyInt32}
 {docstring Nerodia.PyInt.toInt32?}

@@ -23,7 +23,7 @@ The core monads of Nerodia are `PyIO` and its error-less variant `PyBaseIO`,
 which equip `BaseIO` with a Python context. Each provides a utility function
 to convert it back to its Python-less equivalent by allocating a temporary
 Python context for the call. However, where possible, they should be run within
-another Python-equipped monad to eficiently reuse its context.
+another Python-equipped monad to efficiently reuse its context.
 
 {docstring Nerodia.PyIO}
 {docstring Nerodia.PyBaseIO}
@@ -35,7 +35,7 @@ another Python-equipped monad to eficiently reuse its context.
 # C Returns
 
 Return contexts used for optimized C functions. They are not monads themselves,
-but they automatically lift into their corresponding `PyIO`-stule monad (i.e.,
+but they automatically lift into their corresponding `PyIO`-style monad (i.e.,
 `CPyIO` to `PyIO`, `CPyBaseIO` to `PyBaseIO`).
 
 {docstring Nerodia.CPyIO}

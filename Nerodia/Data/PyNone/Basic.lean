@@ -24,7 +24,10 @@ public theorem PyObject.isNone_iff_hasType : isNone o ↔ o ⦂ none := by
 open PyObject in
 set_option linter.deprecated false in
 public instance : DecidablePy none := private_decl%
-  (Internal.decPy isNone fun _ => isNone_iff_hasType)
+  Internal.decPy isNone fun _ => isNone_iff_hasType
+
+public instance [DecidablePy T] : DecidablePy (.optional T) := private_decl%
+  fun x => decidable_of_iff' (x ⦂ T ∪ none) <| by rw [Typing.optional_eq_union_none]
 
 @[simp, deprecated "Deprecated with `isNone`." (since := "2026-09-11")]
 public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by

@@ -60,10 +60,11 @@ public instance : OfPyArg PyBuffer buffer where
     raiseArgTypeMismatch fn i arg buffer
 
 public instance : MkCPyResult (Py T) T where
-  mkCPyResult o := CPyBaseIO.pure o
+  mkCPyResult o := private CPyBaseIO.pure o
 
+open Internal Nerodia in
 public instance : MkPyResult (Py T) T where
-  mkPyResult o := PyCResultIO.pure o
+  mkPyResult o := private PyCResultIO.pure o
 
 /-! ## IO -/
 

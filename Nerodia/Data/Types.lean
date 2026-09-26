@@ -379,7 +379,7 @@ public instance : ViewPy moduleType PyModule := ⟨rfl⟩
 /-! ### None -/
 
 /--
-The Python boolean literal, [{lit}`None`][1].
+The Python constant, [{lit}`None`][1].
 
 [1]: https://docs.python.org/3/builtins/constants.html#None
 -/
@@ -432,7 +432,6 @@ public instance [ToTypeExpr T] : ToTypeExpr (.optional T) where
 
 /-! ### bool -/
 
-/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyObject`. -/
 public abbrev PyBoolView (α : Type u) := α
 
 /-! ### False -/
@@ -569,6 +568,9 @@ public abbrev PyBool := PyObjectView <| Py bool
 
 public instance : ViewPy bool PyBool := ⟨rfl⟩
 
+/-- Equips {lean}`α` with the dot notation methods of a {lean}`PyBool`. -/
+add_decl_doc PyBoolView
+
 /-- Shorthand for {lean}`ToPy bool α` -/
 public abbrev ToPyBool := ToPy bool
 
@@ -579,7 +581,7 @@ namespace PyBoolView
 : PyBool := toPy self
 
 @[simp, grind =]
-public theorem toPyObject_eq_toPy
+public theorem toPyBool_eq_toPy
   [ToPyBool α] (self : PyBoolView α)
 : self.toPyBool = toPy (α := α) self := by rfl
 

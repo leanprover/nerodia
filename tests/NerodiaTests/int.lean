@@ -30,7 +30,7 @@ def testConvert (n : Nat) : PyIO (Array PyInt) := do
 /-- info: #[9223372036854775808, 9223372036854775808, -9223372036854775808] -/
 #guard_msgs in #eval testConvert (2^63) -- big scalar / negative MSB
 /-- info: #[18446744073709551616, 18446744073709551616, -18446744073709551616] -/
-#guard_msgs in #eval testConvert (2^64) -- big non-scalar / positive MSB)
+#guard_msgs in #eval testConvert (2^64) -- big non-scalar / positive MSB
 
 /-! ## Fixed-Width Integers -/
 
