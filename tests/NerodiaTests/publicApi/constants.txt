@@ -347,6 +347,7 @@ Nerodia.Typing.any
 Nerodia.Typing.any_eq_object
 Nerodia.Typing.baseException
 Nerodia.Typing.bool
+Nerodia.Typing.bool_eq_false_union_true
 Nerodia.Typing.buffer
 Nerodia.Typing.bytes
 Nerodia.Typing.eofError
@@ -396,7 +397,6 @@ Nerodia.ViewPy.mk
 Nerodia.any
 Nerodia.baseException
 Nerodia.bool
-Nerodia.bool_eq_false_union_true
 Nerodia.buffer
 Nerodia.bytes
 Nerodia.decode

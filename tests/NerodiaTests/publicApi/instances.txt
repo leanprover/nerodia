@@ -59,6 +59,9 @@ Nerodia.Typing.instNonemptyPySystemError
 Nerodia.Typing.instNonemptyPyType
 Nerodia.Typing.instNonemptyPyTypeError
 Nerodia.Typing.instNonemptyPyValueError
+Nerodia.Typing.instPromotableBBoolFalse
+Nerodia.Typing.instPromotableBBoolTrue
+Nerodia.Typing.instPromotableBIntBool
 Nerodia.Typing.instToTypeExprUnion
 Nerodia.Typing.instUnion
 Nerodia.instCoeCPyUnitIOPyIOUnit
@@ -157,9 +160,6 @@ Nerodia.instPromotableBBaseExceptionRuntimeError
 Nerodia.instPromotableBBaseExceptionSystemError
 Nerodia.instPromotableBBaseExceptionTypeError
 Nerodia.instPromotableBBaseExceptionValueError
-Nerodia.instPromotableBBoolFalse
-Nerodia.instPromotableBBoolTrue
-Nerodia.instPromotableBIntBool
 Nerodia.instPromotableLtrOfPromotableB
 Nerodia.instPromotableLtrOptionalUnionTypingNone
 Nerodia.instPromotableLtrUnionTyping
