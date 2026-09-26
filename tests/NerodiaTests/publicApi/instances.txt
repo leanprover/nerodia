@@ -118,6 +118,7 @@ Nerodia.instDecidablePyModuleType
 Nerodia.instDecidablePyNever
 Nerodia.instDecidablePyNone
 Nerodia.instDecidablePyObject
+Nerodia.instDecidablePyOptional
 Nerodia.instDecidablePyStr
 Nerodia.instDecidablePyTrue
 Nerodia.instDecidablePyType

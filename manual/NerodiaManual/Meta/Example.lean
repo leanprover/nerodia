@@ -104,7 +104,7 @@ meta def extractHighlights
   match SubVerso.Module.Module.fromJson? json with
   | .ok v => return v.items.foldl (init := .empty) fun hl item => hl ++ item.code
   | .error e => throwError m!"\
-    Failed to deserialized JSON output as highlighted Lean code. Error: \
+    Failed to deserialize JSON output as highlighted Lean code. Error: \
       {indentD e}\n\
     JSON: {json}"
 

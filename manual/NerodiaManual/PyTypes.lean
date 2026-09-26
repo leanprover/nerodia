@@ -24,7 +24,7 @@ namespace NerodiaManual
 tag := "python-types"
 %%%
 
-Neroida exposes the basic types of Python as Lean types with a `Py` prefix.
+Nerodia exposes the basic types of Python as Lean types with a `Py` prefix.
 
 {include 0 NerodiaManual.PyTypes.PyBaseException}
 {include 0 NerodiaManual.PyTypes.PyBool}

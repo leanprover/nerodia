@@ -28,6 +28,7 @@ assert testmodule.encodeUTF8('ab') == b'ab'
 assert testmodule.tripleAdd(1, -1, 1) == 1
 
 assert testmodule.bnot(True) is False
+assert testmodule.bnot(False) is True
 
 assert testmodule.optToNat(None) is None
 assert testmodule.optToNat("1") == 1

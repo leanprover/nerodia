@@ -33,7 +33,7 @@ tag := "py_module"
 %%%
 
 ```lean
-/-- My awesome Python moudule. -/
+/-- My awesome Python module. -/
 py_module "awesome"
 ```
 

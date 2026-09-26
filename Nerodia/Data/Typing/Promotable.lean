@@ -38,7 +38,7 @@ public class PromotableLtr (T : Typing) (U : semiOutParam Typing) : Prop where
 /--
 Transitive chain of type promotions from {lean}`U` to {lean}`T`.
 
-Has the form: `PromotableOut* PromotableIn*`.
+Has the form: `PromotableLtr* PromotableRtl*`.
 -/
 public class PromotableT (T : Typing) (U : Typing) : Prop where
   intro :: infer : U ⊆ T
@@ -61,7 +61,7 @@ public class Promotable (T : Typing) (U : Typing) : Prop where
 public instance [PromotableT T U]  : Promotable T U := ⟨PromotableT.infer⟩
 @[default_instance] public instance : Promotable T T := ⟨.rfl⟩
 
-public theorem Subset.of_promotable [Promotable T U] : U ⊆ T :=
+public theorem Typing.Subset.of_promotable [Promotable T U] : U ⊆ T :=
   Promotable.infer
 
 public instance : Promotable T .never := ⟨.never⟩
@@ -75,7 +75,7 @@ public instance : PromotableLtr (T ∪ U) U := ⟨.union_right⟩
 
 public theorem PyObject.HasType.promote
   [Promotable T U] (h : self ⦂ U) : self ⦂ T
-:= Subset.of_promotable.hasType_of_hasType h
+:= Typing.Subset.of_promotable.hasType_of_hasType h
 
 /--
 **Type promotion.**
@@ -101,4 +101,4 @@ public instance [Promotable T U] : IsSubtypeOf T U := ⟨Promotable.infer⟩
 public instance [IsSubtypeOf T U] : Promotable T U := ⟨infer_subtype⟩
 
 attribute [deprecated "Use one of the `Promotable` classes." (since := "2026-09-16")] IsSubtypeOf
-attribute [deprecated Subset.of_promotable +typeChanged (since := "2026-09-16")] infer_subtype
+attribute [deprecated Typing.Subset.of_promotable +typeChanged (since := "2026-09-16")] infer_subtype

@@ -514,7 +514,7 @@ LEAN_EXPORT lean_obj_res nerodia_py_thread_ctx_system_error(b_lean_obj_arg msg, 
   nerodia_exception_panic();
 }
 
-/* ### Mone */
+/* ### None */
 
 /* none : @& PyEnvironment -> PyNone */
 LEAN_EXPORT lean_obj_res nerodia_py_environment_none(b_lean_obj_arg env) {
@@ -593,7 +593,7 @@ LEAN_EXPORT size_t nerodia_py_object_get_attr_by_string(b_lean_obj_arg self, b_l
   return (size_t)PyObject_GetAttrString(nerodia_to_object(self), lean_string_cstr(name));
 }
 
-/* setAttr : @& PyObject -> @& PyObject -> CPyUnitIO */
+/* setAttr : @& PyObject -> @& PyObject -> @& PyObject -> CPyUnitIO */
 LEAN_EXPORT uint32_t nerodia_py_object_set_attr
   (b_lean_obj_arg self, b_lean_obj_arg name, b_lean_obj_arg val)
 {

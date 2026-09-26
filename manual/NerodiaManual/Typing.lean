@@ -27,7 +27,7 @@ htmlSplit := .never
 
 Nerodia has a single baseline representation of Python objects, {lean}`Py`,
 which takes as a type parameter a {lean}`Typing`. For example, an instance of
-`str` in Python is represented as {lean}`Py str` through its abbrevation,
+`str` in Python is represented as {lean}`Py str` through its abbreviation,
 {lean}`PyStr`. A {lean}`Py` value carries a proof of its typing. For instance,
 `s : Py str` implies {lean}`s ⦂ str`.
 
@@ -50,7 +50,7 @@ with erased {deftech}`type hints` to indicate the expected type and the
 {lean}`Typing` of weak types verifies the presence of its corresponding hint.
 
 For example, it is possible to mutate objects between the many subtypes of
-`BaseExcpetion` (e.g., an object can be retyped `Exception`). As such, instances
+`BaseException` (e.g., an object can be retyped `Exception`). As such, instances
 of these subtypes are weakly typed.
 
 # Strong Typing

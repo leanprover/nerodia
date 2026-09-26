@@ -128,6 +128,12 @@ public abbrev Typing.HasType.left := @PyObject.HasType.left
 @[deprecated PyObject.HasType.right (since := "2026-09-22")]
 public abbrev Typing.HasType.right := @PyObject.HasType.right
 
+@[deprecated PyObject.HasType.union_left (since := "2026-09-22")]
+public abbrev Typing.HasType.union_left := @PyObject.HasType.union_left
+
+@[deprecated PyObject.HasType.union_right (since := "2026-09-22")]
+public abbrev Typing.HasType.union_right := @PyObject.HasType.union_right
+
 /-! ## Inter-Operation Relations -/
 
 namespace Typing
