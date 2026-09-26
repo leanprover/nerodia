@@ -17,6 +17,12 @@ deprecated "Use `self ⦂ none` instead." (since := "2026-09-11")]
 public def PyObject.isNone (self : @& PyObject) : Bool :=
   self ⦂ none
 
+attribute [deprecated "Use `self ⦂ none` instead." (since := "2026-09-11")]
+  PyObjectView.isNone
+
+attribute [deprecated "Deprecated with `isNone`." (since := "2026-09-11")]
+  PyObjectView.isNone_spec
+
 @[grind _=_, deprecated "Deprecated with `isNone`." (since := "2026-09-11")]
 public theorem PyObject.isNone_iff_hasType : isNone o ↔ o ⦂ none := by
   simp [PyObject.isNone]

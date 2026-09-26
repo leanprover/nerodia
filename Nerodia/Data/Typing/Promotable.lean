@@ -30,7 +30,7 @@ public class PromotableRtl (T : semiOutParam Typing) (U : Typing) : Prop where
 /--
 Type promotion from {lean}`U` to {lean}`T` chained left-to-right (i.e., upwards).
 
-Promotes a concrete subtype to a supertype (e.g., {lit}`T` to {lit}`T ∪ U`)..
+Promotes a concrete subtype to a supertype (e.g., {lit}`T` to {lit}`T ∪ U`).
 -/
 public class PromotableLtr (T : Typing) (U : semiOutParam Typing) : Prop where
   intro :: infer : U ⊆ T
@@ -83,6 +83,9 @@ Casts a Python object from {lean}`U` to its supertype {lean}`T`.
 -/
 @[inline] public def Py.promote [Promotable T U] (self : Py U) : Py T :=
   ofPyObject self self.toPyObject_hasType.promote
+
+@[simp, grind =] public theorem Py.toPyObject_promote [Promotable T U] :
+  (promote (T := T) (U := U) self).toPyObject = self := by simp [promote]
 
 public instance [Promotable T U] : ToPy T (Py U) := ⟨Py.promote⟩
 

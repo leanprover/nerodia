@@ -10,6 +10,8 @@ import Nerodia
 open Nerodia PyObject Internal
 open Verso.Genre Manual InlineLean
 
+set_option linter.deprecated false
+
 #doc (Manual) "Changelog" =>
 %%%
 tag := "changelog"
@@ -31,7 +33,7 @@ tags for the Lean v4.33.X stable releases.
 
 If Nerodia needs to update a release, it will be listed here as a new patch
 version, and the corresponding Git branch along with Git tag for the latest
-Lean stable release will be updated to point to it. For example, if a oatch
+Lean stable release will be updated to point to it. For example, if a patch
 for 4.33 was released and the latest Lean stable is 4.33.1, the
 `release/lean-v4.33` branch and `lean-v4.33.1` tag will be updated, but the
 `lean-v4.33.0` tag will not.
@@ -52,7 +54,7 @@ tag := "lean-v4.34"
 *Refactors*
 
 - *Breaking change:* {lean}`Py.Raw` has been removed from the public API as part
-of a refactor of {lean}`Typing` and the `⦂` operator. It is now internal and most
+of a refactor of {lean}`Typing` and the `⦂` operation. It is now internal and most
 of its uses should be replaced with {lean}`PyObject`.
 
 - *Breaking change:* {lean}`OfPyArg`, {lean}`MkPyResult`, {lean}`MkCPyResult`,
@@ -60,7 +62,7 @@ and {lean}`PyCResultIO` have been removed from the public API and are now intern
 However, the compiler {ref "type-conversions"}[type conversions] they provide
 are still part of the public surface and are still stable in this version.
 
-- Deprecated {lean}`IsSubtypeOf` in favor of the new {lean}`Promotable`.
+- Deprecated {lean}`IsSubtypeOf` in favor of the new {lean}`Promotable` classes.
 
 *Types and Type Conversions*
 
@@ -76,7 +78,7 @@ are still part of the public surface and are still stable in this version.
 
 *API*
 
-- Fleshed out object attributes, adding {lean}`setAttrByString`.
+- Fleshed out object attributes, adding {lean}`setAttrByString`,
   {lean}`setAttr`, and {lean}`getAttr`.
 
 - Basics for calling 0-arity and 1-arity Python functions

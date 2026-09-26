@@ -42,7 +42,7 @@ namespace Nerodia.Compiler
 
 /--
 Registers a Lean definition as a Python module initializer.
-The definition must have type {name (scope := "Nerodia.ExportTypes")}`PyModuleInit`.
+The definition must have type {name (scope := "Nerodia.Data.ExportTypes")}`PyModuleInit`.
 Module initializers are run during module initialization in the order they
 appear in the Lean module.
 -/

@@ -601,7 +601,7 @@ LEAN_EXPORT uint32_t nerodia_py_object_set_attr
     nerodia_to_object(name), nerodia_to_object(val));
 }
 
-/* setAttrByString : @& PyObject -> @& String -> CPyUnitIO */
+/* setAttrByString : @& PyObject -> @& String -> @& PyObject -> CPyUnitIO */
 LEAN_EXPORT uint32_t nerodia_py_object_set_attr_by_string
   (b_lean_obj_arg self, b_lean_obj_arg name, b_lean_obj_arg val)
 {
@@ -839,7 +839,7 @@ LEAN_EXPORT size_t nerodia_mk_py_isize(size_t n) {
   return (size_t)PyLong_FromSsize_t((Py_ssize_t)n);
 }
 
-/* mkPyUSize: USize -> CPyIO PyInt */
+/* mkPyUSize : USize -> CPyIO PyInt */
 LEAN_EXPORT size_t nerodia_mk_py_usize(size_t n) {
   return (size_t)PyLong_FromSize_t(n);
 }

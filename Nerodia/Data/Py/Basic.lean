@@ -72,9 +72,12 @@ unseal Py in
   Internal.Py.mk self.raw .object
 
 unseal Py in
-@[ext, grind ext] public theorem ext :
-  toPyObject a = toPyObject b → a = b
-:= by cases a <;> cases b <;> grind only [toPyObject]
+-- `@[ext, grind ext]` would loop as both sides are `Py`
+@[grind →] public theorem ext : toPyObject a = toPyObject b → a = b := by
+  cases a <;> cases b <;> grind only [toPyObject]
+
+public theorem ext_iff : a = b ↔ toPyObject a = toPyObject b :=
+  Iff.intro (congrArg toPyObject) ext
 
 unseal Py in
 --@[simp, grind =]
@@ -186,7 +189,6 @@ open Internal in
   apply Py.Raw.HasType.ext
   intro o
   specialize h o.toPyObject
-  --simp only [Py.toPyObject_eq_self] at h
   simpa [PyObject.HasType, Py.Raw.toPyObject] using h
 
 open Internal in
@@ -213,6 +215,7 @@ unseal Py in
 end Py
 
 /-! ## DecidablePy -/
+
 /--
 A typing {lean}`T` with a {lean}`DecidablePy T` instance
 has a pure type checking function.
@@ -309,11 +312,6 @@ public abbrev NonemptyPy (T : Typing) := Nonempty (Py T)
 
 public theorem NonemptyPy.intro (o : PyObject) (h : o ⦂ T) : NonemptyPy T :=
   ⟨.ofPyObject o h⟩
-
-/-
-public theorem NonemptyPy.intro (o : Py.Raw) (h : o ⦂ T) : NonemptyPy T :=
-  ⟨⟨o, h⟩⟩
--/
 
 unseal Py in
 public instance : NonemptyPy object :=

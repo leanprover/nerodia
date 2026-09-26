@@ -108,7 +108,7 @@ public opaque setAttrByString
 /-! ## Function Calls -/
 
 /--
-Call {lean}`self` with no arguments.
+Calls {lean}`self` with no arguments.
 
 This is equivalent to the Python expression {lit}`self()`.
 -/
@@ -116,7 +116,7 @@ This is equivalent to the Python expression {lit}`self()`.
 public opaque call0 (self : @& PyObject) : CPyIO PyObject
 
 /--
-Call {lean}`self` with a single argument, {lean}`arg`.
+Calls {lean}`self` with a single argument, {lean}`arg`.
 
 This is equivalent to the Python expression {lit}`self(arg)`.
 -/

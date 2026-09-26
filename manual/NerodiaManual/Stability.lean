@@ -36,7 +36,7 @@ tag := "module-stability"
 
 Nerodia is expected to be imported via `import Nerodia`. Submodules of
 `Nerodia` (e.g., `Nerodia.Data`) are not part of its public API. Thus, the
-definitions within may change, the entire module may removed, or code may
+definitions within may change, the entire module may be removed, or code may
 otherwise be reorganized without warning.
 
 # Instances
@@ -64,7 +64,7 @@ tag := "nerodia-internal"
 %%%
 
 All definitions within the `Nerodia.Internal` namespace are internal implementation
-details and not part of the public API. They can change between revision without
+details and not part of the public API. They can change between revisions without
 warning. Users should not rely on them.
 
 If you need a definition from the internal namespace, please file a feature
@@ -84,6 +84,6 @@ the future, but it currently is not.
 
 {ref "annotations"}[Compiler annotations] like `py_module` and `@[py_module_fn]`
 are part of the public API in their user interface and semantics. However, their
-meta definitions are part of `Nerodia.Compiler` and, therefore. internal. Their
+meta definitions are part of `Nerodia.Compiler` and, therefore, internal. Their
 definitions may change without notice, as long as they maintain the same user
 interface.

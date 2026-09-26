@@ -153,7 +153,7 @@ its supertype, sharing the single strong reference between them.
 
 /--
 Casts a {name}`CPyResult` returning anything to one returning
-an {lean}`PyObject`, sharing the single strong reference between them.
+a {lean}`PyObject`, sharing the single strong reference between them.
 
 **Memory Safety:** Users must manually manage the reference's lifetime.
 -/

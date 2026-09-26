@@ -118,6 +118,7 @@ Nerodia.Py.toPyObject
 Nerodia.Py.toPyObject_eq_self
 Nerodia.Py.toPyObject_hasType
 Nerodia.Py.toPyObject_ofPyObject
+Nerodia.Py.toPyObject_promote
 Nerodia.Py.toPy_eq_toPyObject
 Nerodia.PyAny (type abbrev)
 Nerodia.PyAttrInit (irreducible)
@@ -262,8 +263,8 @@ Nerodia.PyObjectView.index
 Nerodia.PyObjectView.index_spec
 Nerodia.PyObjectView.int
 Nerodia.PyObjectView.int_spec
-Nerodia.PyObjectView.isNone
-Nerodia.PyObjectView.isNone_spec
+Nerodia.PyObjectView.isNone (deprecated)
+Nerodia.PyObjectView.isNone_spec (deprecated)
 Nerodia.PyObjectView.repr
 Nerodia.PyObjectView.repr_spec
 Nerodia.PyObjectView.setAttr

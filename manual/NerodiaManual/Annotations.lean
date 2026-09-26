@@ -7,6 +7,7 @@ module
 public import VersoManual
 import all Nerodia.Compiler.Meta.Commands
 import all Nerodia.Compiler.Meta.Attributes
+import all Nerodia.Data.ExportTypes
 public import Nerodia
 
 open Nerodia
@@ -21,8 +22,8 @@ htmlSplit := .never
 %%%
 
 A Python module is defined in Nerodia by annotating Lean modules with metadata
-via commands and attributes. The Nerodia compiler reads this metdata and uses it
-to generate a Python extension with the desired properties.
+via commands and attributes. The Nerodia compiler reads this metadata and uses
+it to generate a Python extension with the desired properties.
 
 A Lean module must first use `py_module` to declare itself as a Python module
 before any of the other annotations can be used.

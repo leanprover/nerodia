@@ -26,7 +26,7 @@ public instance : DecidablePy true := private_decl%
 open Internal in
 /-- Returns a reference to the {lit}`True` constant. -/
 @[extern "nerodia_py_environment_true"]
-public def PyEnvironment.true (env : @& PyEnvironment) : PyTrue :=
+public protected def PyEnvironment.true (env : @& PyEnvironment) : PyTrue :=
   env.trueCore
 
 /-- Returns the {lit}`True` constant of the Python environment. -/
@@ -48,7 +48,7 @@ public instance : DecidablePy false := private_decl%
 open Internal in
 /-- Returns a reference to the {lit}`False` constant. -/
 @[extern "nerodia_py_environment_false"]
-public def PyEnvironment.false (env : @& PyEnvironment) : PyFalse :=
+public protected def PyEnvironment.false (env : @& PyEnvironment) : PyFalse :=
   env.falseCore
 
 /-- Returns the {lit}`False` constant of the Python environment. -/
