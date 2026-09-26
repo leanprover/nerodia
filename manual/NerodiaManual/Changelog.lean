@@ -47,6 +47,7 @@ toolchains.
 # Nerodia for Lean 4.34
 %%%
 tag := "lean-v4.34"
+shortTitle := "lean-v4.34"
 %%%
 
 - Introduction of this reference manual.
@@ -87,6 +88,7 @@ are still part of the public surface and are still stable in this version.
 # Nerodia for Lean 4.33
 %%%
 tag := "lean-v4.33"
+shortTitle := "lean-v4.33"
 %%%
 
 - Initial release.
