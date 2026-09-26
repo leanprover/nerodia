@@ -19,3 +19,7 @@ or, to demo the full website:
 ```
 $ npx netlify-cli dev
 ```
+
+## Development
+
+All modules referencing docstirngs should `open Nerodia` so that types in the rendered signatures are not qualified by `Nerodia`.
