@@ -8,6 +8,7 @@ public import VersoManual
 import all Nerodia.Data.Types
 import all Nerodia.Data.PyBytes.Basic
 
+open Nerodia
 open Verso.Genre Manual
 
 namespace NerodiaManual

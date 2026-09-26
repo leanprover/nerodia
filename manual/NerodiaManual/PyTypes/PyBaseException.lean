@@ -10,6 +10,7 @@ import all Nerodia.Data.PyBaseException.Basic
 import all Nerodia.Data.PyBaseException.SPrint
 import all Nerodia.Data.Exceptions
 
+open Nerodia
 open Verso.Genre Manual
 
 namespace NerodiaManual

@@ -9,6 +9,7 @@ import all Nerodia.Control.PyIO.Basic
 import all Nerodia.Data.PyBaseException.SPrint
 import all Nerodia.Control.CPyIO.Basic
 
+open Nerodia
 open Verso.Genre Manual
 
 namespace NerodiaManual
@@ -33,6 +34,9 @@ another Python-equipped monad to efficiently reuse its context.
 {docstring Nerodia.PyBaseIO.toBaseIO}
 
 # C Returns
+%%%
+tag := "c-returns"
+%%%
 
 Return contexts used for optimized C functions. They are not monads themselves,
 but they automatically lift into their corresponding `PyIO`-style monad (i.e.,

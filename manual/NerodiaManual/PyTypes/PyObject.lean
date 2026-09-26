@@ -9,6 +9,7 @@ import all Nerodia.Data.Py.Basic
 import all Nerodia.Data.Typing.Raw
 import all Nerodia.Data.PyObject.Basic
 
+open Nerodia
 open Verso.Genre Manual
 
 namespace NerodiaManual

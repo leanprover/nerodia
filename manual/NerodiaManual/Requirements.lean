@@ -47,7 +47,7 @@ tag := "require-nerodia"
 %%%
 
 Nerodia is available on [Reservoir][3]. To add it as a dependency, use one of
-the following formats.
+the following formats:
 
 *lakefile.lean*
 ```lean
