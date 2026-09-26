@@ -87,3 +87,10 @@ def testUBounds [ToString α] (f : PyInt → Option α) (sz : Nat) : PyIO (Array
 #guard_msgs in #eval testSBounds PyInt.toInt8? Int8.minValue.toInt Int8.maxValue.toInt
 /-- info: #["⊥", "1", "255", "⊥"] -/
 #guard_msgs in #eval testUBounds PyInt.toUInt8? UInt8.size
+
+/-! ## Fin -/
+
+/-- info: 2 -/
+#guard_msgs in #eval mkPyFin (2 : Fin 3)
+/-- info: #["⊥", "1", "2", "⊥"] -/
+#guard_msgs in #eval testUBounds (@PyInt.toFin? 3) 3

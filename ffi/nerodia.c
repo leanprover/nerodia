@@ -583,7 +583,7 @@ LEAN_EXPORT uint32_t nerodia_py_module_add_by_string
     lean_string_cstr(name), nerodia_to_object(val));
 }
 
-/* getAttr : @& PyObject -> @& PyObject -> CPyIO PyObject */
+/* getAttr : @& PyObject -> @& PyStr -> CPyIO PyObject */
 LEAN_EXPORT size_t nerodia_py_object_get_attr(b_lean_obj_arg self, b_lean_obj_arg name) {
   return (size_t)PyObject_GetAttr(nerodia_to_object(self), nerodia_to_object(name));
 }
@@ -593,7 +593,7 @@ LEAN_EXPORT size_t nerodia_py_object_get_attr_by_string(b_lean_obj_arg self, b_l
   return (size_t)PyObject_GetAttrString(nerodia_to_object(self), lean_string_cstr(name));
 }
 
-/* setAttr : @& PyObject -> @& PyObject -> @& PyObject -> CPyUnitIO */
+/* setAttr : @& PyObject -> @& PyStr -> @& PyObject -> CPyUnitIO */
 LEAN_EXPORT uint32_t nerodia_py_object_set_attr
   (b_lean_obj_arg self, b_lean_obj_arg name, b_lean_obj_arg val)
 {
