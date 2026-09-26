@@ -19,7 +19,7 @@ htmlSplit := .never
 Highlights and breaking API changes for recent Nerodia versions appear here.
 Nerodia versioning currently follows Lean's and thus does not follow [semantic
 versioning][1]. Instead, a new version of Nerodia is released for each minor
-Lean version (i.e., Nerodia 4.X for Lean 4.X.Y-Z), usually once per month.
+Lean version (i.e., Nerodia 4.X for Lean 4.X.Y), usually once per month.
 
 [1]: https://semver.org/
 
@@ -30,11 +30,11 @@ Nerodia has a `release/lean-v4.33` branch and `lean-v4.33.0` and `lean-v4.33.1`
 tags for the Lean v4.33.X stable releases.
 
 If Nerodia needs to update a release, it will be listed here as a new patch
-version (e.g., Nerodia 4.33.1), and the corresponding Git branch along with
-Git tag for the latest Lean stable release will be updated to point to it.
-For example, if Nerodia 4.33.1 was released and the latest Lean stable is Lean
-4.33.1, the `release/lean-v4.33` branch and `lean-v4.33.1` tag will be updated,
-but the `lean-v4.33.0` tag will not.
+version, and the corresponding Git branch along with Git tag for the latest
+Lean stable release will be updated to point to it. For example, if a oatch
+for 4.33 was released and the latest Lean stable is 4.33.1, the
+`release/lean-v4.33` branch and `lean-v4.33.1` tag will be updated, but the
+`lean-v4.33.0` tag will not.
 
 It is recommended that users {ref "require-nerodia"}[depend] on the
 `release/lean-v4.X` branch for the minimum combination of Nerodia and Lean
@@ -42,9 +42,9 @@ toolchain they support. Nerodia aims to be generally forward-compatible in
 its API, and an old version of Nerodia is often compatible with multiple newer
 toolchains.
 
-# Nerodia 4.34.0
+# Nerodia for Lean 4.34
 %%%
-tag := "4.34.0"
+tag := "lean-v4.34"
 %%%
 
 - Introduction of this reference manual.
@@ -71,9 +71,9 @@ are still part of the public surface and are still stable in this version.
 - Python integer support for fixed-width Lean integer types
 ({tech}`IntX`, {tech}`UIntX`).
 
-# Nerodia 4.33.0
+# Nerodia for Lean 4.33
 %%%
-tag := "4.33.0"
+tag := "lean-v4.33"
 %%%
 
 - Initial release.

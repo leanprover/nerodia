@@ -31,7 +31,7 @@ which takes as a type parameter a {lean}`Typing`. For example, an instance of
 {lean}`PyStr`. A {lean}`Py` value carries a proof of its typing. For instance,
 `s : Py str` implies {lean}`s ⦂ str`.
 
-{docstring Nerodia.Py +hideFields +hideStructureConstructor}
+{docstring Nerodia.Py}
 {docstring Nerodia.Typing}
 {docstring Nerodia.PyObject.HasType}
 {docstring Nerodia.PyObject.attachType}

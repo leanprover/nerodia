@@ -540,16 +540,18 @@ public protected def Typing.bool : Typing :=
 public instance : CoeDep Constant bool Typing := ⟨.bool⟩
 public instance : ToTypeExpr bool := ⟨bool⟩
 
+namespace Typing
+
 @[grind _=_] public theorem bool_eq_false_union_true :
   Typing.bool = .false ∪ .true := by rfl
 
 theorem false_subset_bool : Typing.false ⊆ bool := by
-  simp [bool_eq_false_union_true, Typing.Subset.union_left]
+  simp [bool_eq_false_union_true, Subset.union_left]
 
 public instance : PromotableB bool false := ⟨false_subset_bool⟩
 
 theorem true_subset_bool : Typing.true ⊆ bool := by
-  simp [bool_eq_false_union_true, Typing.Subset.union_right]
+  simp [bool_eq_false_union_true, Subset.union_right]
 
 public instance : PromotableB bool true := ⟨true_subset_bool⟩
 
@@ -562,6 +564,8 @@ theorem bool_subset_int : Typing.bool ⊆ int := by
   rintro (h | h) <;> rw [h]
 
 public instance : PromotableB int bool := ⟨bool_subset_int⟩
+
+end Typing
 
 /-- A Python boolean object. That is, an instance of {lit}`bool`. -/
 public abbrev PyBool := PyObjectView <| Py bool
