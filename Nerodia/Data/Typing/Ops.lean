@@ -87,7 +87,7 @@ public theorem Subset.hasType_of_hasType
   {T U : Typing} (h : T ⊆ U) (ho : o ⦂ T)
 : o ⦂ U := subset_iff_forall.mp h o ho
 
-@[refl] public theorem Subset.refl (T : Typing) : T ⊆ T :=
+@[refl, simp, grind .] public theorem Subset.refl (T : Typing) : T ⊆ T :=
   subset_iff_forall.mpr fun _ => id
 
 public theorem Subset.rfl {T : Typing} : T ⊆ T :=

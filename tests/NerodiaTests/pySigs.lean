@@ -190,6 +190,32 @@ open Lean Elab Command in
 /-- info: (bs: ModuleType, /) -> ModuleType -/
 #guard_msgs in #check_fn (bs : PyModule) : PyIO PyModule
 
+/-! ### Tuples -/
+
+/-- info: tuple[()] -/
+#guard_msgs in #check_attr PyIO PyEmptyTuple
+
+/-- info: (xs: tuple[()], /) -> tuple[()]  -/
+#guard_msgs in #check_fn (xs : PyEmptyTuple) : PyIO PyEmptyTuple
+
+/-- info: tuple[str, ...] -/
+#guard_msgs in #check_attr PyIO (PyArrayTuple str)
+
+/-- info: () -> tuple[int, ...]  -/
+#guard_msgs in #check_fn : PyIO (PyArrayTuple int)
+
+/-- info: tuple[str, str, str] -/
+#guard_msgs in #check_attr PyIO (PyVectorTuple str 3)
+
+/-- info: () -> tuple[()]  -/
+#guard_msgs in #check_fn : PyIO (PyVectorTuple int 0)
+
+/-- info: tuple[int, str] -/
+#guard_msgs in #check_attr PyIO (PyHTuple [int, str])
+
+/-- info: () -> tuple[()]  -/
+#guard_msgs in #check_fn : PyIO (PyHTuple [])
+
 /-! ### Lean Types -/
 
 /-- info: int | None -/

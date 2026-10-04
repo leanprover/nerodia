@@ -18,6 +18,7 @@ public import Nerodia.Data.PyBuffer.Basic
 public import Nerodia.Data.PyBytes.Basic
 public import Nerodia.Data.PyStr.Basic
 public import Nerodia.Data.PyInt.Basic
+public import Nerodia.Data.PyTuple.Basic
 
 /-!
 # Lean ↔ Python Instances

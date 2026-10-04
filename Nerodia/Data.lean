@@ -20,6 +20,7 @@ public import Nerodia.Data.PyInt
 public import Nerodia.Data.PyModule
 public import Nerodia.Data.PyNone
 public import Nerodia.Data.PyStr
+public import Nerodia.Data.PyTuple
 public import Nerodia.Data.PyType
 public import Nerodia.Data.TypeExpr
 public import Nerodia.Data.Types

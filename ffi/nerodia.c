@@ -647,6 +647,11 @@ LEAN_EXPORT uint8_t nerodia_py_object_is_bytes_instance(b_lean_obj_arg self) {
   return PyBytes_Check(nerodia_to_object(self));
 }
 
+/* isTupleInstance : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_tuple_instance(b_lean_obj_arg self) {
+  return PyTuple_Check(nerodia_to_object(self));
+}
+
 /* isIntInstance : @& PyObject -> Bool */
 LEAN_EXPORT uint8_t nerodia_py_object_is_int_instance(b_lean_obj_arg self) {
   return PyLong_Check(nerodia_to_object(self));
@@ -791,6 +796,72 @@ LEAN_EXPORT lean_obj_res nerodia_py_buffer_get_byte_array(b_lean_obj_arg buf) {
   lean_object* opt = lean_alloc_ctor(1, 1, 0);
   lean_ctor_set(opt, 0, ba); // Option.some
   return opt;
+}
+
+/** ### Tuples */
+
+/* emptyTuple : @& PyEnvironment -> PyEmptyTuple */
+LEAN_EXPORT lean_obj_res nerodia_py_environment_empty_tuple(b_lean_obj_arg env) {
+  return nerodia_of_immortal_object(Py_GetConstant(Py_CONSTANT_EMPTY_TUPLE), env);
+}
+
+/* getPyEmptyTuple : CPyBaseIO PyEmptyTuple */
+LEAN_EXPORT size_t nerodia_get_py_empty_tuple() {
+  return (size_t)Py_GetConstant(Py_CONSTANT_EMPTY_TUPLE);
+}
+
+/* isEmptyTuple : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_empty_tuple(b_lean_obj_arg self) {
+  return nerodia_to_object(self) == Py_GetConstantBorrowed(Py_CONSTANT_EMPTY_TUPLE);
+}
+
+/* mkPyTuple : @& Array PyObject -> CPyIO PyTuple */
+LEAN_EXPORT size_t nerodia_mk_py_tuple(b_lean_obj_arg xs) {
+  size_t size = lean_array_size(xs);
+  PyObject* tup = PyTuple_New(size);
+  if (!tup) { return (size_t)NULL; }
+  lean_object** cptr = lean_array_cptr(xs);
+  for (Py_ssize_t i = 0; i < size; ++i) {
+    PyTuple_SetItem(tup, i, Py_NewRef(nerodia_to_object(cptr[i])));
+  }
+  return (size_t)tup;
+}
+
+/* mkPyTuple1 : @& PyObject -> @ CPyIO PyTuple */
+LEAN_EXPORT size_t nerodia_mk_py_tuple1(b_lean_obj_arg a) {
+  PyObject* tup = PyTuple_New(1);
+  if (!tup) { return (size_t)NULL; }
+  PyTuple_SetItem(tup, 0, Py_NewRef(nerodia_to_object(a)));
+  return (size_t)tup;
+}
+
+/* mkPyTuple2 : @& PyObject -> @& PyObject -> CPyIO PyTuple */
+LEAN_EXPORT size_t nerodia_mk_py_tuple2(b_lean_obj_arg a, b_lean_obj_arg b) {
+   PyObject* tup = PyTuple_New(1);
+  if (!tup) { return (size_t)NULL; }
+  PyTuple_SetItem(tup, 0, Py_NewRef(nerodia_to_object(a)));
+  PyTuple_SetItem(tup, 1, Py_NewRef(nerodia_to_object(a)));
+  return (size_t)tup;
+}
+
+/* toArray : @& PyTuple -> Array PyObject */
+LEAN_EXPORT lean_obj_res nerodia_py_tuple_to_array(b_lean_obj_arg self) {
+  PyObject* tup = nerodia_to_object(self);
+  assert(PyTuple_Check(tup));
+  size_t size = PyTuple_Size(tup);
+  lean_object* arr = lean_alloc_array(size, size);
+  lean_object** cptr = lean_array_cptr(arr);
+  for (Py_ssize_t i = 0; i < size; ++i) {
+    cptr[i] = nerodia_of_object(Py_NewRef(PyTuple_GetItem(tup, i)), NULL);
+  }
+  return arr;
+}
+
+/* usize : @& PyTuple -> USize */
+LEAN_EXPORT size_t nerodia_py_tuple_usize(b_lean_obj_arg self) {
+  PyObject* tup = nerodia_to_object(self);
+  assert(PyTuple_Check(tup));
+  return PyTuple_Size(tup);
 }
 
 /** ### Integers */

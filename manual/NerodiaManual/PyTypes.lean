@@ -13,6 +13,7 @@ import NerodiaManual.PyTypes.PyModule
 import NerodiaManual.PyTypes.PyNone
 import NerodiaManual.PyTypes.PyObject
 import NerodiaManual.PyTypes.PyStr
+import NerodiaManual.PyTypes.PyTuple
 import NerodiaManual.PyTypes.PyType
 
 open Verso.Genre Manual
@@ -34,4 +35,5 @@ Nerodia exposes the basic types of Python as Lean types with a `Py` prefix.
 {include 0 NerodiaManual.PyTypes.PyNone}
 {include 0 NerodiaManual.PyTypes.PyObject}
 {include 0 NerodiaManual.PyTypes.PyStr}
+{include 0 NerodiaManual.PyTypes.PyTuple}
 {include 0 NerodiaManual.PyTypes.PyType}

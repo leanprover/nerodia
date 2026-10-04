@@ -113,6 +113,7 @@ Nerodia.Py.attachType_spec
 Nerodia.Py.ext
 Nerodia.Py.ext_iff
 Nerodia.Py.ofPyObject
+Nerodia.Py.ofPyObject_toPyObject
 Nerodia.Py.promote
 Nerodia.Py.toPyObject
 Nerodia.Py.toPyObject_eq_self
@@ -121,6 +122,7 @@ Nerodia.Py.toPyObject_ofPyObject
 Nerodia.Py.toPyObject_promote
 Nerodia.Py.toPy_eq_toPyObject
 Nerodia.PyAny (type abbrev)
+Nerodia.PyArrayTuple (type abbrev)
 Nerodia.PyAttrInit (irreducible)
 Nerodia.PyAttrInit.ofCPyIO
 Nerodia.PyBaseException (type abbrev)
@@ -167,13 +169,16 @@ Nerodia.PyBytes.toByteArray
 Nerodia.PyBytes.usize
 Nerodia.PyBytes.usize_eq
 Nerodia.PyEOFError (type abbrev)
+Nerodia.PyEmptyTuple (type abbrev)
 Nerodia.PyEnvironment
+Nerodia.PyEnvironment.emptyTuple
 Nerodia.PyEnvironment.false
 Nerodia.PyEnvironment.getOrInit
 Nerodia.PyEnvironment.none
 Nerodia.PyEnvironment.true
 Nerodia.PyException (type abbrev)
 Nerodia.PyFalse (type abbrev)
+Nerodia.PyHTuple (type abbrev)
 Nerodia.PyIO (irreducible)
 Nerodia.PyIO.bindCPyIO
 Nerodia.PyIO.orElseM
@@ -286,10 +291,28 @@ Nerodia.PyThreadCtxT.run
 Nerodia.PyThreadCtxT.run'
 Nerodia.PyThreadCtxT.toM
 Nerodia.PyTrue (type abbrev)
+Nerodia.PyTuple (type abbrev)
+Nerodia.PyTuple.OfTypes
+Nerodia.PyTuple.size
+Nerodia.PyTuple.sizeImpl
+Nerodia.PyTuple.size_eq
+Nerodia.PyTuple.toArray
+Nerodia.PyTuple.usize
+Nerodia.PyTuple.usize_eq
 Nerodia.PyType (type abbrev)
 Nerodia.PyType.getQualName
 Nerodia.PyTypeError (type abbrev)
 Nerodia.PyValueError (type abbrev)
+Nerodia.PyVectorTuple (type abbrev)
+Nerodia.Subtyping (irreducible)
+Nerodia.Subtyping.any
+Nerodia.Subtyping.ext
+Nerodia.Subtyping.ext_iff
+Nerodia.Subtyping.ofFn
+Nerodia.Subtyping.ofFn_iff
+Nerodia.Subtyping.toTyping
+Nerodia.Subtyping.toTyping_any
+Nerodia.Subtyping.toTyping_subset
 Nerodia.ToPy
 Nerodia.ToPy.mk
 Nerodia.ToPy.toPy (proj)
@@ -300,14 +323,32 @@ Nerodia.ToPyObject (type abbrev)
 Nerodia.ToTypeExpr
 Nerodia.ToTypeExpr.mk
 Nerodia.ToTypeExpr.toTypeExpr (proj)
+Nerodia.ToTypeExprs
+Nerodia.ToTypeExprs.mk
+Nerodia.ToTypeExprs.toTypeExprs (proj)
+Nerodia.TupleTyping (irreducible)
+Nerodia.TupleTyping.any
+Nerodia.TupleTyping.empty
+Nerodia.TupleTyping.ext
+Nerodia.TupleTyping.ext_iff
+Nerodia.TupleTyping.ofFn
+Nerodia.TupleTyping.ofFn_iff
+Nerodia.TupleTyping.ofTyping
+Nerodia.TupleTyping.ofTypingN
+Nerodia.TupleTyping.ofTypings
+Nerodia.TupleTyping.toTyping
+Nerodia.TupleTyping.toTyping_subset
 Nerodia.TypeExpr
+Nerodia.TypeExpr.arrayTuple
 Nerodia.TypeExpr.baseException (irreducible)
 Nerodia.TypeExpr.bool (irreducible)
 Nerodia.TypeExpr.buffer (irreducible)
 Nerodia.TypeExpr.bytes (irreducible)
+Nerodia.TypeExpr.emptyTuple (irreducible)
 Nerodia.TypeExpr.eofError (irreducible)
 Nerodia.TypeExpr.exception (irreducible)
 Nerodia.TypeExpr.false (irreducible)
+Nerodia.TypeExpr.htuple
 Nerodia.TypeExpr.int (irreducible)
 Nerodia.TypeExpr.moduleType (irreducible)
 Nerodia.TypeExpr.never (irreducible)
@@ -321,10 +362,12 @@ Nerodia.TypeExpr.str (irreducible)
 Nerodia.TypeExpr.systemError (irreducible)
 Nerodia.TypeExpr.toString (proj)
 Nerodia.TypeExpr.true (irreducible)
+Nerodia.TypeExpr.tuple (irreducible)
 Nerodia.TypeExpr.type (irreducible)
 Nerodia.TypeExpr.typeError (irreducible)
 Nerodia.TypeExpr.union
 Nerodia.TypeExpr.valueError (irreducible)
+Nerodia.TypeExpr.vectorTuple
 Nerodia.Typing (irreducible)
 Nerodia.Typing.HasType (deprecated)
 Nerodia.Typing.HasType.left (deprecated)
@@ -384,6 +427,8 @@ Nerodia.Typing.str
 Nerodia.Typing.subset_iff_forall
 Nerodia.Typing.systemError
 Nerodia.Typing.true
+Nerodia.Typing.tuple (exposed)
+Nerodia.Typing.tuple_eq_toTyping
 Nerodia.Typing.type
 Nerodia.Typing.typeError
 Nerodia.Typing.union
@@ -403,11 +448,13 @@ Nerodia.bytes
 Nerodia.decode
 Nerodia.eofError
 Nerodia.exception
+Nerodia.getPyEmptyTuple
 Nerodia.getPyFalse
 Nerodia.getPyNone
 Nerodia.getPyTrue
 Nerodia.import
 Nerodia.int
+Nerodia.mkPyArrayTuple
 Nerodia.mkPyBool
 Nerodia.mkPyBytes
 Nerodia.mkPyFin
@@ -419,11 +466,15 @@ Nerodia.mkPyInt64
 Nerodia.mkPyInt8
 Nerodia.mkPyNat
 Nerodia.mkPyStr
+Nerodia.mkPyTuple
+Nerodia.mkPyTuple1
+Nerodia.mkPyTuple2
 Nerodia.mkPyUInt16
 Nerodia.mkPyUInt32
 Nerodia.mkPyUInt64
 Nerodia.mkPyUInt8
 Nerodia.mkPyUSize
+Nerodia.mkPyVectorTuple
 Nerodia.moduleType
 Nerodia.never
 Nerodia.object
@@ -440,6 +491,7 @@ Nerodia.str
 Nerodia.systemError
 Nerodia.toPy_eq_promote
 Nerodia.toPy_eq_self
+Nerodia.tuple
 Nerodia.type
 Nerodia.typeError
 Nerodia.valueError

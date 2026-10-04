@@ -39,6 +39,14 @@ namespace Typing
 export ToTypeExpr (toTypeExpr)
 end Typing
 
+public class ToTypeExprs (Ts : List Typing) where
+  toTypeExprs (init : Array TypeExpr) : Array TypeExpr
+
+public instance : ToTypeExprs [] := ⟨(·)⟩
+
+public instance [ToTypeExpr T] [ToTypeExprs Ts] : ToTypeExprs (T :: Ts) where
+  toTypeExprs init := ToTypeExprs.toTypeExprs Ts (init.push T.toTypeExpr)
+
 /--
 Auxiliary type used for values representing a static Python constant.
 

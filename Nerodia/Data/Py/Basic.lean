@@ -106,8 +106,15 @@ public noncomputable nonrec def ofModel (o : Py.Model) : PyObject :=
   ⟨.ofModel o, .object⟩
 
 unseal Nerodia.Py in
-public noncomputable nonrec def toModel (o : PyObject) : Py.Model :=
-  o.raw.toModel
+public noncomputable nonrec def toModel (self : PyObject) : Py.Model :=
+  self.raw.toModel
+
+unseal Nerodia.Py in
+@[simp, grind =]
+public theorem ofModel_toModel : ofModel (toModel self) = self := by
+  obtain ⟨⟨m⟩, _⟩ := self
+  simp only [toModel, ofModel]
+  rfl
 
 @[simp, grind =]
 public theorem toModel_ofModel : toModel (ofModel m) = m := by
@@ -209,8 +216,12 @@ unseal Py in
   Internal.Py.mk o.raw h
 
 unseal Py in
+@[simp, grind =] public theorem ofPyObject_toPyObject  :
+  ofPyObject (toPyObject (T := T) o) h = o := by rfl
+
+unseal Py in
 @[simp, grind =] public theorem toPyObject_ofPyObject  :
-  toPyObject (ofPyObject o h) = o := by rfl
+  toPyObject (T := T) (ofPyObject o h) = o := by rfl
 
 end Py
 

@@ -13,6 +13,7 @@ import Lean.AddDecl
 import Lean.DocString
 import Lean.PrivateName
 import Lean.Meta.ReduceEval
+import Std.Data.Iterators
 import Nerodia.Compiler.Meta.PyName
 import Nerodia.Compiler.Meta.Extension
 
@@ -91,15 +92,46 @@ syntax (name := py_module_fn) "py_module_fn" (ppSpace str)?
 
 @[inline] partial def evalTypeExpr (x : Expr) : MetaM String := do
   go x
-where go x := do
-  let x ← withTransparency .default <| whnf x
-  if let some (lhs, rhs) := x.app2? `Nerodia.TypeExpr.union then
-    return s!"{← go lhs} | {← go rhs}"
-  else if let some x := x.app1? `Nerodia.TypeExpr.optional then
-    return s!"{← go x} | None"
-  else
-    let x := mkApp (mkConst `Nerodia.TypeExpr.toString) x
-    withTransparency .all <| reduceEval x
+where
+  go x := do
+    let x ← withTransparency .default <| whnf x
+    if let some (lhs, rhs) := x.app2? `Nerodia.TypeExpr.union then
+      return s!"{← go lhs} | {← go rhs}"
+    else if let some x := x.app1? `Nerodia.TypeExpr.optional then
+      return s!"{← go x} | None"
+    else if let some (xs) := x.app1? `Nerodia.TypeExpr.htuple then
+      if let some (xs, _, _) := xs.app3? `Nerodia.ToTypeExprs.toTypeExprs then
+        let xs ← whnf xs
+        match_expr xs with
+        | List.nil _ =>
+          return "tuple[()]"
+        | List.cons _ x xs =>
+          let evalTyping p := do
+            let inst ← synthInstance (mkApp (mkConst `Nerodia.ToTypeExpr) p)
+            go <| mkApp2 (mkConst `Nerodia.ToTypeExpr.toTypeExpr) p inst
+          let rec evalTail (s : String) (xs : Expr) : MetaM String := do
+            let xs ← whnf xs
+            match_expr xs with
+            | List.nil _ => return s.push ']'
+            | List.cons _ x xs =>
+              evalTail s!"{s}, {← evalTyping x}" xs
+            | _ => throwError "reduceEval: failed to evaluate argument{indentExpr xs}"
+          evalTail s!"tuple[{← evalTyping x}" xs
+        | _ => throwError "reduceEval: failed to evaluate argument{indentExpr xs}"
+      else
+        throwError "reduceEval: failed to evaluate argument{indentExpr xs}"
+    else if let some (x) := x.app1? `Nerodia.TypeExpr.arrayTuple then
+      return s!"tuple[{← go x}, ...]"
+    else if let some (x, n) := x.app2? `Nerodia.TypeExpr.vectorTuple then
+      let n : Nat ← reduceEval n
+      if n = 0 then
+        return "tuple[()]"
+      else
+        let x ← go x
+        return s!"tuple[{Vector.replicate n x |>.iter.intercalateString ", "}]"
+    else
+      let x := mkApp (mkConst `Nerodia.TypeExpr.toString) x
+      withTransparency .all <| reduceEval x
 
 def mkHint (p : Expr) : MetaM (Option String) := do
   let inst? ← trySynthInstance (mkApp (mkConst `Nerodia.ToTypeExpr) p)
