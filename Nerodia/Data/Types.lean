@@ -6,9 +6,11 @@ Authors: Mac Malone
 module
 public import Nerodia.Data.PyAny
 public import Nerodia.Data.PyNever
+public import Nerodia.Data.Subtyping
 public import Nerodia.Data.Typing.Ops
 public import Nerodia.Data.Typing.Promotable
 meta import Nerodia.Internal.ViewMethod
+import Std.Data.Iterators
 
 /-! # Type Definitions -/
 
@@ -154,19 +156,30 @@ def Typing.kind (k : Py.Kind) : Typing :=
   .ofFn (·.toModel.kind = k)
 
 open Internal in
-noncomputable def PyObject.ofKind (k : Py.Kind) : PyObject :=
-  .ofModel {Classical.ofNonempty (α := Py.Model) with kind := k}
+noncomputable def PyObject.ofData (data : Py.Data) : PyObject :=
+  .ofModel {Classical.ofNonempty (α := Py.Model) with data}
 
-@[simp, grind .] theorem PyObject.ofKind_hasType_kind :
-  .ofKind k ⦂ .kind k
-:= by simp [Typing.kind, PyObject.ofKind]
+open Internal in
+noncomputable def PyObject.ofKind (k : Py.Kind) : PyObject :=
+  .ofData (.ofKind k)
+
+open Internal Nerodia in
+@[simp, grind =] theorem PyObject.hasType_kind :
+  x ⦂ .kind k ↔ x.toModel.data.kind = k
+:= by simp [Typing.kind]
+
+open Internal Nerodia in
+@[simp, grind =] theorem PyObject.kind_ofKind :
+  (ofKind k).toModel.data.kind = k
+:= by simp [PyObject.ofKind, PyObject.ofData]
 
 instance : NonemptyPy (.kind k) :=
-  ⟨.ofPyObject (.ofKind k) PyObject.ofKind_hasType_kind⟩
+  ⟨.ofPyObject (.ofKind k) (by simp)⟩
 
-@[simp] theorem PyObject.withTypeHint_hasType_kind_iff :
-   o.withTypeHint ty ⦂ .kind k ↔ o ⦂ .kind k
-:= by simp [PyObject.withTypeHint, Typing.kind]
+open Internal Nerodia in
+@[simp, grind =] theorem PyObject.kind_withTypeHint :
+  (withTypeHint ty o).toModel.data.kind = o.toModel.data.kind
+:= by simp [PyObject.withTypeHint]
 
 /-! ### type -/
 
@@ -319,6 +332,276 @@ def PyObject.isBytesInstance (self : @& PyObject) : Bool :=
 open PyObject in
 public instance : DecidablePy bytes := private_decl%
   (Internal.decPy isBytesInstance (by simp [isBytesInstance]))
+
+/-! ### tuple -/
+
+/--
+The Python type of immutable sequences, [{lit}`tuple`][1].
+
+[1]: https://docs.python.org/3/builtins/stdtypes.html#tuples
+-/
+public opaque tuple : Constant
+
+@[inherit_doc tuple]
+public protected def Typing.tuple : Typing :=
+  .kind .tuple
+  deriving NonemptyPy
+
+public instance : CoeDep Constant tuple Typing := ⟨.tuple⟩
+
+public abbrev TupleTyping := Subtyping tuple
+
+@[inherit_doc tuple, inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.tuple : TypeExpr :=
+  ⟨s!"tuple"⟩
+
+public instance : CoeDep Constant tuple TypeExpr := ⟨.tuple⟩
+public instance : ToTypeExpr tuple := ⟨tuple⟩
+
+/-- A Python tuple object. That is, an instance of {lit}`tuple`. -/
+public abbrev PyTuple := PyObjectView <| Py tuple
+
+/-- A Python tuple object. That is, an instance of {lit}`tuple`. -/
+public abbrev TPyTuple (T : TupleTyping := .any) := PyObjectView <| Py T
+
+public instance : ViewPy (Typing.subtype tuple T) (TPyTuple T) := ⟨rfl⟩
+
+public nonrec def TupleTyping.ofFn (p : PyTuple → Prop) : TupleTyping :=
+  .ofFn fun x h => p <| .ofPyObject x h
+
+@[grind =] public theorem TupleTyping.ofFn_iff :
+  x ⦂ ofFn p ↔ ∃ h, p (.ofPyObject x h)
+:= by simp only [ofFn, Subtyping.ofFn_iff]
+
+open Internal Nerodia in
+/-- Returns the elements of {lean}`self` as a Lean {lean}`Array`. -/
+-- This function is pure because the tuple data of instances of `tuple` is immutable.
+public noncomputable def PyTuple.toArray (self : @& PyTuple) : Array PyObject :=
+  let data :=  (Py.toPyObject self).toModel.data
+  have h : data.kind = .tuple := by
+    simpa [data, Typing.tuple, Typing.kind, Typing.ofFn_iff]
+      using self.toPyObject_hasType
+  data.tupleArray h |>.map .ofModel
+
+/-! ### PyEmptyTuple -/
+
+def PyTuple.IsEmpty (self : PyTuple) : Prop :=
+  self.toArray.isEmpty
+
+/--
+An empty tuple.
+
+This is equivalent to the Python type, {lit}`tuple[()]`.
+-/
+public nonrec def TupleTyping.empty : TupleTyping :=
+  .ofFn (·.IsEmpty)
+
+@[inherit_doc TupleTyping.empty, inline, irreducible, expose] -- for Nerodia compiler reduction
+public def TypeExpr.emptyTuple : TypeExpr :=
+  ⟨s!"tuple[()]"⟩
+
+public instance : ToTypeExpr TupleTyping.empty := ⟨.emptyTuple⟩
+
+noncomputable opaque PyEnvironment.emptyTupleAddr (env : PyEnvironment) : Addr
+
+open Internal in
+noncomputable def PyEnvironment.emptyTupleObj (env : @& PyEnvironment) : PyObject :=
+  .ofModel {env, addr := env.emptyTupleAddr, data := .tuple #[], hint := .emptyTuple}
+
+open Internal Nerodia in
+theorem PyEnvironment.emptyTupleObj_hasType {env} : emptyTupleObj env ⦂ TupleTyping.empty := by
+  simp only [TupleTyping.empty, TupleTyping.ofFn_iff]
+  constructor
+  · simp [PyTuple.IsEmpty, PyTuple.toArray, emptyTupleObj]
+  · simp [PyEnvironment.emptyTupleObj, Typing.tuple, Py.DataAux.kind]
+
+/-- An empty Python tuple object (e.g., {lit}`()`). -/
+public abbrev PyEmptyTuple := TPyTuple .empty
+
+public instance : ViewPy TupleTyping.empty PyEmptyTuple := ⟨rfl⟩
+
+public noncomputable def Internal.Nerodia.PyEnvironment.emptyTupleCore (env : @& PyEnvironment) : PyEmptyTuple :=
+  .ofPyObject env.emptyTupleObj env.emptyTupleObj_hasType
+
+public instance : NonemptyPy TupleTyping.empty :=
+  ⟨Internal.Nerodia.PyEnvironment.emptyTupleCore Classical.ofNonempty⟩
+
+/-! ### PyHTuple -/
+
+open Internal Nerodia in
+public def PyTuple.OfTypes (self : PyTuple) (Ts : List Typing) : Prop :=
+  ∃ h : self.toArray.size = Ts.length,
+  ∀ i, ∀ h : i < Ts.length, self.toArray[i] ⦂ Ts[i]
+
+@[simp, grind =]
+theorem PyTuple.ofTypes_nil : OfTypes xs [] ↔ IsEmpty xs := by
+  simp [OfTypes, IsEmpty]
+
+theorem PyTuple.OfTypes.isEmpty (h : OfTypes xs []) : IsEmpty xs :=
+  ofTypes_nil.mp h
+
+open Internal Nerodia in
+/--
+
+A heterogenous tuple of types {lean}`Ts`.
+
+The tuple has size {lean}`Ts.length` and each element at position
+{given -show}`i : Fin Ts.length`{lean}`i`  has type {lean}`Ts[i]`.
+
+This is equivalent to the Python type, `tuple[Ts[0], Ts[1], ⋯, Ts[i]]`.
+-/
+public nonrec def TupleTyping.ofTypings (Ts : List Typing) : TupleTyping :=
+  .ofFn (·.OfTypes Ts)
+
+public instance : Coe (List Typing) TupleTyping := ⟨.ofTypings⟩
+
+@[simp, grind =]
+theorem TupleTyping.ofTypings_nil : ofTypings ([] : List Typing) = empty := by
+  ext x; simp [ofTypings, empty]
+
+@[inherit_doc TupleTyping.ofTypings, irreducible] -- for Nerodia compiler reduction
+public def TypeExpr.htuple (Ts : Array TypeExpr) : TypeExpr :=
+  if Ts.isEmpty then emptyTuple else
+  ⟨s!"tuple[{Ts.iter.map toString |>.intercalateString ", "}]"⟩
+
+public instance [ToTypeExprs Ts] : ToTypeExpr (TupleTyping.ofTypings Ts) :=
+  ⟨.htuple (ToTypeExprs.toTypeExprs Ts #[])⟩
+
+/--
+A heterogenous tuple of types {lean}`Ts`.
+That is, an instance of {lit}`tuple[Ts[0], Ts[1], ⋯, Ts[i]]`.
+-/
+public abbrev PyHTuple (Ts : List Typing) := TPyTuple Ts
+
+public instance : ViewPy (TupleTyping.ofTypings Ts) (PyHTuple Ts) := ⟨rfl⟩
+
+public instance : PromotableB (TupleTyping.empty) (TupleTyping.ofTypings []) :=
+  ⟨by rw [TupleTyping.ofTypings_nil]⟩
+
+public instance : PromotableB (TupleTyping.ofTypings []) (TupleTyping.empty) :=
+  ⟨by rw [TupleTyping.ofTypings_nil]⟩
+
+/-! ### PyArrayTuple -/
+
+open Internal Nerodia in
+def PyTuple.IsArray (self : PyTuple) (T : Typing) : Prop :=
+  ∀ x ∈ self.toArray, x ⦂ T
+
+theorem PyTuple.IsEmpty.isArray (h : IsEmpty xs) : IsArray xs T := by
+  simp_all [IsEmpty, IsArray]
+
+open Internal Nerodia in
+/--
+A variable-size tuple where each item has type {lean}`T`.
+
+This is equivalent to the Python type `tuple[T, ...]`.
+-/
+public def TupleTyping.ofTyping (T : Typing) : TupleTyping :=
+  .ofFn (·.IsArray T)
+
+public instance : CoeTail Typing TupleTyping := ⟨.ofTyping⟩
+
+@[inline, inherit_doc TupleTyping.ofTyping, irreducible] -- for Nerodia compiler reduction
+public protected def TypeExpr.arrayTuple (T : TypeExpr) : TypeExpr :=
+  ⟨s!"tuple[{T}, ...]"⟩
+
+public instance [ToTypeExpr T] : ToTypeExpr (TupleTyping.ofTyping T) :=
+  ⟨.arrayTuple T.toTypeExpr⟩
+
+/--
+An variable-size tuple of type {lean}`T`.
+That is, an instance of {lit}`tuple{T, ...]`.
+
+The equivalent of {given -show}`T : Type`{lean}`Array T` as a Python tuple.
+-/
+public abbrev PyArrayTuple (T : Typing) := TPyTuple T
+
+public instance : ViewPy (TupleTyping.ofTyping T) (PyArrayTuple T) := ⟨rfl⟩
+
+public instance {T : Typing} : PromotableLtr (TupleTyping.ofTyping T) (TupleTyping.empty) := by
+  constructor
+  simp only [Typing.subset_iff_forall,
+    TupleTyping.empty, TupleTyping.ofTyping, TupleTyping.ofFn_iff]
+  intro o ⟨hasType_tuple, isEmpty⟩
+  exact ⟨hasType_tuple, isEmpty.isArray⟩
+
+open Internal Nerodia in
+public instance {T : Typing} : NonemptyPy (TupleTyping.ofTyping T) :=
+  ⟨PyEnvironment.emptyTupleCore Classical.ofNonempty |>.promote⟩
+
+/-! ### PyVectorTuple -/
+
+open Internal Nerodia in
+def PyTuple.IsVector (self : PyTuple) (T : Typing) (n : Nat) : Prop :=
+  self.toArray.size = n ∧ ∀ x ∈ self.toArray, x ⦂ T
+
+theorem PyTuple.IsVector.isArray (h : IsVector xs T n) : IsArray xs T := by
+  simp_all [IsArray, IsVector]
+
+@[simp, grind =]
+theorem PyTuple.isVector_zero : IsVector xs T 0 ↔ IsEmpty xs := by
+  simp_all [IsEmpty, IsVector]
+
+theorem PyTuple.IsVector.isEmpty (h : IsVector xs T 0) : IsEmpty xs :=
+  isVector_zero.mp h
+
+theorem PyTuple.IsEmpty.isVector (h : IsEmpty xs) : IsVector xs T 0 :=
+  isVector_zero.mpr h
+
+open Internal Nerodia in
+/--
+A tuple of type {lean}`T` and size {lean}`n`.
+
+Python has no direct type syntax for this. as such, it is equivalent to a tuple
+type with {lean}`T` repeated {lean}`n` times.  For example, {lean}`ofTypingN T 3`
+is equivalent to `tuple[T, T, T]`.
+-/
+public def TupleTyping.ofTypingN (T : Typing) (n : Nat) : TupleTyping :=
+  .ofFn (·.IsVector T n)
+
+open Internal Nerodia in
+theorem TupleTyping.ofTypingN_zero : ofTypingN T 0 = empty := by
+  simp [ofTypingN, empty]
+
+@[inherit_doc TupleTyping.ofTypingN, irreducible] -- for Nerodia compiler reduction
+public def TypeExpr.vectorTuple  (T : TypeExpr) (n : Nat) : TypeExpr :=
+  if n = 0 then emptyTuple else
+  ⟨s!"tuple[{Vector.replicate n T.toString |>.iter.intercalateString ", "}]"⟩
+
+public instance [ToTypeExpr T] : ToTypeExpr (TupleTyping.ofTypingN T n) :=
+  ⟨.vectorTuple T.toTypeExpr n⟩
+
+/--
+A tuple of type {lean}`T` and size {lean}`n`.
+
+The equivalent of {given -show}`T : Type`{lean}`Vector T n` as a Python tuple.
+-/
+public abbrev PyVectorTuple (T : Typing) (n : Nat) := TPyTuple (.ofTypingN T n)
+
+public instance : ViewPy (TupleTyping.ofTypingN T n) (PyVectorTuple T n) := ⟨rfl⟩
+
+public instance {T : Typing} : PromotableLtr (TupleTyping.ofTypingN T 0) (TupleTyping.empty) :=
+  ⟨by rw [TupleTyping.ofTypingN_zero]⟩
+
+public instance {T : Typing} : PromotableRtl (TupleTyping.ofTyping T) (TupleTyping.ofTypingN T n) := by
+  constructor
+  simp only [Typing.subset_iff_forall,
+    TupleTyping.ofTypingN, TupleTyping.ofTyping, TupleTyping.ofFn_iff]
+  intro o ⟨hasType, isVector⟩
+  exact ⟨hasType, isVector.isArray⟩
+
+open Internal Nerodia in
+public instance : NonemptyPy (TupleTyping.ofTypingN T 0) :=
+  ⟨PyEnvironment.emptyTupleCore Classical.ofNonempty |>.promote⟩
+
+open Internal Nerodia in
+public instance [NonemptyPy T] : NonemptyPy (TupleTyping.ofTypingN T n) :=
+  have x : Py T := Classical.ofNonempty
+  let m := {(Classical.ofNonempty : Py.Model) with
+    data := .tuple <| Array.replicate n x.toPyObject.toModel}
+  NonemptyPy.intro (.ofModel m) <| by
+    simp only [TupleTyping.ofTypingN, TupleTyping.ofFn_iff]
+    simp [PyTuple.IsVector, PyTuple.toArray, m, Typing.tuple]
 
 /-! ### int -/
 
@@ -490,7 +773,7 @@ noncomputable opaque PyEnvironment.falseAddr (env : PyEnvironment) : Addr
 
 open Internal in
 noncomputable def PyEnvironment.falseObj (env : @& PyEnvironment) : PyObject :=
-  .ofModel {env, addr := env.falseAddr, kind := .int, hint := .false}
+  .ofModel {env, addr := env.falseAddr, data := .int, hint := .false}
 
 open Internal in
 @[inherit_doc TypeExpr.false]
@@ -531,7 +814,7 @@ noncomputable opaque PyEnvironment.trueAddr (env : PyEnvironment) : Addr
 
 open Internal in
 noncomputable def PyEnvironment.trueObj (env : @& PyEnvironment) : PyObject :=
-  .ofModel {env, addr := env.trueAddr, kind := .int, hint := .true}
+  .ofModel {env, addr := env.trueAddr, data := .int, hint := .true}
 
 open Internal in
 @[inherit_doc TypeExpr.true]
@@ -600,7 +883,10 @@ theorem bool_subset_int : Typing.bool ⊆ int := by
   intro o
   simp only [Typing.int, Typing.false, Typing.true, kind, ofFn_iff]
   simp only [falseObj, trueObj, PyObject.toModel_ofModel]
-  rintro (h | h) <;> rw [h]
+  rintro (h | h)
+  all_goals
+    rw [h]
+    simp only [Py.InnerModel.kind_spec, Py.DataAux.kind]
 
 public instance : PromotableB int bool := ⟨bool_subset_int⟩
 
