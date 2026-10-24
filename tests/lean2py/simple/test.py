@@ -8,8 +8,8 @@ import testmodule
 exports = [x for x in dir(testmodule) if not x.startswith('__')]
 expected = [
   "addBit", "alwaysRaise", "bnot", "countbytes", "encodeUTF8", "greet", "greet2",
-  "greetUser", "greeting", "greeting_for", "my_add", "optToNat", "setUser",
-  "tripleAdd"
+  "greetUser", "greeting", "greeting_for", "my_add", "narrow", "optToNat",
+  "scale", "setUser", "tripleAdd"
 ]
 assert exports == expected, exports
 
@@ -33,6 +33,11 @@ assert testmodule.bnot(False) is True
 assert testmodule.optToNat(None) is None
 assert testmodule.optToNat("1") == 1
 assert testmodule.optToNat("hi") is None
+
+assert testmodule.scale(1.5, 2.0) == 3.0
+assert testmodule.scale(3, 2) == 6.0 # `int` is accepted as a `float`
+
+assert testmodule.narrow(1.5) == 1.5
 
 assert testmodule.greet() == "Olá!"
 
@@ -109,6 +114,24 @@ try:
   raise AssertionError('expected ValueError')
 except ValueError as e:
   assert str(e) == "testmodule.tripleAdd() argument 3 must fit within an unsigned word, got 18446744073709551616"
+
+try:
+  testmodule.scale("1.5", 1.0) # type: ignore[ty:invalid-argument-type]
+  raise AssertionError('expected TypeError')
+except TypeError as e:
+  assert str(e) == "testmodule.scale() argument 1 must be int or float, got str"
+
+try:
+  testmodule.scale(1.0, None) # type: ignore[ty:invalid-argument-type]
+  raise AssertionError('expected TypeError')
+except TypeError as e:
+  assert str(e) == "testmodule.scale() argument 2 must be int or float, got NoneType"
+
+try:
+  testmodule.scale(10**400, 1.0)
+  raise AssertionError('expected OverflowError')
+except OverflowError as e:
+  assert str(e) == "int too large to convert to float"
 
 try:
   testmodule.countbytes(0) # type: ignore[ty:invalid-argument-type]

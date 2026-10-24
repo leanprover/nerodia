@@ -348,6 +348,45 @@ public abbrev PyInt := PyObjectView <| Py int
 
 public instance : ViewPy int PyInt := ⟨rfl⟩
 
+/-! ### float -/
+
+/--
+The Python floating-point type, [{lit}`float`][1].
+
+[1]: https://docs.python.org/3/library/functions.html#float
+-/
+public opaque float : Constant
+
+@[inherit_doc float]
+public protected def Typing.float : Typing :=
+  .kind .float
+  deriving NonemptyPy
+
+public instance : CoeDep Constant float Typing := ⟨.float⟩
+
+/--
+The {lit}`float` type expression.
+
+In Python, this is [a special case][1] which accepts instances of
+both {lit}`int` and {lit}`float`. Thus, it is semantically equivalent
+to {lit}`int | float`. Stylistically, Nerodia prefers to use {lit}`int | float`
+for argument types and {lit}`float` for return types to clarify what is
+accepted or returned.
+
+[1]: https://typing.python.org/en/latest/spec/special-types.html#special-cases-for-float-and-complex
+-/
+@[inline, irreducible, expose] -- for Nerodia compiler reduction
+public protected def TypeExpr.float : TypeExpr :=
+  ⟨"float"⟩
+
+public instance : CoeDep Constant float TypeExpr := ⟨.float⟩
+public instance : ToTypeExpr float := ⟨float⟩
+
+/-- A Python float object. That is, an instance of {lit}`float`. -/
+public abbrev PyFloat := PyObjectView <| Py float
+
+public instance : ViewPy float PyFloat := ⟨rfl⟩
+
 /-! ### ModuleType -/
 
 /--

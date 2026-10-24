@@ -652,9 +652,26 @@ LEAN_EXPORT uint8_t nerodia_py_object_is_int_instance(b_lean_obj_arg self) {
   return PyLong_Check(nerodia_to_object(self));
 }
 
+/* isFloatInstance : @& PyObject -> Bool */
+LEAN_EXPORT uint8_t nerodia_py_object_is_float_instance(b_lean_obj_arg self) {
+  PyObject* o = nerodia_to_object(self);
+  if (PyFloat_CheckExact(o)) {
+    return true;
+  }
+  // `PyFloat_Check` walks the type's MRO, which requires the GIL.
+  py_gil_ensure();
+  uint8_t r = PyFloat_Check(o);
+  py_gil_release();
+  return r;
+}
+
 /* isModuleInstance : @& PyObject -> Bool */
 LEAN_EXPORT uint8_t nerodia_py_object_is_module_instance(b_lean_obj_arg self) {
-  return PyModule_Check(nerodia_to_object(self));
+  // `PyModule_Check` walks the type's MRO, which requires the GIL.
+  py_gil_ensure();
+  uint8_t r = PyModule_Check(nerodia_to_object(self));
+  py_gil_release();
+  return r;
 }
 
 /* ### Types */
@@ -885,4 +902,33 @@ LEAN_EXPORT lean_obj_res nerodia_py_int_to_byte_array_le(b_lean_obj_arg self) {
 /* toByteArrayBE : @& PyInt -> ByteArray */
 LEAN_EXPORT lean_obj_res nerodia_py_int_to_byte_array_be(b_lean_obj_arg self) {
   return py_int_to_byte_array(self, Py_ASNATIVEBYTES_BIG_ENDIAN);
+}
+
+/** ### Floats */
+
+/* float : @& PyObject -> CPyIO PyFloat */
+LEAN_EXPORT size_t nerodia_py_object_float(b_lean_obj_arg o) {
+  return (size_t)PyNumber_Float(nerodia_to_object(o));
+}
+
+/* mkPyFloat : Float -> CPyIO PyFloat */
+LEAN_EXPORT size_t nerodia_mk_py_float(double x) {
+  return (size_t)PyFloat_FromDouble(x);
+}
+
+/* toFloat : @& PyFloat -> Float */
+LEAN_EXPORT double nerodia_py_float_to_float(b_lean_obj_arg self) {
+  // `self` must be a proper Python float object to avoid raising an error.
+  PyObject* o = nerodia_to_object(self);
+  if (PyFloat_CheckExact(o)) {
+    // Note: Context not needed as operations are immutable pointer accesses.
+    return PyFloat_AsDouble(o);
+  }
+  // `PyFloat_AsDouble` calls `PyFloat_Check`,
+  // which requires the GIL because it walks its type's MRO.
+  // Outside the Limited API, `PyFloat_AS_DOUBLE` would avoid this.
+  py_gil_ensure();
+  double r = PyFloat_AsDouble(o);
+  py_gil_release();
+  return r;
 }

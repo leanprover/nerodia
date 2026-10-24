@@ -18,6 +18,7 @@ public inductive Py.Kind
 | str
 | bytes
 | int
+| float
 | module
 | other
 deriving Nonempty, DecidableEq

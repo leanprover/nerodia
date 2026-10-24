@@ -44,6 +44,14 @@ def bnot (b : Bool) : Bool :=
 def optToNat (s : Option String) : Option Nat :=
   s.bind (·.toNat?)
 
+@[py_module_fn]
+def scale (x : Float) (k : Float32) : Float :=
+  x * k.toFloat
+
+@[py_module_fn]
+def narrow (x : Float) : Float32 :=
+  x.toFloat32
+
 /-- Return a standard greeting ("Olá!"). -/
 @[py_module_fn]
 def greet : String :=

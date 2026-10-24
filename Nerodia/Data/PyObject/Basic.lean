@@ -53,6 +53,14 @@ a zero-initialized bytes objects.
 public opaque bytes (self : @& PyObject) : CPyIO PyBytes
 
 /--
+Returns {lean}`self` converted to a float object.
+
+This is equivalent to the Python expression {lit}`float(self)`.
+-/
+@[extern "nerodia_py_object_float", view_method]
+public opaque float (self : @& PyObject) : CPyIO PyFloat
+
+/--
 Returns {lean}`self` converted to an integer object.
 
 This is equivalent to the Python expression {lit}`int(self)`.

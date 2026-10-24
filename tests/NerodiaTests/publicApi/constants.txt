@@ -174,6 +174,10 @@ Nerodia.PyEnvironment.none
 Nerodia.PyEnvironment.true
 Nerodia.PyException (type abbrev)
 Nerodia.PyFalse (type abbrev)
+Nerodia.PyFloat (type abbrev)
+Nerodia.PyFloat.toFloat
+Nerodia.PyFloat.toFloat32
+Nerodia.PyFloat.toString
 Nerodia.PyIO (irreducible)
 Nerodia.PyIO.bindCPyIO
 Nerodia.PyIO.orElseM
@@ -231,6 +235,7 @@ Nerodia.PyObject.attachType
 Nerodia.PyObject.bytes
 Nerodia.PyObject.call0
 Nerodia.PyObject.call1
+Nerodia.PyObject.float
 Nerodia.PyObject.getAttr
 Nerodia.PyObject.getAttrByString
 Nerodia.PyObject.getPyBuffer?
@@ -251,6 +256,8 @@ Nerodia.PyObjectView.call0
 Nerodia.PyObjectView.call0_spec
 Nerodia.PyObjectView.call1
 Nerodia.PyObjectView.call1_spec
+Nerodia.PyObjectView.float
+Nerodia.PyObjectView.float_spec
 Nerodia.PyObjectView.getAttr
 Nerodia.PyObjectView.getAttrByString
 Nerodia.PyObjectView.getAttrByString_spec
@@ -308,6 +315,7 @@ Nerodia.TypeExpr.bytes (irreducible)
 Nerodia.TypeExpr.eofError (irreducible)
 Nerodia.TypeExpr.exception (irreducible)
 Nerodia.TypeExpr.false (irreducible)
+Nerodia.TypeExpr.float (irreducible)
 Nerodia.TypeExpr.int (irreducible)
 Nerodia.TypeExpr.moduleType (irreducible)
 Nerodia.TypeExpr.never (irreducible)
@@ -356,6 +364,7 @@ Nerodia.Typing.exception
 Nerodia.Typing.ext
 Nerodia.Typing.ext_iff
 Nerodia.Typing.false
+Nerodia.Typing.float
 Nerodia.Typing.hasType_inter_iff_and (deprecated)
 Nerodia.Typing.hasType_ofFn_iff (deprecated)
 Nerodia.Typing.hasType_union_iff_or (deprecated)
@@ -403,6 +412,7 @@ Nerodia.bytes
 Nerodia.decode
 Nerodia.eofError
 Nerodia.exception
+Nerodia.float
 Nerodia.getPyFalse
 Nerodia.getPyNone
 Nerodia.getPyTrue
@@ -411,6 +421,8 @@ Nerodia.int
 Nerodia.mkPyBool
 Nerodia.mkPyBytes
 Nerodia.mkPyFin
+Nerodia.mkPyFloat
+Nerodia.mkPyFloat32
 Nerodia.mkPyISize
 Nerodia.mkPyInt
 Nerodia.mkPyInt16

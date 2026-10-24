@@ -8,6 +8,7 @@ public import VersoManual
 import NerodiaManual.PyTypes.PyBaseException
 import NerodiaManual.PyTypes.PyBytes
 import NerodiaManual.PyTypes.PyBool
+import NerodiaManual.PyTypes.PyFloat
 import NerodiaManual.PyTypes.PyInt
 import NerodiaManual.PyTypes.PyModule
 import NerodiaManual.PyTypes.PyNone
@@ -29,6 +30,7 @@ Nerodia exposes the basic types of Python as Lean types with a `Py` prefix.
 {include 0 NerodiaManual.PyTypes.PyBaseException}
 {include 0 NerodiaManual.PyTypes.PyBool}
 {include 0 NerodiaManual.PyTypes.PyBytes}
+{include 0 NerodiaManual.PyTypes.PyFloat}
 {include 0 NerodiaManual.PyTypes.PyInt}
 {include 0 NerodiaManual.PyTypes.PyModule}
 {include 0 NerodiaManual.PyTypes.PyNone}

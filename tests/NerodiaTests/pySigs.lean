@@ -216,6 +216,18 @@ open Lean Elab Command in
 /-- info: (b: Buffer, /) -> bytes -/
 #guard_msgs in #check_fn (b : ByteArray) : ByteArray
 
+/-- info: float -/
+#guard_msgs in #check_attr Float
+
+/-- info: (x: int | float, /) -> float -/
+#guard_msgs in #check_fn (x : Float) : Float
+
+/-- info: float -/
+#guard_msgs in #check_attr Float32
+
+/-- info: (x: int | float, /) -> float -/
+#guard_msgs in #check_fn (x : Float32) : Float32
+
 /-- info: int -/
 #guard_msgs in #check_attr Int
 

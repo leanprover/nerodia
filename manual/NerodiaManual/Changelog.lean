@@ -50,7 +50,7 @@ tag := "lean-v4.35"
 shortTitle := "lean-v4.35"
 %%%
 
-* ...
+- {lean}`PyFloat` and {lean}`Float` {ref "type-conversions"}[type conversions].
 
 # Nerodia for Lean 4.34
 %%%

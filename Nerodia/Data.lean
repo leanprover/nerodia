@@ -16,6 +16,7 @@ public import Nerodia.Data.PyBaseException
 public import Nerodia.Data.PyBool
 public import Nerodia.Data.PyBuffer
 public import Nerodia.Data.PyBytes
+public import Nerodia.Data.PyFloat
 public import Nerodia.Data.PyInt
 public import Nerodia.Data.PyModule
 public import Nerodia.Data.PyNone

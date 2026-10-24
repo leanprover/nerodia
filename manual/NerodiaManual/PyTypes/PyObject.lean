@@ -28,6 +28,7 @@ tag := "PyObject"
 
 {docstring Nerodia.PyObject.str}
 {docstring Nerodia.PyObject.bytes}
+{docstring Nerodia.PyObject.float}
 {docstring Nerodia.PyObject.int}
 {docstring Nerodia.PyObject.index}
 

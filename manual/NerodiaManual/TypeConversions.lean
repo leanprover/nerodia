@@ -8,6 +8,8 @@ import all Init.Prelude
 import all Init.System.IO
 import all Init.Data.Int.Basic
 import all Init.Data.SInt.Basic
+import all Init.Data.Float.Float
+import all Init.Data.Float.Float32
 public import VersoManual
 import Nerodia.Data.Types
 
@@ -64,6 +66,13 @@ and Nerodia follows the mapping below in doing so.
 * * {lean}`ByteArray`
   * `Buffer`
   * `bytes`
+
+* * {lean}`Float`
+  * `int | float`
+  * `float`
+* * {lean}`Float32`
+  * `int | float`
+  * `float`
 
 * * {lean}`Int`
   * `int`

@@ -16,6 +16,7 @@ public import Nerodia.Data.PyNone.Basic
 public import Nerodia.Data.PyBool.Basic
 public import Nerodia.Data.PyBuffer.Basic
 public import Nerodia.Data.PyBytes.Basic
+public import Nerodia.Data.PyFloat.Basic
 public import Nerodia.Data.PyStr.Basic
 public import Nerodia.Data.PyInt.Basic
 
@@ -31,7 +32,7 @@ namespace Nerodia.Internal
 open OfPyArg (ofPyArg)
 
 @[inline] def raiseArgTypeMismatch
-  (fn : String) (i : Nat) (arg : PyObject) (expected : TypeExpr)
+  (fn : String) (i : Nat) (arg : PyObject) (expected : String)
 : PyIO α := do
   let actual ← (← arg.getType).getQualName
   raisePyTypeError s!"{fn} argument {i} must be {expected}, got {actual}"
@@ -42,7 +43,7 @@ open OfPyArg (ofPyArg)
 : PyIO (Py T) := do
   if h : arg ⦂ T then
     return arg.attachType h
-  else raiseArgTypeMismatch fn i arg T.toTypeExpr
+  else raiseArgTypeMismatch fn i arg T.toTypeExpr.toString
 
 /-! ## Py  -/
 
@@ -57,7 +58,7 @@ public instance : OfPyArg PyAny any where
 
 public instance : OfPyArg PyBuffer buffer where
   ofPyArg fn i arg := private do (← arg.getPyBuffer?).getDM do
-    raiseArgTypeMismatch fn i arg buffer
+    raiseArgTypeMismatch fn i arg "Buffer"
 
 public instance : MkCPyResult (Py T) T where
   mkCPyResult o := private CPyBaseIO.pure o
@@ -150,6 +151,27 @@ public instance : OfPyArg ByteArray buffer where
   ofPyArg fn i arg := private PyBuffer.getByteArray =<< ofPyArg fn i arg
 
 public instance : MkCPyResult ByteArray bytes := ⟨mkPyBytes⟩
+
+/-! ## Float -/
+
+-- Python accepts an `int` instance as well for a `float` type hint.
+public instance : OfPyArg Float (int ∪ float) where
+  ofPyArg fn i arg := private do
+    if arg ⦂ int then
+      return PyFloat.toFloat (← arg.float)
+    else if h : arg ⦂ float then
+      return PyFloat.toFloat (arg.attachType h)
+    else
+      raiseArgTypeMismatch fn i arg "int or float"
+
+public instance : MkCPyResult Float float := ⟨mkPyFloat⟩
+
+/-! ## Float32 -/
+
+public instance : OfPyArg Float32 (int ∪ float) where
+  ofPyArg fn i arg := private Float.toFloat32 <$> ofPyArg fn i arg
+
+public instance : MkCPyResult Float32 float := ⟨mkPyFloat32⟩
 
 /-! ## Int -/
 
