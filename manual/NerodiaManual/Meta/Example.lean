@@ -60,13 +60,13 @@ meta initialize subversoExtractModRef : IO.Ref (Option System.FilePath) ←
   IO.mkRef none
 
 meta def getSubVersoExtractMod : IO System.FilePath := do
-  if let some path ← subversoExtractModRef.get then
-    return path
   if let some path ← unsafe subversoExtractModRef.take then
-    subversoExtractModRef.set (some path)
+    unsafe subversoExtractModRef.put (some path)
     return path
-  let path ← querySubVersoExtractMod
-  subversoExtractModRef.set (some path)
+  let path ← try querySubVersoExtractMod catch e =>
+    unsafe subversoExtractModRef.put none
+    throw e
+  unsafe subversoExtractModRef.put (some path)
   return path
 
 meta def buildLean

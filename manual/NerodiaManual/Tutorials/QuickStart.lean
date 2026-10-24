@@ -37,7 +37,7 @@ name = "StringSum"
 [[require]]
 name = "nerodia"
 scope = "leanprover"
-rev = "release/lean-v4.34"
+rev = "next"
 ```
 
 After adding Nerodia as a dependency, run `lake update nerodia` from within

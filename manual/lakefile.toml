@@ -1,16 +1,18 @@
 name = "nerodia-manual"
 defaultTargets = ["NerodiaManual", "docs"]
-moreGlobalServerArgs = ["-Dweak.skipExamples=true"]
+
+[moreServerOptions]
+weak.skipExamples = true
 
 [[require]]
 name = "verso"
 git = "https://github.com/leanprover/verso"
-rev = "v4.34.0"
+rev = "v4.35.0"
 
 [[require]]
 name = "subverso"
 git = "https://github.com/leanprover/subverso"
-rev = "verso-v4.34.0"
+rev = "verso-v4.35.0"
 
 [[require]]
 name = "nerodia"

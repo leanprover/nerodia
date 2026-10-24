@@ -21,7 +21,7 @@ htmlSplit := .never
 In order to build a Nerodia project on the latest version,
 all of the following are required:
 
-* Lean 4.34 or greater
+* Lean 4.35 or greater
 * CPython 3.14 or greater (shared; not free-threaded)
 * A C compiler which supports both (e.g., recent GCC or Clang;
   MSYS2's CLANG64 toolchain)
@@ -51,7 +51,7 @@ the following formats:
 
 *lakefile.lean*
 ```lean
-require "leanprover" / "nerodia" @ git "release/lean-v4.34"
+require "leanprover" / "nerodia" @ git "release/lean-v4.35"
 ```
 
 *lakefile.toml*
@@ -59,7 +59,7 @@ require "leanprover" / "nerodia" @ git "release/lean-v4.34"
 [[require]]
 name = "nerodia"
 scope = "leanprover"
-rev = "release/lean-v4.34"
+rev = "release/lean-v4.35"
 ```
 
 Nerodia releases versions for each stable Lean release. To select the
