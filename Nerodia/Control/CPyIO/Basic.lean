@@ -243,15 +243,6 @@ arbitrary type to one returning {lean}`PyObject`.
 @[inline] public def normalize (x : CPyIO α) : CPyIO PyObject :=
   ofBaseIOUnsafe <| x.toBaseIOUnsafe <&> (·.normalize)
 
-open Internal in
-/--
-Casts a {lean}`CPyIO` returning a
-arbitrary type to one returning {lean}`Internal.Py.Raw`.
--/
-@[inline, deprecated normalize +typeChanged (since := "2026-09-22")]
-public def raw (x : CPyIO α) : CPyIO Internal.Py.Raw :=
-  ofBaseIOUnsafe <| x.toBaseIOUnsafe.map (·.raw)
-
 end CPyIO
 
 /-! ### CPyBaseIO -/
@@ -434,15 +425,6 @@ arbitrary type to one returning {lean}`PyObject`.
 -/
 @[inline] public def normalize (x : PyCResultIO α) : PyCResultIO PyObject :=
   .ofPyBaseIOUnsafe <| x.toPyBaseIOUnsafe <&> (·.normalize)
-
-open Internal in
-/--
-Casts a {lean}`PyCResultIO` returning an
-arbitrary type to one returning {lean}`Internal.Py.Raw`.
--/
-@[inline, deprecated normalize +typeChanged (since := "2026-09-22")]
-public def raw (x : PyCResultIO α) : PyCResultIO Internal.Py.Raw :=
-  .ofPyBaseIOUnsafe <| x.toPyBaseIOUnsafe <&> (·.raw)
 
 end PyCResultIO
 

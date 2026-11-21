@@ -134,7 +134,6 @@ Nerodia.instInhabitedConstant
 Nerodia.instInhabitedConstant.default
 Nerodia.instInhabitedPyModuleInit
 Nerodia.instIsPyPy
-Nerodia.instIsSubtypeOfOfPromotable
 Nerodia.instMonadLiftBaseIOPyBaseIO
 Nerodia.instMonadLiftBaseIOPyIO
 Nerodia.instMonadLiftIOPyIO
@@ -171,7 +170,6 @@ Nerodia.instPromotableLtrUnionTyping
 Nerodia.instPromotableLtrUnionTyping_1
 Nerodia.instPromotableNever
 Nerodia.instPromotableObject
-Nerodia.instPromotableOfIsSubtypeOf
 Nerodia.instPromotableOfPromotableT
 Nerodia.instPromotableRtlInterTyping
 Nerodia.instPromotableRtlInterTyping_1

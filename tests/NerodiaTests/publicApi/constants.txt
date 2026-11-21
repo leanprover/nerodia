@@ -19,7 +19,6 @@ Nerodia.CPyIO.ofBind
 Nerodia.CPyIO.promote
 Nerodia.CPyIO.pure
 Nerodia.CPyIO.raise
-Nerodia.CPyIO.raw (deprecated)
 Nerodia.CPyIO.toAlternative
 Nerodia.CPyIO.toEIO
 Nerodia.CPyIO.toExceptT
@@ -63,9 +62,6 @@ Nerodia.Constant
 Nerodia.DecidablePy (type abbrev)
 Nerodia.IO.toPyIO
 Nerodia.IsPy
-Nerodia.IsSubtypeOf (deprecated)
-Nerodia.IsSubtypeOf.infer_subtype (deprecated)
-Nerodia.IsSubtypeOf.mk
 Nerodia.MonadPy
 Nerodia.MonadPy.getPyThreadCtxUnsafe (proj)
 Nerodia.MonadPy.mk
@@ -220,7 +216,6 @@ Nerodia.PyModuleInit.ofPyIO
 Nerodia.PyNever (type abbrev)
 Nerodia.PyNever.elim (irreducible)
 Nerodia.PyNone (type abbrev)
-Nerodia.PyNone.isNone_eq_true (deprecated)
 Nerodia.PyOSError (type abbrev)
 Nerodia.PyObject (type abbrev)
 Nerodia.PyObject.HasType
@@ -242,8 +237,6 @@ Nerodia.PyObject.getPyBuffer?
 Nerodia.PyObject.getType
 Nerodia.PyObject.index
 Nerodia.PyObject.int
-Nerodia.PyObject.isNone (deprecated)
-Nerodia.PyObject.isNone_iff_hasType (deprecated)
 Nerodia.PyObject.repr
 Nerodia.PyObject.setAttr
 Nerodia.PyObject.setAttrByString
@@ -270,8 +263,6 @@ Nerodia.PyObjectView.index
 Nerodia.PyObjectView.index_spec
 Nerodia.PyObjectView.int
 Nerodia.PyObjectView.int_spec
-Nerodia.PyObjectView.isNone (deprecated)
-Nerodia.PyObjectView.isNone_spec (deprecated)
 Nerodia.PyObjectView.repr
 Nerodia.PyObjectView.repr_spec
 Nerodia.PyObjectView.setAttr
@@ -334,12 +325,6 @@ Nerodia.TypeExpr.typeError (irreducible)
 Nerodia.TypeExpr.union
 Nerodia.TypeExpr.valueError (irreducible)
 Nerodia.Typing (irreducible)
-Nerodia.Typing.HasType (deprecated)
-Nerodia.Typing.HasType.left (deprecated)
-Nerodia.Typing.HasType.object (deprecated)
-Nerodia.Typing.HasType.right (deprecated)
-Nerodia.Typing.HasType.union_left (deprecated)
-Nerodia.Typing.HasType.union_right (deprecated)
 Nerodia.Typing.Subset
 Nerodia.Typing.Subset.hasType_of_hasType
 Nerodia.Typing.Subset.inter_left
@@ -365,9 +350,6 @@ Nerodia.Typing.ext
 Nerodia.Typing.ext_iff
 Nerodia.Typing.false
 Nerodia.Typing.float
-Nerodia.Typing.hasType_inter_iff_and (deprecated)
-Nerodia.Typing.hasType_ofFn_iff (deprecated)
-Nerodia.Typing.hasType_union_iff_or (deprecated)
 Nerodia.Typing.int
 Nerodia.Typing.inter
 Nerodia.Typing.inter_iff_and
@@ -376,10 +358,8 @@ Nerodia.Typing.inter_object
 Nerodia.Typing.moduleType
 Nerodia.Typing.never
 Nerodia.Typing.never_inter
-Nerodia.Typing.never_subset (deprecated)
 Nerodia.Typing.never_union
 Nerodia.Typing.none
-Nerodia.Typing.not_hasType_never (deprecated)
 Nerodia.Typing.object
 Nerodia.Typing.object_inter
 Nerodia.Typing.object_union
@@ -402,7 +382,6 @@ Nerodia.Typing.union_object
 Nerodia.Typing.valueError
 Nerodia.ViewPy
 Nerodia.ViewPy.eq_py
-Nerodia.ViewPy.isPyT (deprecated)
 Nerodia.ViewPy.mk
 Nerodia.any
 Nerodia.baseException

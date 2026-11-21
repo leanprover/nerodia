@@ -91,17 +91,3 @@ public instance [Promotable T U] : ToPy T (Py U) := ⟨Py.promote⟩
 
 @[simp, grind =] public theorem toPy_eq_promote [Promotable T U] :
   toPy o = Py.promote o (T := T) (U := U) := by rfl
-
-/-! ## IsSubtypeOf -/
-
-/-- Type class used to automatically infer supertypes. -/
-public class IsSubtypeOf (T U : Typing) : Prop where
-  infer_subtype : U ⊆ T
-
-export IsSubtypeOf (infer_subtype)
-
-public instance [Promotable T U] : IsSubtypeOf T U := ⟨Promotable.infer⟩
-public instance [IsSubtypeOf T U] : Promotable T U := ⟨infer_subtype⟩
-
-attribute [deprecated "Use one of the `Promotable` classes." (since := "2026-09-16")] IsSubtypeOf
-attribute [deprecated Typing.Subset.of_promotable +typeChanged (since := "2026-09-16")] infer_subtype

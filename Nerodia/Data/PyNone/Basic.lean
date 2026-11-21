@@ -12,32 +12,19 @@ namespace Nerodia
 
 open Classical in
 /-- Equivalent to the Python {lit}`self is None`. -/
-@[extern "nerodia_py_object_is_none", view_method,
-deprecated "Use `self ⦂ none` instead." (since := "2026-09-11")]
-public def PyObject.isNone (self : @& PyObject) : Bool :=
+@[extern "nerodia_py_object_is_none"]
+def PyObject.isNone (self : @& PyObject) : Bool :=
   self ⦂ none
 
-attribute [deprecated "Use `self ⦂ none` instead." (since := "2026-09-11")]
-  PyObjectView.isNone
-
-attribute [deprecated "Deprecated with `isNone`." (since := "2026-09-11")]
-  PyObjectView.isNone_spec
-
-@[grind _=_, deprecated "Deprecated with `isNone`." (since := "2026-09-11")]
-public theorem PyObject.isNone_iff_hasType : isNone o ↔ o ⦂ none := by
+theorem PyObject.isNone_iff_hasType : isNone o ↔ o ⦂ none := by
   simp [PyObject.isNone]
 
 open PyObject in
-set_option linter.deprecated false in
 public instance : DecidablePy none := private_decl%
-  Internal.decPy isNone fun _ => isNone_iff_hasType
+  (Internal.decPy isNone fun _ => isNone_iff_hasType)
 
 public instance [DecidablePy T] : DecidablePy (.optional T) := private_decl%
   fun x => decidable_of_iff' (x ⦂ T ∪ none) <| by rw [Typing.optional_eq_union_none]
-
-@[simp, deprecated "Deprecated with `isNone`." (since := "2026-09-11")]
-public theorem PyNone.isNone_eq_true : (o : PyNone).isNone = true := by
-  simp [PyObject.isNone_iff_hasType]
 
 open Internal in
 /-- Returns a reference to the {lit}`None` constant. -/

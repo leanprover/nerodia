@@ -33,9 +33,6 @@ public instance : ToTypeExpr never := ⟨never⟩
 @[simp, grind .] public theorem PyObject.HasType.not_never : ¬ o ⦂ never := by
   simp [Typing.never]
 
-@[deprecated PyObject.HasType.not_never (since := "2026-09-22")]
-public abbrev Typing.not_hasType_never := @PyObject.HasType.not_never
-
 public instance : DecidablePy never := private_decl%
   fun _ => isFalse PyObject.HasType.not_never
 

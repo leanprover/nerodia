@@ -44,6 +44,14 @@ toolchain they support. Nerodia aims to be generally forward-compatible in
 its API, and an old version of Nerodia is often compatible with multiple newer
 toolchains.
 
+# Nerodia for Lean 4.36 (in development)
+%%%
+tag := "lean-v4.36"
+shortTitle := "lean-v4.36"
+%%%
+
+- Removed API deprecated in Nerodia for Lean 4.34.
+
 # Nerodia for Lean 4.35
 %%%
 tag := "lean-v4.35"
@@ -71,7 +79,7 @@ and {lean}`PyCResultIO` have been removed from the public API and are now intern
 However, the compiler {ref "type-conversions"}[type conversions] they provide
 are still part of the public surface and are still stable in this version.
 
-- Deprecated {lean}`IsSubtypeOf` in favor of the new {lean}`Promotable` classes.
+- Deprecated `IsSubtypeOf` in favor of the new {lean}`Promotable` classes.
 
 *Types and Type Conversions*
 

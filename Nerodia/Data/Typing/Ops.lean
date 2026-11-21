@@ -21,10 +21,6 @@ public instance : Union Typing := ⟨Typing.union⟩
   o ⦂ T ∪ U ↔ o ⦂ T ∨ o ⦂ U
 := by simp only [Union.union, Typing.union, ofFn_iff]
 
-@[deprecated union_iff_or (since := "2026-09-20")]
-public theorem hasType_union_iff_or {T U : Typing} :
-  o ⦂ T ∪ U ↔ o ⦂ T ∨ o ⦂ U := union_iff_or
-
 /--
 Constructs the union of two typings.
 Written as {lean}`T ∪ U`. Equivalent to the Python `T | U`.
@@ -47,10 +43,6 @@ public instance : Inter Typing := ⟨Typing.inter⟩
 @[grind =] public theorem inter_iff_and {T U : Typing} :
   o ⦂ T ∩ U ↔ o ⦂ T ∧ o ⦂ U
 := by simp only [Inter.inter, Typing.inter, ofFn_iff]
-
-@[deprecated inter_iff_and (since := "2026-09-20")]
-public theorem hasType_inter_iff_and {T U : Typing} :
-  o ⦂ T ∩ U ↔ o ⦂ T ∧ o ⦂ U := inter_iff_and
 
 /--
 Constructs the intersection of two type predicates. Written as {lean}`T ∩ U`.
@@ -122,18 +114,6 @@ public instance [NonemptyPy U] : NonemptyPy (T ∪ U) :=
   let o : Py U := Classical.ofNonempty
   ⟨.ofPyObject o o.toPyObject_hasType.union_right⟩
 
-@[deprecated PyObject.HasType.left (since := "2026-09-22")]
-public abbrev Typing.HasType.left := @PyObject.HasType.left
-
-@[deprecated PyObject.HasType.right (since := "2026-09-22")]
-public abbrev Typing.HasType.right := @PyObject.HasType.right
-
-@[deprecated PyObject.HasType.union_left (since := "2026-09-22")]
-public abbrev Typing.HasType.union_left := @PyObject.HasType.union_left
-
-@[deprecated PyObject.HasType.union_right (since := "2026-09-22")]
-public abbrev Typing.HasType.union_right := @PyObject.HasType.union_right
-
 /-! ## Inter-Operation Relations -/
 
 namespace Typing
@@ -171,9 +151,6 @@ public theorem Subset.union_right {T U : Typing} : T ⊆ U ∪ T :=
 
 @[simp] public theorem Subset.never : never ⊆ T :=
   subset_iff_forall.mpr fun _ h => h.not_never.elim
-
-@[deprecated Subset.never (since := "2026-09-11")]
-public theorem never_subset : never ⊆ T := Subset.never
 
 @[simp] public theorem union_never : T ∪ never = T := by
   simp [Typing.ext_iff, union_iff_or]

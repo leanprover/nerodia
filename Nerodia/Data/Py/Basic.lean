@@ -177,11 +177,6 @@ open Internal in
     Py.Raw.HasType.ofRawFn_iff, Py.Raw.toPyObject
   ]
 
-@[deprecated ofFn_iff (since := "2026-09-20")]
-public theorem Typing.hasType_ofFn_iff :
-  o ⦂ .ofFn p ↔ p o
-:= Typing.ofFn_iff
-
 open Internal in
 @[ext, grind ext] public theorem Typing.ext
   (h : ∀ o : PyObject, o ⦂ T ↔ o ⦂ U)
@@ -194,9 +189,6 @@ open Internal in
 open Internal in
 @[simp, grind .] public theorem PyObject.HasType.object : o ⦂ object :=
   Py.Raw.HasType.object
-
-@[deprecated PyObject.HasType.object (since := "2026-09-22")]
-public abbrev Typing.HasType.object := @PyObject.HasType.object
 
 namespace Py
 
@@ -251,9 +243,6 @@ bridge the two, synthesizing the view type {lean}`α` from its respective typing
 -/
 public class ViewPy (T : Typing) (α : outParam $ Type) : Prop where
   eq_py : α = Py T
-
-@[deprecated eq_py (since := "2026-09-20")]
-public abbrev ViewPy.isPyT := @ViewPy.eq_py
 
 public instance (priority := low) : ViewPy T (Py T) := ⟨rfl⟩
 

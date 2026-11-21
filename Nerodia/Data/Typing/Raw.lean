@@ -62,12 +62,6 @@ public theorem Internal.Py.Raw.HasType.ext
   {T U : Typing} (h : ∀ o, HasType T o ↔ HasType U o) : T = U
 := funext fun o => propext (h o)
 
-@[deprecated "Use `PyObject.HasType` or `o ⦂ T` instead."  (since := "2026-09-19")]
-public protected abbrev Typing.HasType (T : Typing) (o : Internal.Py.Raw) : Prop :=
-  o.HasType T
-
-export Typing (HasType)
-
 unseal Typing in
 public def Internal.Nerodia.Typing.ofRawFn (p : Py.Raw → Prop) : Typing :=
   p
